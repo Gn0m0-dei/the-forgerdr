@@ -28,7 +28,7 @@ main() {
     brew_install az azure-cli
     brew_install gh gh
     brew_install glab glab
-    brew_install engram gentleman-programming/tap/engram
+    command -v engram >/dev/null 2>&1 || { brew tap gentleman-programming/tap; brew trust gentleman-programming/tap >/dev/null 2>&1 || true; brew install gentleman-programming/tap/engram; }
   else
     zypper_install git git
     zypper_install jq jq

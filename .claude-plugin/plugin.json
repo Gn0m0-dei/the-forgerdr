@@ -17,6 +17,7 @@
     "agent-skills"
   ],
   "license": "MIT",
+  "mcpServers": "./mcp-servers.json",
   "name": "forgerdr",
   "repository": "https://github.com/Gn0m0-dei/the-forgerdr",
   "version": "0.1.0"
