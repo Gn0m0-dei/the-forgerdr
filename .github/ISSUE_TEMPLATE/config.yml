@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Report a vulnerability
+    url: https://github.com/Gn0m0-dei/the-forgerdr/security/advisories/new
+    about: Report privately. Please do not open a public issue.

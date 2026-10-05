@@ -1,0 +1,38 @@
+name: Bug report
+description: A skill, hook or script did something wrong, or refused something it should have done
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What the agent or the script did, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to reproduce
+      description: The command or skill you ran and what you asked for. Paste the relevant part of the exchange or the script output.
+    validations:
+      required: true
+  - type: dropdown
+    id: piece
+    attributes:
+      label: Piece
+      options:
+        - a skill (say which)
+        - a hook (session-start, guard-bash, graph-augment, engram-session)
+        - forge-work.sh / forge-review.sh
+        - install.sh
+        - the herdr plugin (actions, panes, keybindings)
+        - .mcp.json / an MCP server
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Environment
+      description: OS, Claude Code version, herdr version, provider (Azure DevOps, GitHub, GitLab).
+    validations:
+      required: true

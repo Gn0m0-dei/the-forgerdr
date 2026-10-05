@@ -1,0 +1,16 @@
+name: Feature request
+description: Something the way of working should cover and does not
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The situation, not the solution. What happens today and what it costs you.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: If you have one. Which skill, hook or script it touches, and what it should do.
