@@ -1,6 +1,6 @@
 {
   "name": "the-forgerdr",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
   "private": true,
   "packageManager": "pnpm@10.33.0",
@@ -15,7 +15,7 @@
     "lint": "biome check . && shellcheck -x hooks/*.sh herdr/bin/*.sh test/*.sh",
     "lint:fix": "biome check --write .",
     "prepare": "husky || true",
-    "test": "bash test/forge-lib.test.sh",
+    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh",
     "validate": "claude plugin validate ."
   },
   "devDependencies": {

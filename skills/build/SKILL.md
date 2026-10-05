@@ -7,12 +7,12 @@ description: "Executes an approved plan task by task with test-driven developmen
 
 The plan already did the thinking. Execute it exactly, prove every step with a test you watched fail and then pass, and leave a record that survives compaction.
 
-Input: the approved plan (`docs/plans/<date>-<feature>.md`). Without one, a bounded change executes its approved in-chat design with the same discipline, task-sized.
+Input: the approved plan, wherever the spec mode keeps it (conversation and todos, `tasks.md`, or the child work items). Without one, a bounded change executes its approved in-chat design with the same discipline, task-sized.
 
 ## Setup
 
 - Isolated branch: `git switch -c <branch> --no-track origin/<base>`, upstream verified. Inside a herdr worktree the branch already exists.
-- Ledger: `docs/plans/<date>-<feature>.ledger.md`. Per task: started, rulings, result. Harness todos are a live view; the ledger is the record after compaction.
+- Ledger: the record that survives compaction. `chat`: `mem_save` per task (started, rulings, result). `openspec`: a `## Ledger` section at the end of `tasks.md`. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
 - Read the plan and the spec. Pre-flight: files the plan names exist where it says, the test command runs.
 
 ## Per task

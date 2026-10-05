@@ -31,6 +31,8 @@ Uncommitted work: ask permission for the commit, Conventional Commits in English
 
 Report the pull request URL. The work item's state changes only when the user says.
 
+Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azdo:apply` opens it linking the requirement and its tasks); after the merge, `/azdo:archive` folds the delta into the spec store. Spec mode `openspec`: after the merge, archive the change (`openspec archive` with the CLI; otherwise apply the deltas to `openspec/specs/` and move the change folder under `openspec/changes/archive/<yyyy-mm-dd>-<name>/`).
+
 ## 6. Worktree
 
 A herdr worktree stays open until the pull request merges unless the user asks: then `herdr worktree remove --workspace <id>` and the branch is kept. `mem_save` the pull request, the branch and what is pending.

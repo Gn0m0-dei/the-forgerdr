@@ -31,6 +31,14 @@ description: "Verifies and completes the forgerdr environment on this machine af
 | keybindings | `grep -q 'BEGIN gn0m0dei.forgerdr' ~/.config/herdr/config.toml` | `herdr plugin action invoke gn0m0dei.forgerdr.setup-keys` |
 | claude integration | `test -f ~/.claude/hooks/herdr-agent-state.sh` | `herdr integration install claude` |
 
+## Spec mode
+
+| Piece | Check | Missing |
+|---|---|---|
+| mode | `"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get spec <project-key>` | `chat` by default; `/forgerdr:mode spec <value> [--project]` to change it |
+| `azure`: azdospec plugin | `claude plugin list` shows `azdo@azdospec` | recommend `claude plugin marketplace add Gn0m0-dei/azdospec && claude plugin install azdo@azdospec`, then `/azdo:init` in the project; without it forgerdr uses its own `az` commands |
+| `openspec`: CLI (optional) | `command -v openspec` | optional, `npm install -g @fission-ai/openspec`; without it forgerdr writes the OpenSpec layout itself |
+
 ## Sign-ins (the user runs them)
 
 `az login`, `gh auth login`, `glab auth login` (skip glab when the user has no GitLab projects). Checks: `az account show`, `gh auth status`, `glab auth status`. Tell the user to run each with the `!` prefix in the prompt and continue when they confirm.

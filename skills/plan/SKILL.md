@@ -7,7 +7,7 @@ description: "Writes an implementation plan from an approved spec, as bite-sized
 
 Write the plan for an engineer who has not seen this codebase or this spec. They write idiomatic code once they know the exact interface and the exact test; what they cannot know is what you decided. Document that.
 
-Input: the approved spec (`docs/specs/<date>-<feature>.md`) or, for bounded work, the approved in-chat design. Without an approval, stop and go through `/forgerdr:spec`.
+Input: the approved design, wherever the spec mode keeps it: the conversation (`chat`), the change folder (`openspec`), the Feature and its backlog items (`azure`). Without an approval, stop and go through `/forgerdr:spec`.
 
 ## Scope
 
@@ -52,4 +52,10 @@ Each step is one action with a checkable result. Values, names and signatures co
 <the inputs or failure modes the spec implies but no task's test exercises, most likely first; each one gets a test added to the task that owns the code>
 ```
 
-Save to `docs/plans/<yyyy-mm-dd>-<feature>.md`, in English. Show the plan, stop, and let the user approve it and choose how it runs: inline (`/forgerdr:build`) or one agent per task. `mem_save` the plan path and the task list with the memory project key.
+## Where the plan goes: the spec mode
+
+- `chat`: the plan is shown in the conversation and mirrored in the session todos; no file unless the user asks.
+- `openspec` / `openspec:<path>`: `tasks.md` inside the change folder, checkbox per step, in English.
+- `azure` with azdospec installed: `/azdo:apply` creates the tasks as child work items; it refuses until the requirement has a product-owner approval and an iteration, and says which is missing. Then the plan in chat carries the task ids. Without azdospec: one child Task per task through `az` (providers reference), created after the user approves the plan.
+
+Show the plan, stop, and let the user approve it and choose how it runs: inline (`/forgerdr:build`) or one agent per task. `mem_save` the task list.

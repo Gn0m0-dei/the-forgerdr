@@ -59,6 +59,17 @@ az boards work-item update --id <id> --organization $ORG --discussion "<p>...</p
 az boards work-item update --id <id> --organization $ORG --state "Committed"
 az boards work-item update --id <id> --organization $ORG --assigned-to "<email>"
 
+# Create work items (spec mode azure without azdospec). Types depend on the process:
+# backlog item = "Product Backlog Item" (Scrum), "User Story" (Agile), "Requirement" (CMMI), "Issue" (Basic). Check first:
+az rest --method get --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+  --uri "$ORG/<project>/_apis/wit/workitemtypes?api-version=7.1" --query "value[].name" -o tsv
+az boards work-item create --organization $ORG --project <project> --type Feature --title "<title>" --description "<html>" --area "<area path>"
+az boards work-item create --organization $ORG --project <project> --type "<backlog item type>" --title "<title>" \
+  --description "<html>" --fields "Microsoft.VSTS.Common.AcceptanceCriteria=<html with the Gherkin scenarios>" --area "<area path>" --iteration "<iteration path>"
+az boards work-item create --organization $ORG --project <project> --type Task --title "<title>" --description "<html>"
+az boards work-item relation add --organization $ORG --id <child> --relation-type parent --target-id <parent>
+# A spike is a backlog item titled "Spike: <question>" with the timebox in the description; "Spike" is not an Azure DevOps type.
+
 # Pull request to the base branch, linking the work item
 az repos pr create --organization $ORG --project <project> --repository <repo> \
   --source-branch <branch> --target-branch <base> --title "#<id> <slug>" --description "<markdown>" --work-items <id>

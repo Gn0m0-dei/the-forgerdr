@@ -72,8 +72,9 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 | Skill | What it does |
 |---|---|
 | `/forgerdr:setup` | Installs and verifies the environment. Idempotent. |
-| `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. Architectural work ends in `docs/specs/`. |
-| `/forgerdr:plan` | Turns an approved spec into bite-sized TDD tasks with exact files, interfaces and tests, in `docs/plans/`. |
+| `/forgerdr:mode` | Shows or sets the spec mode, globally or per project. |
+| `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
+| `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
 | `/forgerdr:build` | Executes a plan in this session: red, green, refactor, ledger, verification before every claim, fresh-context review at the end. |
 | `/forgerdr:pr-review <url>` | Reviews one pull request against the standards and the project skills. Every finding explained; you pick; drafts in Spanish; nothing published without an explicit yes. |
 | `/forgerdr:ticket <url>` | Works one backlog item: triage, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
@@ -86,6 +87,18 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 | `/forgerdr:work <url...>` | herdr: per item and repository, a worktree on `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, and a Claude agent running `ticket`. |
 
 Providers are reached through their CLIs, never through MCP servers: `references/providers.md` holds the exact commands for Azure DevOps, GitHub and GitLab.
+
+### Spec mode
+
+The commands are always the same; a setting decides where the design and the tasks live. `/forgerdr:mode spec <value>` sets it globally, `--project` for the current workspace only; the value is printed at every session start. Stored in `~/.config/forgerdr/config.toml`.
+
+| Value | Design and tasks live in | Backend |
+|---|---|---|
+| `chat` (default) | the conversation | nothing written; approval in chat |
+| `openspec` / `openspec:<path>` | `openspec/` in the repository, or in another repository at `<path>`, OpenSpec layout | the `openspec` CLI when installed, forgerdr's own writer otherwise |
+| `azure` | Azure Boards: a Feature, backlog items with Gherkin acceptance criteria, child tasks, progress comments | the [azdospec](https://github.com/Gn0m0-dei/azdospec) plugin when installed (forgerdr wraps `/azdo:propose`, `/azdo:apply`, `/azdo:archive`), forgerdr's own `az` commands otherwise |
+
+The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
 
 ## Agents
 
