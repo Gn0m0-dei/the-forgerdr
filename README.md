@@ -19,17 +19,12 @@
 
 A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer, a backlog item workflow, and the two things that make a terminal full of agents worth it: fan out N pull requests into N panes, fan out N backlog items into N worktrees, each with its env files, its dev server and its own agent.
 
-```
-          ┌─────────────────────────────┐
-          │  rules (every session)      │  standards · communication · build · memory
-          ├─────────────────────────────┤
-          │  spec → plan → build        │  design gate · TDD plan · verified execution
-          ├─────────────────────────────┤
-          │  pr-review     ticket       │  one PR, one item: interactive, gated
-          ├─────────────────────────────┤
-          │  review        work         │  N panes · N worktrees · N agents (herdr)
-          └─────────────────────────────┘
-```
+| Layer | Pieces | What it gives |
+|---|---|---|
+| Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
+| Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
+| One at a time | `pr-review` · `ticket` · `debug` · `security` · `research` · `address-review` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
+| Many at a time, on herdr | `review` · `work` | N panes, N worktrees, N agents |
 
 ## Install
 
