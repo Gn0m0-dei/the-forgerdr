@@ -21,6 +21,15 @@ herdr (`--no-agent` builds the topology without starting agents) plus
 against the real CLI: a flag that does not exist fails loudly, a field that does
 not exist fails quietly.
 
+## Releasing
+
+A release is a version bump in `.claude-plugin/plugin.json`, `package.json` and
+`herdr/herdr-plugin.toml`, a `## [x.y.z] - date` section in `CHANGELOG.md`, one
+commit, and a tag: `git tag vx.y.z && git push origin vx.y.z`. The tag creates
+the GitHub Release with that changelog section as notes. Installed copies pick
+the new version up with `claude plugin update forgerdr@the-forgerdr`; the
+version bump is what makes the update visible, so never skip it.
+
 ## Keep it lean
 
 Procedure goes in the skill that runs it, not in `README.md`; `README.md` links,
