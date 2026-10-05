@@ -1,0 +1,25 @@
+{
+  "name": "the-forgerdr",
+  "version": "0.1.0",
+  "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
+  "private": true,
+  "packageManager": "pnpm@10.33.0",
+  "license": "MIT",
+  "author": "Gn0m0-dei",
+  "homepage": "https://github.com/Gn0m0-dei/the-forgerdr",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gn0m0-dei/the-forgerdr.git"
+  },
+  "scripts": {
+    "lint": "biome check . && shellcheck -x hooks/*.sh herdr/bin/*.sh test/*.sh",
+    "lint:fix": "biome check --write .",
+    "prepare": "husky || true",
+    "test": "bash test/forge-lib.test.sh",
+    "validate": "claude plugin validate ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.3",
+    "husky": "9.1.7"
+  }
+}

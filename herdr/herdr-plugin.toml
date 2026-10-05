@@ -1,0 +1,33 @@
+id = "gn0m0dei.forgerdr"
+name = "forgerdr"
+version = "0.1.0"
+min_herdr_version = "0.9.0"
+description = "Fan out pull request reviews and backlog items across worktrees, panes and claude agents."
+platforms = ["macos", "linux"]
+
+[[actions]]
+id = "review"
+title = "forgerdr: review pull requests"
+command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin gn0m0dei.forgerdr --entrypoint review --focus"]
+
+[[actions]]
+id = "work"
+title = "forgerdr: work backlog items"
+command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin gn0m0dei.forgerdr --entrypoint work --focus"]
+
+[[actions]]
+id = "setup-keys"
+title = "forgerdr: install keybindings"
+command = ["sh", "-c", "\"$HERDR_PLUGIN_ROOT/bin/forge-setup-keys.sh\" && exec \"$HERDR_BIN_PATH\" server reload-config"]
+
+[[panes]]
+id = "review"
+title = "forgerdr review"
+placement = "split"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/forge-prompt.sh\" review"]
+
+[[panes]]
+id = "work"
+title = "forgerdr work"
+placement = "split"
+command = ["sh", "-c", "exec \"$HERDR_PLUGIN_ROOT/bin/forge-prompt.sh\" work"]

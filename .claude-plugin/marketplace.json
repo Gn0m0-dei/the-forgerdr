@@ -1,0 +1,17 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
+  "name": "the-forgerdr",
+  "owner": {
+    "name": "Gn0m0-dei",
+    "url": "https://github.com/Gn0m0-dei"
+  },
+  "plugins": [
+    {
+      "category": "productivity",
+      "description": "Coding standards, communication and build modes, memory protocol, spec→plan→build flow, interactive PR review and backlog work fanned out across herdr panes.",
+      "name": "forgerdr",
+      "source": "./"
+    }
+  ]
+}

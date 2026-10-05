@@ -1,0 +1,23 @@
+{
+  "author": {
+    "name": "Gn0m0-dei",
+    "url": "https://github.com/Gn0m0-dei"
+  },
+  "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
+  "displayName": "the forgerdr",
+  "homepage": "https://github.com/Gn0m0-dei/the-forgerdr",
+  "keywords": [
+    "herdr",
+    "workflow",
+    "code-review",
+    "azure-devops",
+    "github",
+    "gitlab",
+    "worktrees",
+    "agent-skills"
+  ],
+  "license": "MIT",
+  "name": "forgerdr",
+  "repository": "https://github.com/Gn0m0-dei/the-forgerdr",
+  "version": "0.1.0"
+}
