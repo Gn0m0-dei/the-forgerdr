@@ -17,7 +17,7 @@ Dispatch one `forgerdr:researcher` agent per sub-question, in parallel, each wit
 
 ## Synthesize
 
-Read the reports. Where two agents disagree, read the sources yourself and decide. Then write, in Spanish for the user:
+Read the reports. Where two agents disagree, read the sources yourself and decide. Then write, in the reply language:
 
 ```
 # <topic>

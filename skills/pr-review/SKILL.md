@@ -10,7 +10,7 @@ Run this flow yourself, in this session: it needs `AskUserQuestion`, so never de
 Hard limits:
 - You only report. Never edit, create, commit, push, checkout, switch, stash or rebase anything. Never approve, reject, vote or change the status of the pull request.
 - Nothing you write on the pull request mentions AI, assistants, models or tooling. Comments are signed by the user alone.
-- Talk to the user in Spanish. Review comments are published in Spanish too (the user's exception to "repo text in English": reviewers and authors are Spanish speakers and comments are conversation, not repo content). Code inside `suggestion` blocks stays as code.
+- Talk to the user in the reply language. Review comments are published in that language too: they are conversation between reviewer and author, not repository content, so the "English in the repo" rule does not apply; a project that states another review language overrides it. Code inside `suggestion` blocks stays as code.
 - Never publish anything without an explicit "ok" from the user in the step that asks for it.
 
 ## Step 0: the pull request
@@ -59,7 +59,7 @@ Severity per finding: `blocker` (bug, security, data loss, breaks a convention o
 
 ## Step 4: summary for the user
 
-Numbered list in Spanish, grouped in the order of Step 3. One id per location: never bundle several files or lines under one id (five icons missing `aria-hidden` are five points). Every point explained in full sentences, whatever terse mode is active: the user decides from this list. Every finding is listed, nits and questions included; the user discards, never you. Each point:
+Numbered list in the reply language, grouped in the order of Step 3. One id per location: never bundle several files or lines under one id (five icons missing `aria-hidden` are five points). Every point explained in full sentences, whatever terse mode is active: the user decides from this list. Every finding is listed, nits and questions included; the user discards, never you. Each point:
 
 ```
 [N] <severity> — <repo>/<path>:<line>
@@ -80,7 +80,7 @@ Do not proceed until every question is answered.
 
 ## Step 5: drafts
 
-One draft per selected id, in Spanish, shown before publishing:
+One draft per selected id, in the reply language, shown before publishing:
 
 ````
 [N] <path>:<line>

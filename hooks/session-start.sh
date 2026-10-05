@@ -17,7 +17,8 @@ source="$(printf '%s' "$input" | jq -r '.source // "startup"')"
 [ -n "$cwd" ] || cwd="${CLAUDE_PROJECT_DIR:-$PWD}"
 key="$(forge_project_key "$cwd")"
 
-printf 'FORGERDR ACTIVE. Memory project key: %s. Spec mode: %s.\n\n' "$key" "$("$plugin_root/bin/forge-config.sh" get spec "$key")"
+language="$(jq -r '.language // empty' "$HOME/.claude/settings.json" 2>/dev/null || true)"
+printf 'FORGERDR ACTIVE. Memory project key: %s. Spec mode: %s. Reply language: %s.\n\n' "$key" "$("$plugin_root/bin/forge-config.sh" get spec "$key")" "${language:-the language the user writes in}"
 for rule in standards communication build memory; do
   cat "$plugin_root/rules/$rule.md"
   printf '\n'

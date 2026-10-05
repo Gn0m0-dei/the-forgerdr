@@ -62,7 +62,7 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 
 | Rule file | What it fixes |
 |---|---|
-| `rules/standards.md` | English in the repo, Spanish in chat, zero AI attribution, typing, style, error handling, git and pull request conventions |
+| `rules/standards.md` | English in the repo, the user's language in chat and in comments, zero AI attribution, typing, style, error handling, git and pull request conventions |
 | `rules/communication.md` | Terse replies, verdict first, full prose only where clarity needs it (warnings, drafts, review findings) |
 | `rules/build.md` | The lazy ladder: nothing → reuse → stdlib → platform → installed dependency → one line → minimal code |
 | `rules/memory.md` | When to search, when to save, what to save, how to close a session |
@@ -76,7 +76,7 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 | `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
 | `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
 | `/forgerdr:build` | Executes a plan in this session: red, green, refactor, ledger, verification before every claim, fresh-context review at the end. |
-| `/forgerdr:pr-review <url>` | Reviews one pull request against the standards and the project skills. Every finding explained; you pick; drafts in Spanish; nothing published without an explicit yes. |
+| `/forgerdr:pr-review <url>` | Reviews one pull request against the standards and the project skills. Every finding explained; you pick; drafts in your language; nothing published without an explicit yes. |
 | `/forgerdr:ticket <url>` | Works one backlog item: triage, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
 | `/forgerdr:address-review <url>` | Handles the comments on your own pull request: proposes fix, reply or question per thread; you pick; fixes, pushes, replies and resolves. |
 | `/forgerdr:ship` | Finishes a branch: fresh verification, rebase, reviewer agent, commit with permission, `push -u`, pull request with the work item linked. |

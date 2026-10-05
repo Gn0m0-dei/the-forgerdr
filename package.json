@@ -1,6 +1,6 @@
 {
   "name": "the-forgerdr",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
   "private": true,
   "packageManager": "pnpm@10.33.0",

@@ -16,13 +16,14 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 ## 1. Analysis
 
 - Read the whole item: title, type, description, acceptance criteria, repro steps, comments, linked pull requests and commits. Given several items, order them by real severity (crashes over visual inconsistencies, reproducible over vague, severity over nominal priority) and propose the order.
+- **Brief first, before touching anything**: in the reply language, five to eight lines: what the item asks in your own words, who reported it and when, the area or component it points at, whether it looks like code or content, what is already linked (pull requests, commits, duplicates), and what you are going to check next. No gate here: the user reads it while you go on, and interrupts if the reading is wrong.
 - Classify: **code** (ours) or **content / data / configuration someone else owns** (migrations, translations, editorial content). Content items get a verdict and a comment, not code.
 - Old items often no longer reproduce: check linked pull requests, "fixed in" commits and the git log of the touched area before testing.
 
 ## 2. Reproduce
 
 - Verify in the browser with chrome-devtools, on production and locally when both exist, interacting for real: clicks, forms, Enter, the back button, resize when the item mentions resolutions. Act as QA: edge cases, special characters, races. Never touch a production back office or CMS.
-- Environments and base URLs come from the project itself: `CLAUDE.md`, `README.md`, `.env*` files, docker compose, deployment configs, CI workflows, and what earlier sessions saved in memory. Unknown after looking: ask once, then `mem_save` them.
+- Environments and base URLs, looked up in this order and stopping at the first hit: the project's `CLAUDE.md` (the right place for them: shared with the team and loaded in every session); memory (`mem_search` "environments"); `README.md`, `.env*` files, docker compose, deployment configs, CI workflows. Nothing found: ask the user once, then `mem_save` them under the title "Environments: <project key>" so the next lookup hits, and offer to add them to the project's `CLAUDE.md`.
 - Verdict, stated first: **applies** or **does not reproduce**, with the cause and the evidence (selectors, network JSON, metrics, screenshot paths). Gate 1.
 
 ## 3. Root cause and proposal
@@ -49,7 +50,7 @@ The client reads it. Always show the draft first; the user approves or adjusts. 
 - A fix is never announced as done: while it is not in production it is not true. Reference the item's own development: "se corrige con el desarrollo realizado en este ticket". No dates, no environments.
 - Plain language, no internals ("pending review of X in code" is forbidden). Assertive but polite. A table of tests or timings when it adds value. Other items referenced as `#<id>`.
 - Screenshots: take them yourself, production only, save them under the workspace's `tickets/` folder (create it) and tell the user the path and the item URL; the user attaches them by hand.
-- Comment language: the client's. Default Spanish; the project's notes override.
+- Comment language: the client's. Default: the reply language; the project's notes override.
 
 ## 6. Close
 

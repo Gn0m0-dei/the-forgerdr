@@ -47,7 +47,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 | Piece | Check | Missing |
 |---|---|---|
-| language | `~/.claude/settings.json` has `"language": "Español"` | merge the key |
+| reply language | `~/.claude/settings.json` has a `language` key | optional: without it the reply language is the one the user writes in; `/config` sets it |
 | plugins the user keeps | `claude plugin list` shows `typescript-lsp@claude-plugins-official` and `azdo@azdospec` | `claude plugin marketplace add Gn0m0-dei/azdospec && claude plugin install azdo@azdospec`; `claude plugin install typescript-lsp@claude-plugins-official` (ask first: optional) |
 
 ## Leftovers the plugin replaces

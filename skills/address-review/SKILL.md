@@ -13,7 +13,7 @@ Pull request and open threads through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/r
 
 ## 2. Propose
 
-One entry per thread, in Spanish, full sentences:
+One entry per thread, in the reply language, full sentences:
 
 ```
 [N] <path>:<line> — <reviewer>
@@ -26,7 +26,7 @@ Then `AskUserQuestion` (multiSelect, one option per thread) for the ones to act 
 
 ## 3. Act
 
-Fixes: one thread at a time, test first when the change is testable, suite green. Commit with permission (one commit per logical group, `Closes:` footer kept), `git push`. Replies: the draft shown first, in the team's language (Spanish by default), short, no preamble, naming the commit hash when a fix was pushed.
+Fixes: one thread at a time, test first when the change is testable, suite green. Commit with permission (one commit per logical group, `Closes:` footer kept), `git push`. Replies: the draft shown first, in the reply language (a team that states another language overrides it), short, no preamble, naming the commit hash when a fix was pushed.
 
 ## 4. Close the loop
 
