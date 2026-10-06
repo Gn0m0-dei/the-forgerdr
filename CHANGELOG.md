@@ -6,29 +6,36 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-06
+
+### Changed
+
+- `workitem` takes one URL or many and opens one titled herdr tab per item (`herdr/bin/forge-session.sh`) in the current directory, continuing in place only when the session is already titled for the single item given; `worktree` stays the worktree path.
+- `review` picks the skill per pull request: one authored by the signed-in user runs `review-own`, any other runs `review-other`; one URL or many.
+
 ## [0.3.0] - 2026-10-06
 
 ### Added
 
-- Session titles with the item number: `review` and `work` start each agent with `FORGE_SESSION_TITLE` (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets the session title from it, the same as `/rename`; a standards rule asks, once, for `/rename` in any session that gains a number without carrying it in its title. The hook now answers in JSON (`additionalContext` plus `sessionTitle`).
-- `work` starts the agent in its own pane, to the right of the worktree's shell, with the dev server below.
+- Session titles with the item number: `review` and `worktree` start each agent with `FORGE_SESSION_TITLE` (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets the session title from it, the same as `/rename`; a standards rule asks, once, for `/rename` in any session that gains a number without carrying it in its title. The hook now answers in JSON (`additionalContext` plus `sessionTitle`).
+- `worktree` starts the agent in its own pane, to the right of the worktree's shell, with the dev server below.
 
 ## [0.2.2] - 2026-10-06
 
 ### Added
 
-- Multi-repository workspaces: the session start lists the skills under the workspace root's `.claude/skills` and prints the workspace `CLAUDE.md` when they sit above the git tree, so agents in a repository or a worktree read them by path; `pr-review` counts them as loadable skills.
+- Multi-repository workspaces: the session start lists the skills under the workspace root's `.claude/skills` and prints the workspace `CLAUDE.md` when they sit above the git tree, so agents in a repository or a worktree read them by path; `review-other` counts them as loadable skills.
 
 ### Fixed
 
-- The memory project key of a linked git worktree is resolved through its main checkout, so agents started by `work` share the workspace's memory and spec mode.
+- The memory project key of a linked git worktree is resolved through its main checkout, so agents started by `worktree` share the workspace's memory and spec mode.
 
 ## [0.2.1] - 2026-10-05
 
 ### Changed
 
 - Reply language instead of a fixed one: the `language` set in Claude Code, or the language the user writes in, printed at session start and used in chat, work items and their comments, review comments, thread replies and reports; repository content stays in English.
-- `ticket` opens with a brief of the item before reproducing it, and looks environments up in the project's `CLAUDE.md`, memory and project files before asking once.
+- `workitem` opens with a brief of the item before reproducing it, and looks environments up in the project's `CLAUDE.md`, memory and project files before asking once.
 
 ## [0.2.0] - 2026-10-05
 
@@ -45,7 +52,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - Claude Code plugin `forgerdr`: rules injected at session start (standards, terse communication, lazy build philosophy, engram memory protocol with a workspace-level project key), a Bash guard that refuses tracking branches, hard and mixed resets, force pushes and pattern kills.
-- Skills `/forgerdr:setup`, `/forgerdr:spec`, `/forgerdr:plan`, `/forgerdr:build` (inline or one fresh implementer and reviewer per task), `/forgerdr:debug`, `/forgerdr:security`, `/forgerdr:research`, `/forgerdr:ship`, `/forgerdr:pr-review`, `/forgerdr:address-review`, `/forgerdr:ticket`, `/forgerdr:review` and `/forgerdr:work`.
+- Skills `/forgerdr:setup`, `/forgerdr:spec`, `/forgerdr:plan`, `/forgerdr:build` (inline or one fresh implementer and reviewer per task), `/forgerdr:debug`, `/forgerdr:security`, `/forgerdr:research`, `/forgerdr:ship`, `/forgerdr:review-other`, `/forgerdr:review-own`, `/forgerdr:workitem`, `/forgerdr:review` and `/forgerdr:worktree`.
 - Agents `forgerdr:reviewer`, `forgerdr:security-auditor` and `forgerdr:researcher`, read-only, dispatched by the skills for a fresh context.
 - herdr plugin `gn0m0dei.forgerdr`: actions and panes that fan out pull request reviews and backlog items across worktrees, env files copied, dev servers started, one Claude agent per pane; `setup-keys` action for the keybindings.
 - Provider reference for Azure DevOps, GitHub and GitLab through their CLIs.

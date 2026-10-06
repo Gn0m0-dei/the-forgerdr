@@ -1,6 +1,6 @@
 ---
-name: address-review
-description: "Handles the review comments on the user's own pull request: reads every open thread through the provider CLI, proposes per thread a fix, a reply or a question, applies the fixes the user picks, pushes, replies in each thread and resolves it. Use on /forgerdr:address-review <url>, 'me han comentado la PR', 'atiende la review'."
+name: review-own
+description: "Handles the review comments on the user's own pull request: reads every open thread through the provider CLI, proposes per thread a fix, a reply or a question, applies the fixes the user picks, pushes, replies in each thread and resolves it. Use on /forgerdr:review-own <url>."
 ---
 
 # Address review
@@ -13,13 +13,13 @@ Pull request and open threads through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/r
 
 ## 2. Propose
 
-One entry per thread, in the reply language, full sentences:
+One entry per thread, in the reply language (the template below is in English; translate its labels), full sentences:
 
 ```
 [N] <path>:<line> — <reviewer>
-    Pide: <the request in one sentence>
-    Propuesta: fix | responder | preguntar
-    Detalle: <the change, or the reply with its reason>
+    Asks for: <the request in one sentence>
+    Proposal: fix | reply | ask
+    Detail: <the change, or the reply with its reason>
 ```
 
 Then `AskUserQuestion` (multiSelect, one option per thread) for the ones to act on now. Disagreement with a reviewer is argued with code and evidence in the reply, never ignored silently.

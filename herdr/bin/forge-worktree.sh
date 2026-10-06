@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One herdr worktree, env files, dev server and claude agent per backlog item and repository.
-# Usage: forge-work.sh [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
+# Usage: forge-worktree.sh [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR
@@ -46,7 +46,7 @@ for url in "${items[@]}"; do
     base="${base_override:-$(forge_base_branch "$repo")}"
     git -C "$repo" fetch origin --quiet
     forge_herdr worktree create --cwd "$repo" --branch "$branch" --base "origin/$base" --label "#$id $slug" --no-focus >/dev/null
-    worktree="$(forge_worktree_of "$repo" "$branch")"
+    worktree="$(forge_worktreetree_of "$repo" "$branch")"
     path="$(printf '%s' "$worktree" | cut -f1)"
     workspace="$(printf '%s' "$worktree" | cut -f2)"
     [ -n "$path" ] || forge_die "worktree for $branch not found in $repo"
@@ -70,8 +70,8 @@ for url in "${items[@]}"; do
       # The agent gets its own pane so the session title can travel in its environment; the root pane stays a shell.
       agent_pane="$(forge_herdr pane split "$root_pane" --direction right --ratio 0.35 --cwd "$path" --env "FORGE_SESSION_TITLE=$title" --focus | jq -r '.result.pane.pane_id')"
       forge_herdr pane rename "$agent_pane" "$title" >/dev/null
-      agent="ticket-$id-$(forge_slug "$(basename "$repo")" | cut -c1-12)"
-      forge_start_claude "$agent" "$agent_pane" "/forgerdr:ticket $url"
+      agent="item-$id-$(forge_slug "$(basename "$repo")" | cut -c1-12)"
+      forge_start_claude "$agent" "$agent_pane" "/forgerdr:workitem $url"
     fi
     jq -cn --arg item "$id" --arg repo "$repo" --arg branch "$branch" --arg path "$path" --arg workspace "$workspace" \
       --arg port "$dev_port" --arg dev "$dev_command" --argjson env "$env_count" --arg agent "$agent" --arg title "$title" \

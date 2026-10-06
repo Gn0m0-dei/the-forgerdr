@@ -23,8 +23,8 @@ A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole 
 |---|---|---|
 | Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
 | Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
-| One at a time | `pr-review` · `ticket` · `debug` · `security` · `research` · `address-review` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
-| Many at a time, on herdr | `review` · `work` | N panes, N worktrees, N agents |
+| In this session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
+| One tab per item, on herdr | `workitem` · `worktree` · `review` | one URL or many; a titled session each, worktrees and dev servers when asked |
 
 ## Install
 
@@ -60,7 +60,7 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 
 Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, so the agent reads them when they apply, from the main checkout and from any worktree of it.
 
-Sessions carry the number they were opened for. `review` and `work` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. Any other session that gains a number is asked once to `/rename` itself.
+Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`herdr/bin/forge-session.sh`) unless the session is already titled for the single item given; outside herdr, a session that gains a number is asked once to `/rename` itself.
 
 `hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output.
 
@@ -80,15 +80,15 @@ Sessions carry the number they were opened for. `review` and `work` start every 
 | `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
 | `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
 | `/forgerdr:build` | Executes a plan in this session: red, green, refactor, ledger, verification before every claim, fresh-context review at the end. |
-| `/forgerdr:pr-review <url>` | Reviews one pull request against the standards and the project skills. Every finding explained; you pick; drafts in your language; nothing published without an explicit yes. |
-| `/forgerdr:ticket <url>` | Works one backlog item: triage, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
-| `/forgerdr:address-review <url>` | Handles the comments on your own pull request: proposes fix, reply or question per thread; you pick; fixes, pushes, replies and resolves. |
 | `/forgerdr:ship` | Finishes a branch: fresh verification, rebase, reviewer agent, commit with permission, `push -u`, pull request with the work item linked. |
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
 | `/forgerdr:security` | Runs the security auditor on the diff or a module, triages the findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
-| `/forgerdr:review <url...>` | herdr: a tab with one pane and one Claude agent per pull request, each running `pr-review`. |
-| `/forgerdr:work <url...>` | herdr: per item and repository, a worktree on `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, and a Claude agent running `ticket`. |
+| `/forgerdr:workitem <url...>` | Works backlog items (bug, PBI, task, issue) in the current clone, one titled herdr tab per item: brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
+| `/forgerdr:worktree <url...>` | The same, each item in its own git worktree: branch `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
+| `/forgerdr:review <url...>` | One titled herdr pane and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
+| `/forgerdr:review-other <url>` | Reviews a colleague's pull request in this session: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
+| `/forgerdr:review-own <url>` | Handles the review comments on your own pull request in this session: fix, reply or question per thread, you pick, then pushes, replies and resolves. |
 
 Providers are reached through their CLIs, never through MCP servers: `references/providers.md` holds the exact commands for Azure DevOps, GitHub and GitLab.
 
@@ -114,7 +114,7 @@ Three read-only subagents the skills dispatch for a fresh context, without a dia
 | `forgerdr:security-auditor` | `security` | checklist findings with severity, proof and fix |
 | `forgerdr:researcher` | `research`, one per sub-question | cited answer with confidence |
 
-Two kinds of agents, on purpose. Subagents run inside the session, cost a fresh context and leave nothing behind: right for review, audit and research. herdr panes run a whole Claude you can watch and talk to: right for `pr-review` and `ticket`, which stop for your answers, and for `build` when you want to see a task happen. Tasks of one plan run sequentially either way: one branch, one worktree, one editor at a time.
+Two kinds of agents, on purpose. Subagents run inside the session, cost a fresh context and leave nothing behind: right for review, audit and research. herdr panes run a whole Claude you can watch and talk to: right for `review-other` and `workitem`, which stop for your answers, and for `build` when you want to see a task happen. Tasks of one plan run sequentially either way: one branch, one worktree, one editor at a time.
 
 ## herdr plugin
 
@@ -123,13 +123,13 @@ Two kinds of agents, on purpose. Subagents run inside the session, cost a fresh 
 | Action | Keybinding (after `setup-keys`) | What it does |
 |---|---|---|
 | `review` | `prefix+shift+p` | Opens a pane that asks for pull request URLs and runs `bin/forge-review.sh` |
-| `work` | `prefix+shift+t` | Opens a pane that asks for item URLs and runs `bin/forge-work.sh` |
+| `worktree` | `prefix+shift+t` | Opens a pane that asks for item URLs and runs `bin/forge-worktree.sh` |
 | `setup-keys` | | Writes the two keybindings into `~/.config/herdr/config.toml` (managed block) and reloads |
 
 The scripts are plain bash over the herdr CLI and `jq`:
 
 ```bash
-herdr/bin/forge-work.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
+herdr/bin/forge-worktree.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
 herdr/bin/forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
 ```
 

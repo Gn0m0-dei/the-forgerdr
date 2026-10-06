@@ -4,7 +4,7 @@
 set -euo pipefail
 
 mode="${1:-}"
-case "$mode" in review|work) ;; *) printf 'usage: forge-prompt.sh review|work\n' >&2; exit 1 ;; esac
+case "$mode" in review|worktree) ;; *) printf 'usage: forge-prompt.sh review|worktree\n' >&2; exit 1 ;; esac
 
 bin="$(cd "$(dirname "$0")" && pwd)"
 printf 'forgerdr %s\nPaste the URLs (one per line, space separated also fine), then an empty line:\n' "$mode"

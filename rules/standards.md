@@ -14,7 +14,7 @@ These rules apply to every task that writes, reviews or changes code, commits or
 
 ## Session title
 
-Sessions are found later by number. When the work gains a pull request or work item number (an item worked, a pull request reviewed or addressed, a branch `fix/#<id>-…` or `feature/#<id>-…`) and the session title does not carry it yet, say so once, in one line, with the command ready to paste: `/rename #<id> <slug>` for an item, `/rename PR <id> <short title>` for a pull request. You cannot rename the session yourself; sessions started by `/forgerdr:work` and `/forgerdr:review` are already titled.
+Sessions are found later by number. When the work gains a pull request or work item number (an item worked, a pull request reviewed or addressed, a branch `fix/#<id>-…` or `feature/#<id>-…`) and the session title does not carry it yet, say so once, in one line, with the command ready to paste: `/rename #<id> <slug>` for an item, `/rename PR <id> <short title>` for a pull request. You cannot rename the session yourself; sessions started by `/forgerdr:worktree` and `/forgerdr:review` are already titled.
 
 ## Tooling
 

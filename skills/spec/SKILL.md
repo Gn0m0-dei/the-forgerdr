@@ -1,6 +1,6 @@
 ---
 name: spec
-description: "Turns an idea into an approved design before any code: classifies the request (spike, bounded, architectural), asks the questions that matter, writes back the understanding, presents the design and stops for approval. The spec mode (chat, openspec, azure) decides where the design is kept. Use on /forgerdr:spec, 'diseña', 'quiero hacer X', or before any new feature, component or behaviour change."
+description: "Turns an idea into an approved design before any code: classifies the request (spike, bounded, architectural), asks the questions that matter, writes back the understanding, presents the design and stops for approval. The spec mode (chat, openspec, azure) decides where the design is kept. Use on /forgerdr:spec, or before any new feature, component or behaviour change."
 ---
 
 # Spec

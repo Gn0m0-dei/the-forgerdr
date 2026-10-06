@@ -14,7 +14,7 @@ forge_die() {
 # Workspace root of a directory: the parent of the repository when that parent carries its own
 # .claude, CLAUDE.md or AGENTS.md (a workspace of several repositories), the repository otherwise.
 # A linked worktree belongs to its main checkout. Outside git, the directory itself.
-forge_workspace_root() {
+forge_worktreespace_root() {
   local dir top common parent
   dir="$(cd "$1" 2>/dev/null && pwd -P)" || dir="$1"
   top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || top="$dir"
@@ -29,14 +29,14 @@ forge_workspace_root() {
 
 # Memory project key: the workspace root's name, lowercase.
 forge_project_key() {
-  basename "$(forge_workspace_root "$1")" | tr '[:upper:]' '[:lower:]'
+  basename "$(forge_worktreespace_root "$1")" | tr '[:upper:]' '[:lower:]'
 }
 
 # Skills under <workspace>/.claude/skills that Claude Code will not load by itself because the
 # workspace root sits outside the git tree of the directory: "name<TAB>path<TAB>description" per line.
-forge_workspace_skills() {
+forge_worktreespace_skills() {
   local dir="$1" root top skill name description
-  root="$(forge_workspace_root "$dir")"
+  root="$(forge_worktreespace_root "$dir")"
   top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
   [ "$root" != "$top" ] || return 0
   for skill in "$root"/.claude/skills/*/SKILL.md; do
@@ -89,6 +89,24 @@ forge_pr_title() {
     gitlab) title="$(glab mr view "$id" --repo "$(forge_url_project "$url")" --output json 2>/dev/null | jq -r '.title // empty' || true)" ;;
   esac
   printf 'PR %s%s\n' "$id" "${title:+: $title}"
+}
+
+# Whether the signed-in user authored a pull request: the fan-out then addresses its review instead of reviewing it.
+forge_pr_is_mine() {
+  local url="$1" id author me
+  id="$(forge_url_id "$url")"
+  case "$(forge_provider "$url")" in
+    azure)
+      author="$(az repos pr show --id "$id" --organization "$(forge_azure_org "$url")" --query createdBy.uniqueName -o tsv 2>/dev/null || true)"
+      me="$(az account show --query user.name -o tsv 2>/dev/null || true)" ;;
+    github)
+      author="$(gh pr view "$url" --json author --jq .author.login 2>/dev/null || true)"
+      me="$(gh api user --jq .login 2>/dev/null || true)" ;;
+    gitlab)
+      author="$(glab mr view "$id" --repo "$(forge_url_project "$url")" --output json 2>/dev/null | jq -r '.author.username // empty' || true)"
+      me="$(glab api user --jq .username 2>/dev/null || true)" ;;
+  esac
+  [ -n "$author" ] && [ -n "$me" ] && [ "$(printf '%s' "$author" | tr '[:upper:]' '[:lower:]')" = "$(printf '%s' "$me" | tr '[:upper:]' '[:lower:]')" ]
 }
 
 # Numeric id at the end of a pull request or work item URL.
@@ -203,7 +221,7 @@ forge_dev_command() {
 }
 
 # Path and workspace id of the worktree of a branch: "path<TAB>workspace_id".
-forge_worktree_of() {
+forge_worktreetree_of() {
   forge_herdr worktree list --cwd "$1" \
     | jq -r --arg branch "$2" '.result.worktrees[] | select(.branch == $branch) | [.path, (.open_workspace_id // "")] | @tsv'
 }

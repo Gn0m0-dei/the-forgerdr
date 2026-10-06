@@ -1,6 +1,6 @@
 ---
 name: research
-description: "Produces a cited research report on a topic, a technology choice or a library question: plans sub-questions, dispatches one researcher agent per sub-question in parallel, corroborates, and synthesizes with confidence levels. Use on /forgerdr:research, 'investiga', 'qué opción es mejor', 'cómo está hoy X'."
+description: "Produces a cited research report on a topic, a technology choice or a library question: plans sub-questions, dispatches one researcher agent per sub-question in parallel, corroborates, and synthesizes with confidence levels. Use on /forgerdr:research."
 ---
 
 # Research
@@ -17,24 +17,24 @@ Dispatch one `forgerdr:researcher` agent per sub-question, in parallel, each wit
 
 ## Synthesize
 
-Read the reports. Where two agents disagree, read the sources yourself and decide. Then write, in the reply language:
+Read the reports. Where two agents disagree, read the sources yourself and decide. Then write, in the reply language (the template below is in English; translate its headings):
 
 ```
 # <topic>
 
-Recomendación: <two to four sentences, the decision first>
+Recommendation: <two to four sentences, the decision first>
 
-## Hallazgos
-1. <claim> [1][3] — confianza alta|media|baja
+## Findings
+1. <claim> [1][3] — confidence high|medium|low
 2. ...
 
 ## Opciones (when deciding)
-| Opción | A favor | En contra | Fuentes |
+| Option | For | Against | Sources |
 
-## Fuentes
+## Sources
 [1] <title> — <url> — <date>
 
-## Sin resolver
+## Open points
 - <what no source settled>
 ```
 

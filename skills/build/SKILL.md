@@ -1,6 +1,6 @@
 ---
 name: build
-description: "Executes an approved plan task by task with test-driven development, verification before every claim and a fresh-context review at the end; inline in this session, or in agent mode with a fresh implementer and reviewer per task. Use on /forgerdr:build, 'ejecuta el plan', 'implementa', after /forgerdr:plan is approved."
+description: "Executes an approved plan task by task with test-driven development, verification before every claim and a fresh-context review at the end; inline in this session, or in agent mode with a fresh implementer and reviewer per task. Use on /forgerdr:build, after /forgerdr:plan is approved."
 ---
 
 # Build

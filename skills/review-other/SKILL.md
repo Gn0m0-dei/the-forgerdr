@@ -1,6 +1,6 @@
 ---
-name: pr-review
-description: "Reviews one pull request against the standards and the project skills, interactively: gathers context through the provider CLI, reviews the diff only, proposes every finding explained in full, lets the user pick, drafts comments and publishes them only after an explicit yes. Use on /forgerdr:pr-review <url>, 'revisa esta PR', 'review this PR'."
+name: review-other
+description: "Reviews one pull request against the standards and the project skills, interactively: gathers context through the provider CLI, reviews the diff only, proposes every finding explained in full, lets the user pick, drafts comments and publishes them only after an explicit yes. Use on /forgerdr:review-other <url>."
 ---
 
 # PR review
@@ -15,7 +15,7 @@ Hard limits:
 
 ## Step 0: the pull request
 
-Use the URL passed as argument. Without one, ask "¿Enlace de la PR?" and stop. Parse provider, organization or owner, project, repository and id. If a part is missing, ask again.
+Use the URL passed as argument. Without one, ask for the pull request link, in the reply language, and stop. Parse provider, organization or owner, project, repository and id. If a part is missing, ask again.
 
 ## Step 1: context
 
@@ -59,13 +59,13 @@ Severity per finding: `blocker` (bug, security, data loss, breaks a convention o
 
 ## Step 4: summary for the user
 
-Numbered list in the reply language, grouped in the order of Step 3. One id per location: never bundle several files or lines under one id (five icons missing `aria-hidden` are five points). Every point explained in full sentences, whatever terse mode is active: the user decides from this list. Every finding is listed, nits and questions included; the user discards, never you. Each point:
+Numbered list in the reply language (the template below is in English; translate its labels), grouped in the order of Step 3. One id per location: never bundle several files or lines under one id (five icons missing `aria-hidden` are five points). Every point explained in full sentences, whatever terse mode is active: the user decides from this list. Every finding is listed, nits and questions included; the user discards, never you. Each point:
 
 ```
 [N] <severity> — <repo>/<path>:<line>
-    Regla: <skill or convention behind it>
-    Qué pasa: <what the code does now and why it is a problem, 2-4 sentences>
-    Qué cambiaría: <the fix>
+    Rule: <skill or convention behind it>
+    What happens: <what the code does now and why it is a problem, 2-4 sentences>
+    What to change: <the fix>
     Refactor: <minimal sketch, code block only when it clarifies>
 ```
 
@@ -95,7 +95,7 @@ One location, one problem, one fix. No preambles, no praise, no rationale essays
 
 ## Step 6: publish
 
-Ask exactly: "¿Publico estos N comentarios en la PR?". Only on an explicit yes, publish one thread per id through the provider CLI (a grouped option `[3-4-5]` publishes three threads with the same text and its own path and line). Skip any that duplicates an existing thread and say so. No vote, no status change, no description edit, no completion. Report one line per published thread with its id, plus anything that failed and why.
+Ask, in the reply language, whether to publish these N comments on the pull request. Only on an explicit yes, publish one thread per id through the provider CLI (a grouped option `[3-4-5]` publishes three threads with the same text and its own path and line). Skip any that duplicates an existing thread and say so. No vote, no status change, no description edit, no completion. Report one line per published thread with its id, plus anything that failed and why.
 
 ## Memory
 

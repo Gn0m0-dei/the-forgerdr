@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Systematic debugging of any bug, failing test, build failure or unexpected behaviour: root cause before any fix, in four phases, with a regression test proven red then green. Use on /forgerdr:debug, 'no funciona', 'falla el test', 'esto peta', and before proposing any fix under time pressure."
+description: "Systematic debugging of any bug, failing test, build failure or unexpected behaviour: root cause before any fix, in four phases, with a regression test proven red then green. Use on /forgerdr:debug, and before proposing any fix under time pressure."
 ---
 
 # Debug

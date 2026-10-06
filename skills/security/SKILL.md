@@ -1,6 +1,6 @@
 ---
 name: security
-description: "Security review of a change or a module before it ships: runs the security-auditor agent on the scope, triages its findings with the user, and fixes only what the user picks. Use on /forgerdr:security, 'revisa la seguridad', or whenever the work touches authentication, user input, secrets, endpoints, uploads, payments or third-party integrations."
+description: "Security review of a change or a module before it ships: runs the security-auditor agent on the scope, triages its findings with the user, and fixes only what the user picks. Use on /forgerdr:security, or whenever the work touches authentication, user input, secrets, endpoints, uploads, payments or third-party integrations."
 ---
 
 # Security

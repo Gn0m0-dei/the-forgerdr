@@ -1,6 +1,6 @@
 ---
 name: ship
-description: "Finishes a development branch: fresh verification, rebase onto the updated base, final review, commit with permission, first push with its own upstream, pull request through the provider CLI with the work item linked, and the worktree left or removed as the user says. Use on /forgerdr:ship, 'abre la PR', 'sube esto', after /forgerdr:build or /forgerdr:ticket."
+description: "Finishes a development branch: fresh verification, rebase onto the updated base, final review, commit with permission, first push with its own upstream, pull request through the provider CLI with the work item linked, and the worktree left or removed as the user says. Use on /forgerdr:ship, after /forgerdr:build or /forgerdr:workitem."
 ---
 
 # Ship

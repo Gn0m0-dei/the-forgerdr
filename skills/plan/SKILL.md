@@ -1,6 +1,6 @@
 ---
 name: plan
-description: "Writes an implementation plan from an approved spec, as bite-sized tasks an engineer new to the codebase can execute with TDD: exact files, interfaces, failing test, minimal code, verification, commit. Use on /forgerdr:plan, 'haz el plan', after /forgerdr:spec approves an architectural design."
+description: "Writes an implementation plan from an approved spec, as bite-sized tasks an engineer new to the codebase can execute with TDD: exact files, interfaces, failing test, minimal code, verification, commit. Use on /forgerdr:plan, after /forgerdr:spec approves an architectural design."
 ---
 
 # Plan

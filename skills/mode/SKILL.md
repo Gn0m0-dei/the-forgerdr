@@ -1,6 +1,6 @@
 ---
 name: mode
-description: "Shows or changes a forgerdr setting, globally or for the current project: today the spec mode (chat, openspec, openspec:<path>, azure) that decides where /forgerdr:spec, plan, build and ship keep the design and the tasks. Use on /forgerdr:mode, /forgerdr:mode spec <value> [--project], 'cambia el modo de spec', 'qué modo tengo'."
+description: "Shows or changes a forgerdr setting, globally or for the current project: today the spec mode (chat, openspec, openspec:<path>, azure) that decides where /forgerdr:spec, plan, build and ship keep the design and the tasks. Use on /forgerdr:mode, /forgerdr:mode spec <value> [--project]."
 ---
 
 # Mode

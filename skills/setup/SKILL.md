@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Verifies and completes the forgerdr environment on this machine after install.sh: tools on PATH, engram server, MCP servers reaching through the plugin, herdr plugins, keybindings and integration, provider sign-ins, Claude Code settings, and the leftovers the plugin now replaces. Idempotent. Use on /forgerdr:setup, 'configura el entorno', 'instala forgerdr'."
+description: "Verifies and completes the forgerdr environment on this machine after install.sh: tools on PATH, engram server, MCP servers reaching through the plugin, herdr plugins, keybindings and integration, provider sign-ins, Claude Code settings, and the leftovers the plugin now replaces. Idempotent. Use on /forgerdr:setup."
 ---
 
 # Setup

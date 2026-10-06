@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # One herdr pane and one claude agent per pull request, in a new tab of the current workspace.
+# A pull request authored by the signed-in user gets /forgerdr:review-own; any other gets /forgerdr:review-other.
 # Usage: forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
 set -euo pipefail
 
@@ -66,8 +67,10 @@ for url in "${urls[@]}"; do
   id="$(forge_url_id "$url")"
   agent="review-$id"
   forge_herdr pane rename "$pane" "${titles[$index]}" >/dev/null
-  [ "$start_agent" = 1 ] && forge_start_claude "$agent" "$pane" "/forgerdr:pr-review $url"
-  jq -cn --arg id "$id" --arg title "${titles[$index]}" --arg repo "${clones[$index]}" --arg pane "$pane" --arg agent "$agent" '{pr:$id,title:$title,repo:$repo,pane:$pane,agent:$agent}'
+  skill="review-other"
+  forge_pr_is_mine "$url" && skill="review-own"
+  [ "$start_agent" = 1 ] && forge_start_claude "$agent" "$pane" "/forgerdr:$skill $url"
+  jq -cn --arg id "$id" --arg title "${titles[$index]}" --arg skill "$skill" --arg repo "${clones[$index]}" --arg pane "$pane" --arg agent "$agent" '{pr:$id,title:$title,skill:$skill,repo:$repo,pane:$pane,agent:$agent}'
   index=$((index + 1))
 done
 

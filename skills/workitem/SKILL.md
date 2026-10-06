@@ -1,6 +1,6 @@
 ---
-name: ticket
-description: "Works one backlog item (bug, ticket, product backlog item, issue) end to end: reads it through the provider CLI, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment. Stops at every gate. Use on /forgerdr:ticket <url>, 'trabaja este ticket', 'mira este bug'."
+name: workitem
+description: "Works backlog items (bug, ticket, product backlog item, issue) end to end in the current clone, one titled herdr tab per item, one URL or many: reads it through the provider CLI, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment. Stops at every gate. Use on /forgerdr:workitem <url...>."
 ---
 
 # Ticket
@@ -8,6 +8,20 @@ description: "Works one backlog item (bug, ticket, product backlog item, issue) 
 You work one backlog item from analysis to pull request, stopping at every gate for the user's feedback. Everything that reaches the provider (comments, states, pull requests) is shown as a draft first.
 
 Commands per provider: `${CLAUDE_PLUGIN_ROOT}/references/providers.md`. Memory: `mem_search` the item id and its keywords first; `mem_save` at each gate.
+
+## Step 0: the sessions
+
+The argument is one URL or several. Inside herdr (`test "${HERDR_ENV:-}" = 1`):
+
+- Several URLs: read each item's title through the provider CLI and open one titled tab per item in this same directory, each running this skill on its URL; say in one line which tabs it opened, and stop here.
+- One URL and this session's title does not carry its number (`FORGE_SESSION_TITLE` is unset or lacks `#<id>`): the same, for that one.
+- One URL and the session is already titled for it (opened by `/forgerdr:worktree` or by this step): go on here.
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-session.sh" --title "#<id> <item title>" "/forgerdr:workitem <url>"
+```
+
+Outside herdr: several URLs are worked one after the other in this session, in the order of step 1; tell the user once to `/rename #<id> <slug>` for the first.
 
 ## Gates
 
@@ -47,7 +61,7 @@ The client reads it. Always show the draft first; the user approves or adjusts. 
 - Production only: never mention local environments, local screenshots or local URLs.
 - No greetings, no addressee, no sign-off. Start with the content.
 - Never describe the development status or the deployment: nothing like "finished", "integrated", "pending deploy", "will be in the next release". The work item state carries that.
-- A fix is never announced as done: while it is not in production it is not true. Reference the item's own development: "se corrige con el desarrollo realizado en este ticket". No dates, no environments.
+- A fix is never announced as done: while it is not in production it is not true. Reference the item's own development instead ("the development in this item corrects it", in the reply language). No dates, no environments.
 - Plain language, no internals ("pending review of X in code" is forbidden). Assertive but polite. A table of tests or timings when it adds value. Other items referenced as `#<id>`.
 - Screenshots: take them yourself, production only, save them under the workspace's `tickets/` folder (create it) and tell the user the path and the item URL; the user attaches them by hand.
 - Comment language: the client's. Default: the reply language; the project's notes override.

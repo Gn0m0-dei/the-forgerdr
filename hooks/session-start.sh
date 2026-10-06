@@ -28,10 +28,10 @@ done
 
 # A multi-repository workspace keeps shared skills and instructions above the git tree, where Claude Code
 # does not look. List them so the agent reads them by path when they apply.
-root="$(forge_workspace_root "$cwd")"
+root="$(forge_worktreespace_root "$cwd")"
 top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "$top" ] && [ "$root" != "$top" ]; then
-  skills="$(forge_workspace_skills "$cwd")"
+  skills="$(forge_worktreespace_skills "$cwd")"
   if [ -n "$skills" ]; then
     printf '# Workspace skills\n\nShared by the repositories of %s and outside this repository, so they are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$root"
     printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'
@@ -57,7 +57,7 @@ else
 fi
 )"
 
-# The title travels in FORGE_SESSION_TITLE, set by forge-review.sh and forge-work.sh on the pane they start the
+# The title travels in FORGE_SESSION_TITLE, set by forge-review.sh and forge-worktree.sh on the pane they start the
 # agent in, so a session carries the number of the pull request or work item it was opened for.
 title="${FORGE_SESSION_TITLE:-}"
 case "$source" in startup|resume|fork) ;; *) title="" ;; esac

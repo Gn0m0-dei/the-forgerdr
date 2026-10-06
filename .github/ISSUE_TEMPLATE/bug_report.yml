@@ -23,7 +23,7 @@ body:
       options:
         - a skill (say which)
         - a hook (session-start, guard-bash, graph-augment, engram-session)
-        - forge-work.sh / forge-review.sh
+        - forge-worktree.sh / forge-review.sh
         - install.sh
         - the herdr plugin (actions, panes, keybindings)
         - .mcp.json / an MCP server
