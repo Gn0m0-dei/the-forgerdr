@@ -11,18 +11,41 @@ forge_die() {
   exit 1
 }
 
-# Memory project key: the workspace root when the repository sits in a workspace
-# (a parent directory with its own .claude, CLAUDE.md or AGENTS.md), the repository otherwise.
-forge_project_key() {
-  local dir top parent
+# Workspace root of a directory: the parent of the repository when that parent carries its own
+# .claude, CLAUDE.md or AGENTS.md (a workspace of several repositories), the repository otherwise.
+# A linked worktree belongs to its main checkout. Outside git, the directory itself.
+forge_workspace_root() {
+  local dir top common parent
   dir="$(cd "$1" 2>/dev/null && pwd -P)" || dir="$1"
   top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || top="$dir"
+  common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$common" ] && top="$(dirname "$common")"
   parent="$(dirname "$top")"
   if [ -d "$parent/.claude" ] || [ -f "$parent/CLAUDE.md" ] || [ -f "$parent/AGENTS.md" ]; then
-    basename "$parent"
+    printf '%s\n' "$parent"
   else
-    basename "$top"
-  fi | tr '[:upper:]' '[:lower:]'
+    printf '%s\n' "$top"
+  fi
+}
+
+# Memory project key: the workspace root's name, lowercase.
+forge_project_key() {
+  basename "$(forge_workspace_root "$1")" | tr '[:upper:]' '[:lower:]'
+}
+
+# Skills under <workspace>/.claude/skills that Claude Code will not load by itself because the
+# workspace root sits outside the git tree of the directory: "name<TAB>path<TAB>description" per line.
+forge_workspace_skills() {
+  local dir="$1" root top skill name description
+  root="$(forge_workspace_root "$dir")"
+  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  [ "$root" != "$top" ] || return 0
+  for skill in "$root"/.claude/skills/*/SKILL.md; do
+    [ -f "$skill" ] || continue
+    name="$(sed -n 's/^name:[[:space:]]*//p' "$skill" | head -n 1 | tr -d '"')"
+    [ -n "$name" ] || name="$(basename "$(dirname "$skill")")"
+    description="$(sed -n 's/^description:[[:space:]]*//p' "$skill" | head -n 1 | tr -d '"')"
+    printf '%s\t%s\t%s\n' "$name" "$skill" "$description"
+  done
 }
 
 # Provider of a URL or a git remote: azure | github | gitlab | unknown

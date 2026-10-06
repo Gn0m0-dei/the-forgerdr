@@ -36,7 +36,7 @@ expect "azure org" "https://dev.azure.com/acme" "$(forge_azure_org 'https://dev.
 expect "url project github" "owner/repo" "$(forge_url_project 'https://github.com/owner/repo/issues/5')"
 expect "url project gitlab" "group/sub/repo" "$(forge_url_project 'https://gitlab.com/group/sub/repo/-/issues/5')"
 
-sandbox="$(mktemp -d)"
+sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
 mkdir -p "$sandbox/workspace/.claude" "$sandbox/workspace/front" "$sandbox/workspace/back" "$sandbox/lonely"
 git -C "$sandbox/workspace/front" init -q
@@ -47,6 +47,14 @@ git -C "$sandbox/workspace/back" remote add origin git@ssh.dev.azure.com:v3/org/
 expect "project key workspace" "workspace" "$(forge_project_key "$sandbox/workspace/front")"
 expect "project key workspace root" "workspace" "$(forge_project_key "$sandbox/workspace")"
 expect "project key lonely repo" "lonely" "$(forge_project_key "$sandbox/lonely")"
+git -C "$sandbox/workspace/front" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$sandbox/workspace/front" worktree add -q "$sandbox/elsewhere/front-feature" -b feature 2>/dev/null
+expect "project key linked worktree" "workspace" "$(forge_project_key "$sandbox/elsewhere/front-feature")"
+mkdir -p "$sandbox/workspace/.claude/skills/shared-rules"
+printf -- '---\nname: shared-rules\ndescription: "Rules every repo of the workspace follows"\n---\n' > "$sandbox/workspace/.claude/skills/shared-rules/SKILL.md"
+expect "workspace skills from a repo" "shared-rules$(printf '\t')$sandbox/workspace/.claude/skills/shared-rules/SKILL.md$(printf '\t')Rules every repo of the workspace follows" "$(forge_workspace_skills "$sandbox/workspace/front")"
+expect "workspace skills from a worktree" "shared-rules" "$(forge_workspace_skills "$sandbox/elsewhere/front-feature" | cut -f1)"
+expect "workspace skills none in a lonely repo" "" "$(forge_workspace_skills "$sandbox/lonely")"
 expect "find clone by name" "$sandbox/workspace/front" "$(forge_find_clone "$sandbox/workspace" front)"
 expect "find clone by remote" "$sandbox/workspace/back" "$(forge_find_clone "$sandbox/workspace" MY.Repo)"
 expect "find clone fallback" "$sandbox/workspace" "$(forge_find_clone "$sandbox/workspace" nothing)"

@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-10-06
+
+### Added
+
+- Multi-repository workspaces: the session start lists the skills under the workspace root's `.claude/skills` and prints the workspace `CLAUDE.md` when they sit above the git tree, so agents in a repository or a worktree read them by path; `pr-review` counts them as loadable skills.
+
+### Fixed
+
+- The memory project key of a linked git worktree is resolved through its main checkout, so agents started by `work` share the workspace's memory and spec mode.
+
 ## [0.2.1] - 2026-10-05
 
 ### Changed

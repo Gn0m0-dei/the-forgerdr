@@ -24,6 +24,24 @@ for rule in standards communication build memory; do
   printf '\n'
 done
 
+# A multi-repository workspace keeps shared skills and instructions above the git tree, where Claude Code
+# does not look. List them so the agent reads them by path when they apply.
+root="$(forge_workspace_root "$cwd")"
+top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -n "$top" ] && [ "$root" != "$top" ]; then
+  skills="$(forge_workspace_skills "$cwd")"
+  if [ -n "$skills" ]; then
+    printf '# Workspace skills\n\nShared by the repositories of %s and outside this repository, so they are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$root"
+    printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'
+    printf '\n'
+  fi
+  if [ -f "$root/CLAUDE.md" ]; then
+    printf '# Workspace instructions (%s/CLAUDE.md)\n\n' "$root"
+    cat "$root/CLAUDE.md"
+    printf '\n'
+  fi
+fi
+
 engram_ensure_serve || { printf 'engram: binary or server unavailable, memory tools will not work this session.\n'; exit 0; }
 engram_merge_split_projects "$cwd" "$key"
 [ -n "$session_id" ] && engram_register_session "$session_id" "$key" "$cwd"

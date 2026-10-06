@@ -30,7 +30,7 @@ Commands per provider: `${CLAUDE_PLUGIN_ROOT}/references/providers.md`.
 
 ## Step 2: project skills
 
-List the skills available in the session (the workspace's and the repository's `.claude/skills`, plus plugin skills) and pick the ones that match the repository and the touched paths: language skills for the language of the diff, framework skills for the framework the files use (from the manifests: `package.json`, `pom.xml`, `build.gradle`, `pyproject.toml`, `go.mod`), domain skills the project documents. A project without skills is reviewed against the standards and its own documented conventions only. Show a table (skill → already loaded / loading now / not applicable, with the reason) before calling `Skill`. Load only what is missing. When a library API is involved, verify it through context7 before flagging it.
+List the skills available in the session (the repository's `.claude/skills`, the plugin skills, and the **workspace skills** printed at session start when the workspace keeps them above the git tree: those are read with `Read` at their path and followed as loaded skills) and pick the ones that match the repository and the touched paths: language skills for the language of the diff, framework skills for the framework the files use (from the manifests: `package.json`, `pom.xml`, `build.gradle`, `pyproject.toml`, `go.mod`), domain skills the project documents. A project without skills is reviewed against the standards and its own documented conventions only. Show a table (skill → already loaded / loading now / not applicable, with the reason) before calling `Skill`. Load only what is missing. When a library API is involved, verify it through context7 before flagging it.
 
 ## Step 3: review
 
