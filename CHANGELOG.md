@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-06
+
+### Added
+
+- Session titles with the item number: `review` and `work` start each agent with `FORGE_SESSION_TITLE` (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets the session title from it, the same as `/rename`; a standards rule asks, once, for `/rename` in any session that gains a number without carrying it in its title. The hook now answers in JSON (`additionalContext` plus `sessionTitle`).
+- `work` starts the agent in its own pane, to the right of the worktree's shell, with the dev server below.
+
 ## [0.2.2] - 2026-10-06
 
 ### Added

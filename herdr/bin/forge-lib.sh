@@ -79,6 +79,18 @@ forge_url_repo() {
   esac
 }
 
+# Title of a pull request, "PR <id>" when the provider cannot answer.
+forge_pr_title() {
+  local url="$1" id title=""
+  id="$(forge_url_id "$url")"
+  case "$(forge_provider "$url")" in
+    azure) title="$(az repos pr show --id "$id" --organization "$(forge_azure_org "$url")" --query title -o tsv 2>/dev/null || true)" ;;
+    github) title="$(gh pr view "$url" --json title --jq .title 2>/dev/null || true)" ;;
+    gitlab) title="$(glab mr view "$id" --repo "$(forge_url_project "$url")" --output json 2>/dev/null | jq -r '.title // empty' || true)" ;;
+  esac
+  printf 'PR %s%s\n' "$id" "${title:+: $title}"
+}
+
 # Numeric id at the end of a pull request or work item URL.
 forge_url_id() {
   printf '%s' "$1" | sed -nE 's#.*/([0-9]+)/?([?\#].*)?$#\1#p'

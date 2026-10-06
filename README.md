@@ -60,6 +60,8 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 
 Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, so the agent reads them when they apply, from the main checkout and from any worktree of it.
 
+Sessions carry the number they were opened for. `review` and `work` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. Any other session that gains a number is asked once to `/rename` itself.
+
 `hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output.
 
 | Rule file | What it fixes |

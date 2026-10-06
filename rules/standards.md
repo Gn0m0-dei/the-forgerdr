@@ -12,6 +12,10 @@ These rules apply to every task that writes, reviews or changes code, commits or
 - Before implementing anything on top of a library, framework or API, read the official documentation through the context7 MCP when it is available. Never answer from memory about an API.
 - Prefer widely adopted MIT-licensed libraries over reinventing solutions (Axios, Remeda, Zod and the like).
 
+## Session title
+
+Sessions are found later by number. When the work gains a pull request or work item number (an item worked, a pull request reviewed or addressed, a branch `fix/#<id>-…` or `feature/#<id>-…`) and the session title does not carry it yet, say so once, in one line, with the command ready to paste: `/rename #<id> <slug>` for an item, `/rename PR <id> <short title>` for a pull request. You cannot rename the session yourself; sessions started by `/forgerdr:work` and `/forgerdr:review` are already titled.
+
 ## Tooling
 
 - Code exploration: codebase-memory tools first (`search_graph`, `trace_path`, `get_code_snippet`, `search_code`, `get_architecture`), then Grep/Glob on source. If the project is not indexed, run `index_repository` first.

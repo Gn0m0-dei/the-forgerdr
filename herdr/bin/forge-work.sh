@@ -53,6 +53,7 @@ for url in "${items[@]}"; do
     git -C "$path" branch --unset-upstream >/dev/null 2>&1 || true
     env_count="$(forge_copy_env "$repo" "$path")"
     root_pane="$(forge_root_pane "$workspace")"
+    title="#$id $(printf '%s' "$meta" | cut -f3)"
     dev_command="${dev_override:-$(forge_dev_command "$path")}"
     dev_pane=""
     dev_port=""
@@ -64,13 +65,17 @@ for url in "${items[@]}"; do
       port=$((port + 1))
     fi
     agent=""
+    agent_pane=""
     if [ "$start_agent" = 1 ]; then
+      # The agent gets its own pane so the session title can travel in its environment; the root pane stays a shell.
+      agent_pane="$(forge_herdr pane split "$root_pane" --direction right --ratio 0.35 --cwd "$path" --env "FORGE_SESSION_TITLE=$title" --focus | jq -r '.result.pane.pane_id')"
+      forge_herdr pane rename "$agent_pane" "$title" >/dev/null
       agent="ticket-$id-$(forge_slug "$(basename "$repo")" | cut -c1-12)"
-      forge_start_claude "$agent" "$root_pane" "/forgerdr:ticket $url"
+      forge_start_claude "$agent" "$agent_pane" "/forgerdr:ticket $url"
     fi
     jq -cn --arg item "$id" --arg repo "$repo" --arg branch "$branch" --arg path "$path" --arg workspace "$workspace" \
-      --arg port "$dev_port" --arg dev "$dev_command" --argjson env "$env_count" --arg agent "$agent" \
-      '{item:$item,repo:$repo,branch:$branch,path:$path,workspace:$workspace,port:$port,dev:$dev,env_files:$env,agent:$agent}'
+      --arg port "$dev_port" --arg dev "$dev_command" --argjson env "$env_count" --arg agent "$agent" --arg title "$title" \
+      '{item:$item,title:$title,repo:$repo,branch:$branch,path:$path,workspace:$workspace,port:$port,dev:$dev,env_files:$env,agent:$agent}'
     created=$((created + 1))
   done
 done
