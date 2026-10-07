@@ -16,6 +16,17 @@ These rules apply to every task that writes, reviews or changes code, commits or
 
 Sessions are found later by number. When the work gains a pull request or work item number (an item worked, a pull request reviewed or addressed, a branch `fix/#<id>-…` or `feature/#<id>-…`) and the session title does not carry it yet, say so once, in one line, with the command ready to paste: `/rename #<id> <slug>` for an item, `/rename PR <id> <short title>` for a pull request. You cannot rename the session yourself; sessions started by `/forgerdr:worktree` and `/forgerdr:review` are already titled.
 
+## Project skills
+
+Before writing, changing, reviewing or planning code, load the project's own skills that cover it; memory and the surrounding code complement them, never replace them.
+
+1. List what exists: the repository's `.claude/skills` (already in the skill list), the **workspace skills** printed at session start (outside the git tree, loaded by reading their `SKILL.md` at the path), and the plugin skills.
+2. Pick by what the work touches: the language of the files, the framework the manifests declare, the domain the skill describes, the paths it names.
+3. Show a short table (skill → already loaded / loading now / not applicable, with the reason) before loading, then load only what is missing: the `Skill` tool for listed skills, `Read` for workspace skills.
+4. Every subagent you dispatch for code (implementer, reviewer, security auditor) gets the paths of the loaded project skills in its prompt, with the instruction to read them first and apply them; never paste a summary of them instead.
+
+Do it once per area per session, at the first step that touches code; when the work moves to another repository or language, do it again for what is new.
+
 ## Tooling
 
 - Code exploration: codebase-memory tools first (`search_graph`, `trace_path`, `get_code_snippet`, `search_code`, `get_architecture`), then Grep/Glob on source. If the project is not indexed, run `index_repository` first.

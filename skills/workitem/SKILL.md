@@ -53,6 +53,8 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 
 ## 3. Root cause and proposal
 
+- Load the project skills for the area first (standards, "Project skills"): the proposal follows their patterns.
+
 - Locate the cause in code: `index_repository` if the graph does not know the project, `get_architecture` to place the area, then `search_graph`, `trace_path` and `get_code_snippet`; `git log` and `git blame` to learn why the code is the way it is before changing it. Check that no case justifies the current behaviour.
 - Show the analysis and the simplest solution that works, as a diff sketch or a few sentences, before implementing. On request, a short plain-language note for the team. Gate 2.
 - Manual flow and the item adds behaviour rather than fixing a defect: stop here and suggest `/forgerdr:spec` with this item; the proposal above is the starting point of the design.

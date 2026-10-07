@@ -15,6 +15,9 @@ A spec covering several independent subsystems becomes one plan per subsystem, e
 
 ## File structure first
 
+Load the project skills for the area first (standards, "Project skills"); the plan names, per task, which of them apply, so the implementer and the reviewer get their paths.
+
+
 Map the files to create or modify and the responsibility of each. One responsibility per file, files that change together live together, existing patterns followed. Lock the decomposition here; tasks follow it.
 
 ## Tasks

@@ -19,11 +19,11 @@ A working tree mounted by a running container must not be rebased with the conta
 
 ## 3. Security
 
-Auto flow (`ship` reached from `/forgerdr:workitem --auto`): dispatch the `forgerdr:security-auditor` agent on `origin/<base>...HEAD` and triage its findings with the user as `/forgerdr:security` does; Critical and High get a fix pass before the review. Otherwise: when the diff touches authentication, user input, secrets, endpoints, uploads, payments or dependencies, suggest `/forgerdr:security` in one line before going on.
+Auto flow (`ship` reached from `/forgerdr:workitem --auto`): dispatch the `forgerdr:security-auditor` agent on `origin/<base>...HEAD`, with the paths of the project skills that cover the diff, and triage its findings with the user as `/forgerdr:security` does; Critical and High get a fix pass before the review. Otherwise: when the diff touches authentication, user input, secrets, endpoints, uploads, payments or dependencies, suggest `/forgerdr:security` in one line before going on.
 
 ## 3b. Review
 
-Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec and the plan when they exist. Critical and Important findings get one fix pass, each fix red then green. Minor goes to the pull request description's "known" line or is dropped by the user.
+Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec and the plan when they exist and the paths of the project skills that cover the diff (standards, "Project skills"). Critical and Important findings get one fix pass, each fix red then green. Minor goes to the pull request description's "known" line or is dropped by the user.
 
 ## 4. Commit
 

@@ -27,6 +27,8 @@ Questions one at a time, the most consequential first. Prefer `AskUserQuestion` 
 
 ## Design
 
+- Load the project skills for the area first (standards, "Project skills"): the design follows their patterns and conventions.
+
 - Two or three approaches when they genuinely differ, with the trade-off in one line each and your recommendation first. One approach when the lazy ladder leaves no real choice.
 - Design in sections: data, interfaces, flow, error cases, what is explicitly out of scope. Each section short enough to be approved on its own.
 - Every technical choice checked against the understanding and against the build philosophy: reuse before writing, standard library before dependency, one line before fifty.

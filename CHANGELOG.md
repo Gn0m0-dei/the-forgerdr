@@ -6,6 +6,12 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-10-07
+
+### Fixed
+
+- Project skills were only loaded by `review-other`. A standards rule now makes every step that writes, changes, plans or reviews code load the project's skills that cover it (repository, workspace and plugin), with the loaded/loading/not applicable table, and pass their paths to every subagent; `workitem`, `spec`, `plan`, `build`, `debug` and `ship` point to it, and the `reviewer` and `security-auditor` agents read the skills they are given before the diff.
+
 ## [0.5.0] - 2026-10-07
 
 ### Added

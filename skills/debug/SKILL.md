@@ -27,6 +27,9 @@ State one hypothesis in one sentence. Design the smallest test that proves or ki
 
 ## Phase 4: fix
 
+Load the project skills for the area before writing the fix (standards, "Project skills").
+
+
 1. Regression test that reproduces the bug. Run it: it must fail for the reported reason.
 2. Minimal fix at the root cause. Run the test: green. Run the suite: green.
 3. Revert the fix, run the test: red again. Restore. Only now is the test proven.
