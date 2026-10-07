@@ -48,7 +48,7 @@ for url in "${items[@]}"; do
     base="${base_override:-$(forge_base_branch "$repo")}"
     git -C "$repo" fetch origin --quiet
     forge_herdr worktree create --cwd "$repo" --branch "$branch" --base "origin/$base" --label "#$id $slug" --no-focus >/dev/null
-    worktree="$(forge_worktreetree_of "$repo" "$branch")"
+    worktree="$(forge_worktree_of "$repo" "$branch")"
     path="$(printf '%s' "$worktree" | cut -f1)"
     workspace="$(printf '%s' "$worktree" | cut -f2)"
     [ -n "$path" ] || forge_die "worktree for $branch not found in $repo"

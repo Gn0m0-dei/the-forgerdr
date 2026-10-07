@@ -20,7 +20,7 @@ Sessions are found later by number. When the work gains a pull request or work i
 
 Before writing, changing, reviewing or planning code, load the project's own skills that cover it; memory and the surrounding code complement them, never replace them.
 
-1. List what exists: the repository's `.claude/skills` (already in the skill list), the **workspace skills** printed at session start (outside the git tree, loaded by reading their `SKILL.md` at the path), and the plugin skills.
+1. List what exists: the skills in the skill list (the directory the session started in, its repository and the plugin), plus the ones the session start prints with their paths because Claude Code does not load them: **workspace skills** (a session inside a repository, skills at the workspace root) and **repository skills** (a session at the workspace root, skills inside each repository below). Those are loaded by reading their `SKILL.md` at the path.
 2. Pick by what the work touches: the language of the files, the framework the manifests declare, the domain the skill describes, the paths it names.
 3. Show a short table (skill → already loaded / loading now / not applicable, with the reason) before loading, then load only what is missing: the `Skill` tool for listed skills, `Read` for workspace skills.
 4. Every subagent you dispatch for code (implementer, reviewer, security auditor) gets the paths of the loaded project skills in its prompt, with the instruction to read them first and apply them; never paste a summary of them instead.

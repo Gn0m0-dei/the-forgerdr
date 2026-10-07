@@ -26,12 +26,20 @@ for rule in standards communication build memory; do
   printf '\n'
 done
 
+# A session at a workspace root sees the skills of that root but not those inside each repository below it.
+children="$(forge_child_repo_skills "$cwd")"
+if [ -n "$children" ]; then
+  printf '# Repository skills\n\nThis session starts at a workspace root; the skills inside each repository below it are not in the skill list. When work touches a repository, Read the SKILL.md of its skills that apply and follow them as loaded skills.\n\n'
+  printf '%s\n' "$children" | awk -F'\t' '$1 != repo { repo = $1; printf "\n**%s**\n", repo } { printf "- **%s** (`%s`): %s\n", $2, $3, $4 }'
+  printf '\n'
+fi
+
 # A multi-repository workspace keeps shared skills and instructions above the git tree, where Claude Code
 # does not look. List them so the agent reads them by path when they apply.
-root="$(forge_worktreespace_root "$cwd")"
+root="$(forge_workspace_root "$cwd")"
 top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null || true)"
 if [ -n "$top" ] && [ "$root" != "$top" ]; then
-  skills="$(forge_worktreespace_skills "$cwd")"
+  skills="$(forge_workspace_skills "$cwd")"
   if [ -n "$skills" ]; then
     printf '# Workspace skills\n\nShared by the repositories of %s and outside this repository, so they are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$root"
     printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'

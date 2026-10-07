@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-10-07
+
+### Fixed
+
+- A session started at a workspace root now gets the skills inside each repository below it listed by repository, with their paths; Claude Code only loads the root's.
+- Internal function names mangled by the 0.4.0 rename (`forge_worktreespace_root`, `forge_worktreetree_of`) are back to `forge_workspace_root` and `forge_worktree_of`.
+
 ## [0.5.1] - 2026-10-07
 
 ### Fixed

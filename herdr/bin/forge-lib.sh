@@ -14,7 +14,7 @@ forge_die() {
 # Workspace root of a directory: the parent of the repository when that parent carries its own
 # .claude, CLAUDE.md or AGENTS.md (a workspace of several repositories), the repository otherwise.
 # A linked worktree belongs to its main checkout. Outside git, the directory itself.
-forge_worktreespace_root() {
+forge_workspace_root() {
   local dir top common parent
   dir="$(cd "$1" 2>/dev/null && pwd -P)" || dir="$1"
   top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || top="$dir"
@@ -29,22 +29,39 @@ forge_worktreespace_root() {
 
 # Memory project key: the workspace root's name, lowercase.
 forge_project_key() {
-  basename "$(forge_worktreespace_root "$1")" | tr '[:upper:]' '[:lower:]'
+  basename "$(forge_workspace_root "$1")" | tr '[:upper:]' '[:lower:]'
 }
 
-# Skills under <workspace>/.claude/skills that Claude Code will not load by itself because the
-# workspace root sits outside the git tree of the directory: "name<TAB>path<TAB>description" per line.
-forge_worktreespace_skills() {
-  local dir="$1" root top skill name description
-  root="$(forge_worktreespace_root "$dir")"
-  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
-  [ "$root" != "$top" ] || return 0
-  for skill in "$root"/.claude/skills/*/SKILL.md; do
+# One line per skill in a skills directory: "name<TAB>path<TAB>description".
+forge_skills_in() {
+  local skill name description
+  for skill in "$1"/*/SKILL.md; do
     [ -f "$skill" ] || continue
     name="$(sed -n 's/^name:[[:space:]]*//p' "$skill" | head -n 1 | tr -d '"')"
     [ -n "$name" ] || name="$(basename "$(dirname "$skill")")"
     description="$(sed -n 's/^description:[[:space:]]*//p' "$skill" | head -n 1 | tr -d '"')"
     printf '%s\t%s\t%s\n' "$name" "$skill" "$description"
+  done
+}
+
+# Skills under <workspace>/.claude/skills that Claude Code will not load by itself because the
+# workspace root sits outside the git tree of the directory: "name<TAB>path<TAB>description" per line.
+forge_workspace_skills() {
+  local dir="$1" root top
+  root="$(forge_workspace_root "$dir")"
+  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  [ "$root" != "$top" ] || return 0
+  forge_skills_in "$root/.claude/skills"
+}
+
+# Skills of the git repositories directly under a directory that is not itself a repository (a session
+# started at a workspace root): "repo<TAB>name<TAB>path<TAB>description" per line.
+forge_child_repo_skills() {
+  local dir="$1" child
+  git -C "$dir" rev-parse --show-toplevel >/dev/null 2>&1 && return 0
+  for child in "$dir"/*/; do
+    [ -d "$child/.git" ] || [ -f "$child/.git" ] || continue
+    forge_skills_in "${child%/}/.claude/skills" | sed "s#^#$(basename "$child")\t#"
   done
 }
 
@@ -221,7 +238,7 @@ forge_dev_command() {
 }
 
 # Path and workspace id of the worktree of a branch: "path<TAB>workspace_id".
-forge_worktreetree_of() {
+forge_worktree_of() {
   forge_herdr worktree list --cwd "$1" \
     | jq -r --arg branch "$2" '.result.worktrees[] | select(.branch == $branch) | [.path, (.open_workspace_id // "")] | @tsv'
 }
