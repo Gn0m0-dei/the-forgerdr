@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-07
+
+### Added
+
+- `--auto` on `workitem` and `worktree`: chains the pipeline after the brief: a bug goes root cause → fix → security → ship; a backlog item goes spec (the item is the spec) → research → plan → build → security → ship. Without it, the manual flow stops after the proposal and suggests the next command.
+- `ship` runs the security auditor on the branch diff in the auto flow and suggests `/forgerdr:security` in the manual flow when the diff touches sensitive areas.
+- `/forgerdr:help`: the cheat sheet of commands, flows, settings and herdr keys, answered by a `UserPromptSubmit` hook from `references/cheatsheet.txt` without reaching the model.
+
 ## [0.4.0] - 2026-10-06
 
 ### Changed

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # One herdr worktree, env files, dev server and claude agent per backlog item and repository.
-# Usage: forge-worktree.sh [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
+# Usage: forge-worktree.sh [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--auto] [--no-agent] <item-url>...
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR
@@ -13,6 +13,7 @@ base_override=""
 dev_override=""
 port=3000
 start_agent=1
+flow_flag=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -21,6 +22,7 @@ while [ $# -gt 0 ]; do
     --dev) dev_override="$2"; shift 2 ;;
     --port-base) port="$2"; shift 2 ;;
     --no-agent) start_agent=0; shift ;;
+    --auto) flow_flag="--auto "; shift ;;
     -h|--help) sed -n '2,3p' "$0"; exit 0 ;;
     *) items+=("$1"); shift ;;
   esac
@@ -71,7 +73,7 @@ for url in "${items[@]}"; do
       agent_pane="$(forge_herdr pane split "$root_pane" --direction right --ratio 0.35 --cwd "$path" --env "FORGE_SESSION_TITLE=$title" --focus | jq -r '.result.pane.pane_id')"
       forge_herdr pane rename "$agent_pane" "$title" >/dev/null
       agent="item-$id-$(forge_slug "$(basename "$repo")" | cut -c1-12)"
-      forge_start_claude "$agent" "$agent_pane" "/forgerdr:workitem $url"
+      forge_start_claude "$agent" "$agent_pane" "/forgerdr:workitem ${flow_flag}$url"
     fi
     jq -cn --arg item "$id" --arg repo "$repo" --arg branch "$branch" --arg path "$path" --arg workspace "$workspace" \
       --arg port "$dev_port" --arg dev "$dev_command" --argjson env "$env_count" --arg agent "$agent" --arg title "$title" \

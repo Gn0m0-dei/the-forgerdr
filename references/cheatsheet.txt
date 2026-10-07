@@ -1,0 +1,34 @@
+forgerdr — Forge once. Herd many.
+
+START WORK                                    one URL or many, one titled tab each
+  /forgerdr:workitem [--auto|--manual] <url...>  work items in the current clone
+  /forgerdr:worktree [--auto|--manual] <url...>  same, each item in its own worktree + env + dev server
+  /forgerdr:review <url...>                      pull requests: yours -> review-own, others -> review-other
+
+ONE STEP AT A TIME (manual flow)              run in the current session
+  /forgerdr:spec <idea>          study and design before code (spike, bounded, architectural)
+  /forgerdr:research <topic>     pick a library or approach, with sources
+  /forgerdr:plan                 TDD tasks from the approved design
+  /forgerdr:build                run the plan, red -> green, reviewer at the end
+  /forgerdr:debug <symptom>      root cause before fixing anything
+  /forgerdr:security             auditor on the diff, triage with you, fix what you pick
+  /forgerdr:ship                 verify, rebase, security (auto), reviewer, commit, push, PR
+  /forgerdr:review-other <url>   review a colleague's pull request here
+  /forgerdr:review-own <url>     handle the review comments on your pull request here
+
+AUTO FLOW (add --auto to workitem or worktree; without it, manual)
+  bug       brief -> reproduce -> root cause -> proposal -> fix -> security -> ship
+  feature   brief -> spec (item is the spec) -> research -> plan -> build -> security -> ship
+  content   brief -> verdict -> comment
+
+GATES (every flow)
+  design approved before code · permission per commit · drafts before anything
+  is published · state and assignment only when you say
+
+SETTINGS                                      ~/.config/forgerdr/config.toml
+  /forgerdr:mode                                show current values
+  /forgerdr:mode spec chat|openspec|openspec:<path>|azure [--project]
+  /forgerdr:setup                               check and complete the environment
+
+HERDR KEYS
+  prefix+shift+p   review pull requests       prefix+shift+t   work items in worktrees

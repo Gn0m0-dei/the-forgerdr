@@ -76,6 +76,7 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | Skill | What it does |
 |---|---|
 | `/forgerdr:setup` | Installs and verifies the environment. Idempotent. |
+| `/forgerdr:help` | Prints the cheat sheet: commands, flows, settings, herdr keys. Answered by a hook, without spending tokens. |
 | `/forgerdr:mode` | Shows or sets the spec mode, globally or per project. |
 | `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
 | `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
@@ -84,13 +85,24 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
 | `/forgerdr:security` | Runs the security auditor on the diff or a module, triages the findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
-| `/forgerdr:workitem <url...>` | Works backlog items (bug, PBI, task, issue) in the current clone, one titled herdr tab per item: brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
-| `/forgerdr:worktree <url...>` | The same, each item in its own git worktree: branch `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
+| `/forgerdr:workitem [--auto] <url...>` | Works backlog items (bug, PBI, task, issue) in the current clone, one titled herdr tab per item: brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
+| `/forgerdr:worktree [--auto] <url...>` | The same, each item in its own git worktree: branch `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
 | `/forgerdr:review <url...>` | One titled herdr pane and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
 | `/forgerdr:review-other <url>` | Reviews a colleague's pull request in this session: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
 | `/forgerdr:review-own <url>` | Handles the review comments on your own pull request in this session: fix, reply or question per thread, you pick, then pushes, replies and resolves. |
 
 Providers are reached through their CLIs, never through MCP servers: `references/providers.md` holds the exact commands for Azure DevOps, GitHub and GitLab.
+
+### Flow
+
+`workitem` and `worktree` work in the manual flow unless `--auto` is passed.
+
+| Flow | What happens after the brief |
+|---|---|
+| manual (default) | analysis, reproduction, root cause or proposal; the next command is suggested and you drive with `spec`, `research`, `plan`, `build`, `debug`, `security`, `ship` |
+| `--auto` | the whole pipeline: a bug goes root cause → fix → security → ship; a backlog item goes spec (the item is the spec) → research when there are alternatives → plan → build → security → ship |
+
+The gates hold in both: design approved before code, permission per commit, drafts before anything is published.
 
 ### Spec mode
 

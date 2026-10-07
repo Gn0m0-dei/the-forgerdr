@@ -1,6 +1,6 @@
 ---
 name: workitem
-description: "Works backlog items (bug, ticket, product backlog item, issue) end to end in the current clone, one titled herdr tab per item, one URL or many: reads it through the provider CLI, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment. Stops at every gate. Use on /forgerdr:workitem <url...>."
+description: "Works backlog items (bug, ticket, product backlog item, issue) end to end in the current clone, one titled herdr tab per item, one URL or many: reads it through the provider CLI, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment. Stops at every gate. Use on /forgerdr:workitem [--auto] <url...>."
 ---
 
 # Ticket
@@ -23,6 +23,17 @@ The argument is one URL or several. Inside herdr (`test "${HERDR_ENV:-}" = 1`):
 
 Outside herdr: several URLs are worked one after the other in this session, in the order of step 1; tell the user once to `/rename #<id> <slug>` for the first.
 
+## Flow
+
+Manual by default. `--auto` in the arguments switches to the auto flow for this run and is passed on to the tabs this skill opens. The gates below hold in both.
+
+- **manual**: this skill does the analysis, the reproduction and the root cause or proposal, then stops and names the next command that fits (`/forgerdr:spec`, `/forgerdr:debug`, `/forgerdr:plan`, `/forgerdr:build`, `/forgerdr:security`, `/forgerdr:ship`). The user drives.
+- **auto**: after the brief, classify the item and chain the whole pipeline in this session, following each skill's procedure (read its `SKILL.md` under `${CLAUDE_PLUGIN_ROOT}/skills/`):
+  - **Bug, or a defect found while reproducing**: root cause with the four phases of `debug` → proposal (gate 2) → fix with a regression test proven red then green → `security` auditor on the branch diff → `ship`.
+  - **Backlog item that adds or changes behaviour**: `spec` with the item as the spec (its description and acceptance criteria; missing criteria are drafted in Gherkin and proposed for the item, written only on a yes) → `research` for any choice with real alternatives (library, approach) → `plan` → `build` → `security` auditor on the branch diff → `ship`.
+  - **Content or data someone else owns**: verdict and comment only, as in step 5.
+  Announce each stage in one line as it starts. A stage that finds nothing to do says so and moves on.
+
 ## Gates
 
 Stop and wait for the user after: the analysis and verdict (gate 1), the proposed solution (gate 2), before every commit (gate 3), before the pull request (gate 4), before publishing a comment (gate 5), before any state or assignment change (gate 6). Never skip a gate because the step looks obvious.
@@ -44,6 +55,7 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 
 - Locate the cause in code: `index_repository` if the graph does not know the project, `get_architecture` to place the area, then `search_graph`, `trace_path` and `get_code_snippet`; `git log` and `git blame` to learn why the code is the way it is before changing it. Check that no case justifies the current behaviour.
 - Show the analysis and the simplest solution that works, as a diff sketch or a few sentences, before implementing. On request, a short plain-language note for the team. Gate 2.
+- Manual flow and the item adds behaviour rather than fixing a defect: stop here and suggest `/forgerdr:spec` with this item; the proposal above is the starting point of the design.
 
 ## 4. Implement
 
