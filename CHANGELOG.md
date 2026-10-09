@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-09
+
+### Changed
+
+- Security review reworked: the `security-auditor` reports only findings it can trace from a lower-trust actor through a failing control to a concrete effect, graded confirmed (critical, high, medium, low with explicit anchors), needs-validation (the decisive fact is outside the code, no severity) or rejected, each with the smallest fix and its regression test; it follows sibling paths and sad paths and skips checklist gaps without a reachable effect. Domain references under `references/security/` (general, web and auth, client side, supply chain, data isolation, availability, cloud and config, AI and agents) are read when they apply.
+
+### Added
+
+- `security-verifier` agent: every confirmed critical or high finding is challenged by a fresh agent before the user triages it.
+
 ## [0.5.2] - 2026-10-07
 
 ### Fixed

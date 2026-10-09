@@ -83,7 +83,7 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | `/forgerdr:build` | Executes a plan in this session: red, green, refactor, ledger, verification before every claim, fresh-context review at the end. |
 | `/forgerdr:ship` | Finishes a branch: fresh verification, rebase, reviewer agent, commit with permission, `push -u`, pull request with the work item linked. |
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
-| `/forgerdr:security` | Runs the security auditor on the diff or a module, triages the findings with you, fixes only what you pick. |
+| `/forgerdr:security` | Runs the security auditor on the diff or a module, has a fresh verifier challenge every critical or high finding, triages confirmed and needs-validation findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
 | `/forgerdr:workitem [--auto] <url...>` | Works backlog items (bug, PBI, task, issue) in the current clone, one titled herdr tab per item: brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
 | `/forgerdr:worktree [--auto] <url...>` | The same, each item in its own git worktree: branch `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
@@ -118,12 +118,13 @@ The gates do not move with the mode: no implementation before an approved design
 
 ## Agents
 
-Three read-only subagents the skills dispatch for a fresh context, without a dialogue:
+Four read-only subagents the skills dispatch for a fresh context, without a dialogue:
 
 | Agent | Dispatched by | Returns |
 |---|---|---|
 | `forgerdr:reviewer` | `build` (end of plan, or each task in agent mode), `ship` | findings graded critical / important / minor with file and line, verdict |
-| `forgerdr:security-auditor` | `security` | checklist findings with severity, proof and fix |
+| `forgerdr:security-auditor` | `security`, `ship` | findings traced from actor to effect: confirmed with severity, needs-validation, rejected; smallest fix and regression test; domain references under `references/security/` |
+| `forgerdr:security-verifier` | `security`, per critical or high finding | an independent attempt to refute the finding: confirmed, downgraded or rejected |
 | `forgerdr:researcher` | `research`, one per sub-question | cited answer with confidence |
 
 Two kinds of agents, on purpose. Subagents run inside the session, cost a fresh context and leave nothing behind: right for review, audit and research. herdr panes run a whole Claude you can watch and talk to: right for `review-other` and `workitem`, which stop for your answers, and for `build` when you want to see a task happen. Tasks of one plan run sequentially either way: one branch, one worktree, one editor at a time.
