@@ -20,7 +20,7 @@ key="$(forge_project_key "$cwd")"
 language="$(jq -r '.language // empty' "$HOME/.claude/settings.json" 2>/dev/null || true)"
 
 context="$(
-printf 'FORGERDR ACTIVE. Memory project key: %s. Spec mode: %s. Reply language: %s.\n\n' "$key" "$("$plugin_root/bin/forge-config.sh" get spec "$key")" "${language:-the language the user writes in}"
+printf 'FORGERDR ACTIVE. Memory project key: %s. Spec mode: %s. Reply language: %s.\n\n' "$key" "$("$plugin_root/herdr/bin/forge-config.sh" get spec "$key")" "${language:-the language the user writes in}"
 for rule in standards communication build memory; do
   cat "$plugin_root/rules/$rule.md"
   printf '\n'

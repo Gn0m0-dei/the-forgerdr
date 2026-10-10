@@ -43,8 +43,8 @@ for url in "${items[@]}"; do
   id="$(printf '%s' "$meta" | cut -f1)"
   kind="$(printf '%s' "$meta" | cut -f2)"
   slug="$(forge_slug "$(printf '%s' "$meta" | cut -f3)")"
-  branch="$kind/#$id-$slug"
   for repo in "${repos[@]}"; do
+    branch="$(forge_branch_name "$kind" "$id" "$slug" "$(forge_project_key "$repo")")"
     base="${base_override:-$(forge_base_branch "$repo")}"
     git -C "$repo" fetch origin --quiet
     forge_herdr worktree create --cwd "$repo" --branch "$branch" --base "origin/$base" --label "#$id $slug" --no-focus >/dev/null

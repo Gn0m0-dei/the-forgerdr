@@ -48,7 +48,7 @@ case "$action" in
   set)
     value="${3:-}"; project="${4:-}"
     [ -n "$value" ] || die "usage: forge-config.sh set <setting> <value> [project-key]"
-    case "$value" in chat|openspec|openspec:*|azure) ;; *) die "unknown spec mode $value (chat | openspec | openspec:<path> | azure)" ;; esac
+    case "$value" in chat|openspec|openspec:*|azure) ;; *) die "unknown spec mode $value (chat | openspec | openspec:<store> | azure)" ;; esac
     if [ -n "$project" ]; then write_key projects "$project" "$value"; else write_key "" default "$value"; fi
     printf '%s %s = %s\n' "$setting" "${project:-default}" "$value" ;;
   *) die "usage: forge-config.sh get|set <setting> [value] [project-key]" ;;

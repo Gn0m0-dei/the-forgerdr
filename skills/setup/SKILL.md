@@ -35,9 +35,11 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 | Piece | Check | Missing |
 |---|---|---|
-| mode | `"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get spec <project-key>` | `chat` by default; `/forgerdr:mode spec <value> [--project]` to change it |
+| mode | `"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh" get spec <project-key>` | `chat` by default; `/forgerdr:mode spec <value> [--project]` to change it |
 | `azure`: azdospec plugin | `claude plugin list` shows `azdo@azdospec` | recommend `claude plugin marketplace add Gn0m0-dei/azdospec && claude plugin install azdo@azdospec`, then `/azdo:init` in the project; without it forgerdr uses its own `az` commands |
-| `openspec`: CLI (optional) | `command -v openspec` | optional, `npm install -g @fission-ai/openspec`; without it forgerdr writes the OpenSpec layout itself |
+| `openspec`: CLI | `openspec --version` | required in the `openspec` modes: `npm install -g @fission-ai/openspec` |
+| `openspec:<store>`: store | `openspec store list --json` lists it | `openspec store register <path>` on the store's checkout |
+| `openspec`: repository initialized | `openspec/` exists in the repository | propose `openspec init --tools claude` on the base branch; the user commits it |
 
 ## Sign-ins (the user runs them)
 

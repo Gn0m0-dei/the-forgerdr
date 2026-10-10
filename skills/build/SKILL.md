@@ -12,7 +12,7 @@ Input: the approved plan, wherever the spec mode keeps it (conversation and todo
 ## Setup
 
 - Isolated branch: `git switch -c <branch> --no-track origin/<base>`, upstream verified. Inside a herdr worktree the branch already exists.
-- Ledger: the record that survives compaction. `chat`: `mem_save` per task (started, rulings, result). `openspec`: a `## Ledger` section at the end of `tasks.md`. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
+- Ledger: the record that survives compaction. `chat` and `openspec`: `mem_save` per task (started, rulings, result); in `openspec`, also tick the task's checkbox in `tasks.md` when it is done, and never add anything else to that file. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
 - Read the plan and the spec. Pre-flight: files the plan names exist where it says, the test command runs.
 
 ## Project skills

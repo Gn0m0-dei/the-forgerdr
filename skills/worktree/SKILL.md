@@ -32,7 +32,9 @@ Services that cannot run twice (a database, a CMS container mounted on the main 
 "${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-worktree.sh" [--auto] --repo <path> [--repo <path>] [--base <branch>] [--dev '<command>'] <url> [<url>...]
 ```
 
-The script, per item and repository: reads the item (type → `fix/` or `feature/`, title → slug), creates the worktree with `herdr worktree create` from `origin/<base>` (`develop` when it exists, the remote HEAD otherwise), removes the upstream the worktree inherits, copies every ignored `.env*` file of the main clone into the worktree at the same path, splits a pane for the dev server with `PORT` set, starts a `claude` agent in the root pane and prompts it with `/forgerdr:workitem <url>`. It prints one JSON line per worktree.
+The script, per item and repository: reads the item (type → `fix/` or `feature/`, title → slug), names the branch `<kind>/#<id>-<slug>` (`<kind>/AB<id>-<slug>` when the workspace's spec mode is `azure`, the azdospec convention), creates the worktree with `herdr worktree create` from `origin/<base>` (`develop` when it exists, the remote HEAD otherwise), removes the upstream the worktree inherits, copies every ignored `.env*` file of the main clone into the worktree at the same path, splits a pane below for the dev server with `PORT` set, starts a titled `claude` agent in its own pane to the right of the worktree's shell and prompts it with `/forgerdr:workitem <url>`. It prints one JSON line per worktree.
+
+Spec mode `openspec`: every agent creates its own change, `<id>-<slug>`, inside its worktree, so it travels with that branch. With `openspec:<store>`, all agents write to the same store repository, each only inside its own change folder; nothing is committed there without the user's permission.
 
 ## 4. Report
 

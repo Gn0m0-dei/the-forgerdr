@@ -30,7 +30,7 @@ Manual by default. `--auto` in the arguments switches to the auto flow for this 
 - **manual**: this skill does the analysis, the reproduction and the root cause or proposal, then stops and names the next command that fits (`/forgerdr:spec`, `/forgerdr:debug`, `/forgerdr:plan`, `/forgerdr:build`, `/forgerdr:security`, `/forgerdr:ship`). The user drives.
 - **auto**: after the brief, classify the item and chain the whole pipeline in this session, following each skill's procedure (read its `SKILL.md` under `${CLAUDE_PLUGIN_ROOT}/skills/`):
   - **Bug, or a defect found while reproducing**: root cause with the four phases of `debug` → proposal (gate 2) → fix with a regression test proven red then green → `security` auditor on the branch diff → `ship`.
-  - **Backlog item that adds or changes behaviour**: `spec` with the item as the spec (its description and acceptance criteria; missing criteria are drafted in Gherkin and proposed for the item, written only on a yes) → `research` for any choice with real alternatives (library, approach) → `plan` → `build` → `security` auditor on the branch diff → `ship`.
+  - **Backlog item that adds or changes behaviour**: `spec` with the item as the spec (in spec mode `openspec`, the change is `<id>-<slug>` and links the item) (its description and acceptance criteria; missing criteria are drafted in Gherkin and proposed for the item, written only on a yes) → `research` for any choice with real alternatives (library, approach) → `plan` → `build` → `security` auditor on the branch diff → `ship`.
   - **Content or data someone else owns**: verdict and comment only, as in step 5.
   Announce each stage in one line as it starts. A stage that finds nothing to do says so and moves on.
 
@@ -62,7 +62,7 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 ## 4. Implement
 
 - Update the base first: `git fetch origin`; `git log --oneline <base>..origin/<base>` must be empty for the local base, or branch from `origin/<base>` directly.
-- Branch: `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that is really new behaviour. `git switch -c <branch> --no-track origin/<base>`, then verify `git rev-parse --abbrev-ref @{upstream}` fails or names the branch itself. Working inside a worktree the forgerdr created: the branch already exists, verify the upstream only.
+- Branch: `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that is really new behaviour; in spec mode `azure`, `fix/AB<id>-<slug>` and `feature/AB<id>-<slug>`, the azdospec convention. `git switch -c <branch> --no-track origin/<base>`, then verify `git rev-parse --abbrev-ref @{upstream}` fails or names the branch itself. Working inside a worktree the forgerdr created: the branch already exists, verify the upstream only.
 - A working tree mounted by a running container (watched folders, hot reload) must not be churned by git: check `git diff --stat HEAD origin/<base> -- <mounted-path>` before branching there and warn the user if files would be rewritten.
 - Implement the minimal fix. Verify it in the browser before claiming anything.
 - **No commit without permission.** Gate 3. When granted: Conventional Commits in English, `Closes: #<id>` footer, no AI mention of any kind. Pair programming the user names: `Co-authored-by: <colleague>`.

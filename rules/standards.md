@@ -89,6 +89,6 @@ Do it once per area per session, at the first step that touches code; when the w
 - **Never create commits without the user's explicit permission.** Permission covers that commit only: work produced afterwards needs asking again, even in the same session.
 - **To undo a commit, uncommit it**: `git reset --soft HEAD~<n>`. It drops the commit and leaves every change staged. Never `--mixed` (unstages everything silently), never `--hard` (destroys the work). Check `git status` afterwards.
 - **Update the base branch before branching off it**: `git fetch origin`, then confirm `git log --oneline <base>..origin/<base>` is empty.
-- Branch names: `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that turns out to be new behaviour. Slug: short, lowercase, hyphenated.
+- Branch names: `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that turns out to be new behaviour. In spec mode `azure` the id is written `AB<id>` (`feature/AB<id>-<slug>`), the azdospec convention. Slug: short, lowercase, hyphenated.
 - Conventional Commits, grouped by feature or logical change. If the branch carries a work item id, the commit message ends with `Closes: #<id>`.
-- Pull request titles follow `#<id> <branch-slug>` (branch `feature/#1234-empty-state` → title `#1234 empty-state`); with no id, the branch name alone. Description in English: problem, cause, change, verification, linked work item.
+- Pull request titles follow `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`feature/#1234-empty-state` or `feature/AB1234-empty-state` → `#1234 empty-state`); with no id, the branch name alone. Description in English: problem, cause, change, verification, linked work item.

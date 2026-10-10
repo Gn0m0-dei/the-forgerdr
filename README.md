@@ -34,7 +34,7 @@ Fresh machine, macOS or openSUSE Tumbleweed:
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 ```
 
-That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, [herdr](https://herdr.dev), Claude Code and the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary. Another distro: install those by hand.
+That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, [herdr](https://herdr.dev), Claude Code, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary and the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI. Another distro: install those by hand.
 
 Then, inside Claude Code:
 
@@ -111,8 +111,10 @@ The commands are always the same; a setting decides where the design and the tas
 | Value | Design and tasks live in | Backend |
 |---|---|---|
 | `chat` (default) | the conversation | nothing written; approval in chat |
-| `openspec` / `openspec:<path>` | `openspec/` in the repository, or in another repository at `<path>`, OpenSpec layout | the `openspec` CLI when installed, forgerdr's own writer otherwise |
+| `openspec` / `openspec:<store>` | the repository's `openspec/`, or a registered OpenSpec store (a separate specs repository) | OpenSpec 1.x through its CLI: `new change`, artifacts from its own templates, `validate --strict`, `archive` on the branch before the pull request |
 | `azure` | Azure Boards: a Feature, backlog items with Gherkin acceptance criteria, child tasks, progress comments | the [azdospec](https://github.com/Gn0m0-dei/azdospec) plugin when installed (forgerdr wraps `/azdo:propose`, `/azdo:apply`, `/azdo:archive`), forgerdr's own `az` commands otherwise |
+
+In `azure`, branches follow azdospec's naming (`feature/AB<id>-<slug>`) so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change.
 
 The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
 

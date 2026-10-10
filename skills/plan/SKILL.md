@@ -7,7 +7,7 @@ description: "Writes an implementation plan from an approved spec, as bite-sized
 
 Write the plan for an engineer who has not seen this codebase or this spec. They write idiomatic code once they know the exact interface and the exact test; what they cannot know is what you decided. Document that.
 
-Input: the approved design, wherever the spec mode keeps it: the conversation (`chat`), the change folder (`openspec`), the Feature and its backlog items (`azure`). Without an approval, stop and go through `/forgerdr:spec`.
+Input: the approved design, wherever the spec mode keeps it: the conversation (`chat`), the change (`openspec`), the Feature and its backlog items (`azure`). Without an approval, stop and go through `/forgerdr:spec`.
 
 ## Scope
 
@@ -58,7 +58,7 @@ Each step is one action with a checkable result. Values, names and signatures co
 ## Where the plan goes: the spec mode
 
 - `chat`: the plan is shown in the conversation and mirrored in the session todos; no file unless the user asks.
-- `openspec` / `openspec:<path>`: `tasks.md` inside the change folder, checkbox per step, in English.
-- `azure` with azdospec installed: `/azdo:apply` creates the tasks as child work items; it refuses until the requirement has a product-owner approval and an iteration, and says which is missing. Then the plan in chat carries the task ids. Without azdospec: one child Task per task through `az` (providers reference), created after the user approves the plan.
+- `openspec` / `openspec:<store>`: `tasks.md` of the change, from `openspec instructions tasks --change <name> --json` (its numbered checkbox format; the forgerdr task detail goes under each item), in English, then `openspec validate <name> --strict` (with `--store <store>` when set).
+- `azure` with azdospec installed: `/azdo:apply` creates the tasks as child work items; it refuses until the requirement has a product-owner approval and an iteration, and says which is missing. The branch is forgerdr's and already follows azdospec's naming, `feature/AB<id>-<slug>` (create it now with the git rules of the standards if the session is not on it yet): tell `/azdo:apply` to use the current branch and the current working tree, and to skip its own branch creation and its per-stream worktrees. Then the plan in chat carries the task ids. Without azdospec: one child Task per task through `az` (providers reference), created after the user approves the plan.
 
 Show the plan, stop, and let the user approve it and choose how it runs: inline (`/forgerdr:build`) or one agent per task. `mem_save` the task list.

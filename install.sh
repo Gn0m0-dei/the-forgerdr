@@ -41,6 +41,9 @@ main() {
     command -v engram >/dev/null 2>&1 || github_binary Gentleman-Programming/engram engram
   fi
 
+  step "openspec"
+  command -v openspec >/dev/null 2>&1 || npm install -g @fission-ai/openspec
+
   step "azure-devops extension"
   az extension show --name azure-devops >/dev/null 2>&1 || az extension add --name azure-devops
 

@@ -81,5 +81,11 @@ mkdir -p "$sandbox/target"
 expect "copy env count" "2" "$(forge_copy_env "$sandbox/workspace/front" "$sandbox/target")"
 expect "copy env placed" "yes" "$([ -f "$sandbox/target/apps/a/env/.env.local" ] && echo yes)"
 
+export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
+expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
+"$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null
+expect "branch azure" "fix/AB1234-login-button" "$(forge_branch_name fix 1234 login-button acme)"
+expect "branch other project" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button other)"
+
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

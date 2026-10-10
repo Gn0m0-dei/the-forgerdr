@@ -65,6 +65,17 @@ forge_child_repo_skills() {
   done
 }
 
+# Branch for a work item: <kind>/#<id>-<slug>, or <kind>/AB<id>-<slug> when the workspace's spec mode is azure
+# (the azdospec convention, so /azdo:apply finds the branch it expects).
+forge_branch_name() {
+  local kind="$1" id="$2" slug="$3" key="$4" mode
+  mode="$("$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge-config.sh" get spec "$key" 2>/dev/null || echo chat)"
+  case "$mode" in
+    azure) printf '%s/AB%s-%s\n' "$kind" "$id" "$slug" ;;
+    *) printf '%s/#%s-%s\n' "$kind" "$id" "$slug" ;;
+  esac
+}
+
 # Provider of a URL or a git remote: azure | github | gitlab | unknown
 forge_provider() {
   case "$1" in

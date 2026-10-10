@@ -27,7 +27,7 @@ GATES (every flow)
 
 SETTINGS                                      ~/.config/forgerdr/config.toml
   /forgerdr:mode                                show current values
-  /forgerdr:mode spec chat|openspec|openspec:<path>|azure [--project]
+  /forgerdr:mode spec chat|openspec|openspec:<store>|azure [--project]
   /forgerdr:setup                               check and complete the environment
 
 HERDR KEYS

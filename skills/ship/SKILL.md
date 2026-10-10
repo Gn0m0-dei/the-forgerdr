@@ -21,22 +21,26 @@ A working tree mounted by a running container must not be rebased with the conta
 
 Auto flow (`ship` reached from `/forgerdr:workitem --auto`): dispatch the `forgerdr:security-auditor` agent on `origin/<base>...HEAD`, with the paths of the project skills that cover the diff, and verify and triage its findings with the user as `/forgerdr:security` does; Critical and High get a fix pass before the review. Otherwise: when the diff touches authentication, user input, secrets, endpoints, uploads, payments or dependencies, suggest `/forgerdr:security` in one line before going on.
 
-## 3b. Review
+## 4. Review
 
 Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec and the plan when they exist and the paths of the project skills that cover the diff (standards, "Project skills"). Critical and Important findings get one fix pass, each fix red then green. Minor goes to the pull request description's "known" line or is dropped by the user.
 
-## 4. Commit
+## 5. Commit
 
 Uncommitted work: ask permission for the commit, Conventional Commits in English, `Closes: #<id>` when the branch carries a work item. Permission covers that commit only.
 
-## 5. Push and pull request
+## 6. Archive the OpenSpec change
+
+Spec mode `openspec` or `openspec:<store>`, with a change for this work: when every task in `tasks.md` is ticked, run `openspec archive <name> --yes` (with `--store <store>` when set). It applies the deltas to `openspec/specs/` and moves the change under `openspec/changes/archive/`. In the repository it is one more commit on this branch, asked like any other, so the pull request carries the code, the updated specs and the archived change together. In a store it is a commit in the store repository, never made without the user's permission. Tasks still open: do not archive; list them in the pull request description.
+
+## 7. Push and pull request
 
 `git push -u origin HEAD`. Then the pull request through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): base = `<base>`, title `#<id> <slug>` (or the branch name without id), description in English with Problem, Cause, Change, Verification (the commands and their results from step 1), and the work item linked through the provider's relation. Show the title and the description as a draft first; publish on an explicit yes. No AI mention anywhere.
 
 Report the pull request URL. The work item's state changes only when the user says.
 
-Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azdo:apply` opens it linking the requirement and its tasks); after the merge, `/azdo:archive` folds the delta into the spec store. Spec mode `openspec`: after the merge, archive the change (`openspec archive` with the CLI; otherwise apply the deltas to `openspec/specs/` and move the change folder under `openspec/changes/archive/<yyyy-mm-dd>-<name>/`).
+Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azdo:apply` opens it linking the requirement and its tasks), on the branch forgerdr created. After the merge, `/azdo:archive` folds the delta into the spec store: say so in the report, it is the user's to run.
 
-## 6. Worktree
+## 8. Worktree
 
 A herdr worktree stays open until the pull request merges unless the user asks: then `herdr worktree remove --workspace <id>` and the branch is kept. `mem_save` the pull request, the branch and what is pending.

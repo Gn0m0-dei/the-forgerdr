@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-11
+
+### Changed
+
+- Spec mode `openspec` runs on the OpenSpec 1.x CLI end to end: `openspec new change <id>-<slug>`, each artifact written from `openspec instructions <artifact> --json`, `openspec validate --strict` before showing anything, `tasks.md` ticked during `build`, and `openspec archive --yes` on the branch before the pull request, so code, updated specs and the archived change merge together. The hand-written fallback is gone: its format failed `validate --strict`. A repository without `openspec/` is not initialized on a feature branch; `openspec init --tools claude` is proposed on the base branch.
+- `openspec:<path>` becomes `openspec:<store>`: an OpenSpec store registered with `openspec store register`, used through `--store`. Reset a previous `openspec:<path>` value with `/forgerdr:mode`.
+- Spec mode `azure`: branches follow azdospec's naming, `feature/AB<id>-<slug>` and `fix/AB<id>-<slug>`, in `worktree`, `workitem` and the standards; `/azdo:apply` is told to use that branch and the current working tree instead of creating its own branch and per-stream worktrees. Pull request titles drop either id form from the slug.
+- `forge-config.sh` moves to `herdr/bin/`, next to the scripts that read it.
+
+### Fixed
+
+- Spec mode `azure` with work that starts from an existing backlog item no longer runs `/azdo:propose`, which would have created a second Feature for it: the item is the requirement, its missing acceptance criteria and task checklist are drafted and written to it on a yes, and `/azdo:apply` runs on it.
+- `worktree` described the agent as starting in the root pane; it starts in its own pane since 0.3.0.
+
+### Added
+
+- `test/openspec.test.sh`: smoke test of the OpenSpec CLI contract (init, new change, status, instructions, strict validation, archive, stores) in a throwaway `HOME`; required in CI.
+- `install.sh` installs the OpenSpec CLI; `/forgerdr:setup` checks it, the store registration and the repository initialization in the `openspec` modes.
+- CONTRIBUTING: a tool is supported only after reading its docs and running its CLI for real, and every change walks the mode × command matrix.
+
+
 ## [0.6.0] - 2026-10-09
 
 ### Changed

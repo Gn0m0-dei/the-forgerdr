@@ -18,4 +18,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: sudo apt-get install -y shellcheck
       - run: pnpm lint
+      - run: npm install -g @fission-ai/openspec
       - run: pnpm test
+        env:
+          FORGE_REQUIRE_OPENSPEC: "1"

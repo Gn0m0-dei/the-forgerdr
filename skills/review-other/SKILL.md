@@ -41,7 +41,7 @@ Order of the review and of the report: repository → area (package, module, app
 Checks, on top of every rule in the loaded skills and in the standards:
 
 Pull request metadata, reported as general comments with no file:
-- Title follows `#<id> <branch-slug>` (branch `bugfix/1234-login-button` → `#1234 login-button`).
+- Title follows `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`bugfix/1234-login-button`, `feature/#1234-login-button` or `feature/AB1234-login-button` → `#1234 login-button`).
 - The work item is linked in the provider's "work items" or "closes" relation. A bare `AB#<id>` or `#<id>` in the description does not count.
 
 Code:

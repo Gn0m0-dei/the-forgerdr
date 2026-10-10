@@ -39,9 +39,17 @@ The session start prints `Spec mode: <value>` (`/forgerdr:mode` shows or changes
 
 **`chat`**: nowhere but the conversation. Architectural work gets its sectioned design in chat, approved section by section; `/forgerdr:plan` then works from the conversation. No file is written unless the user asks for one.
 
-**`openspec`** and **`openspec:<path>`**: the OpenSpec layout, at the repository root or at `<path>`. When the `openspec` CLI is on PATH, use it (`openspec init` once, then its proposal flow and `openspec validate`). Otherwise write the same files yourself, in English: `openspec/changes/<kebab-name>/proposal.md` (why, what changes, impact), `design.md` (architectural only: the design sections), and `specs/<capability>/spec.md` with the requirement deltas marked `ADDED`, `MODIFIED` or `REMOVED`, each with Gherkin scenarios. Show the files; approval of the conversation only permits writing them, approval of the files only permits `/forgerdr:plan`.
+**`openspec`** and **`openspec:<store>`**: OpenSpec 1.x, always through its CLI (`openspec`; `/forgerdr:setup` installs it). `openspec` works on the repository's own `openspec/`; `openspec:<store>` adds `--store <store>` to every command below, so the change lives in that registered store. Never write the change folder or its files from memory: the CLI gives the structure and the templates.
+
+1. No OpenSpec root yet (`openspec status --change <name> --json` reports none, or `openspec/` is missing): stop and propose `openspec init --tools claude` as its own change on the base branch, committed by the user. Never initialize on a feature branch.
+2. Change name: `<id>-<slug>` when the work has a work item, a short kebab-case name otherwise. `openspec new change <name> --json`.
+3. `openspec status --change <name> --json` lists the artifacts and their order (proposal, then specs and design, then tasks). For proposal, specs and design: `openspec instructions <artifact> --change <name> --json` returns the instruction, the template and the output path; write each artifact from them, in English. `proposal.md` links the work item. Bounded work skips `design.md` only when the instruction allows it.
+4. `openspec validate <name> --strict` passes before anything is shown. Then show the files; approval of the conversation only permits writing them, approval of the files only permits `/forgerdr:plan`.
+5. A bug fix that restores the behaviour the specs already describe changes no requirement: no change is created. A fix that changes a requirement gets one.
 
 **`azure`**: the design is a Feature with its requirements as backlog items in Azure Boards. When the azdospec plugin is installed (the `azdo:propose` skill is available), run it with the approved understanding: forgerdr is a wrapper and azdospec owns the work items. When it is not installed, say that `/forgerdr:setup` recommends it, and do it yourself through `az` (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`, "Create work items"): one Feature, one backlog item per requirement with the acceptance criteria in Gherkin, written in the reply language, shown as a single draft and created only on a yes. A spike becomes one backlog item with the question and the timebox; its findings are posted as a comment on it when the spike closes.
+
+When the work starts from an existing backlog item (`/forgerdr:workitem`, `/forgerdr:worktree`), that item is the requirement: never run `/azdo:propose` or create a Feature for it, it would duplicate the item. Draft what the item lacks, the acceptance criteria in Gherkin and the task checklist `/azdo:apply` reads from the description, in the reply language, show it, and write it to the item only on a yes. `/forgerdr:plan` then runs `/azdo:apply` on that item.
 
 ## Gate
 
