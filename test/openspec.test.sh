@@ -14,6 +14,9 @@ sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
 export HOME="$sandbox/home" XDG_CONFIG_HOME="$sandbox/home/.config" OPENSPEC_NO_UPDATE_CHECK=1 OPENSPEC_NO_ANIMATION=1
 mkdir -p "$HOME"
+# OpenSpec commits when it sets up a store; CI runners have no git identity, so give the throwaway HOME one.
+git config --global user.name forgerdr-test
+git config --global user.email forgerdr-test@example.invalid
 
 failures=0
 expect() {
@@ -85,7 +88,7 @@ expect "archive moves the change" 1 "$(find openspec/changes/archive -maxdepth 1
 
 store="$sandbox/specs-store"
 mkdir -p "$store" && git -C "$store" init -q
-openspec store setup team-specs --path "$store" >/dev/null 2>&1
+output="$(openspec store setup team-specs --path "$store" 2>&1)" || { printf 'FAIL store setup\n%s\n' "$output"; exit 1; }
 expect "store is registered" team-specs "$(openspec store list --json | jq -r '.stores[0].id')"
 openspec new change 77-store-demo --store team-specs --json >/dev/null
 expect "change lands in the store" yes "$([ -d "$store/openspec/changes/77-store-demo" ] && echo yes)"
