@@ -34,5 +34,17 @@ expect "missing file silent" "" "$(run "$sandbox/nope")"
 chmod 755 "$sandbox/a.ts"; printf 'x​\n' > "$sandbox/a.ts"; run "$sandbox/a.ts" >/dev/null
 expect "mode preserved" 755 "$(stat -f %Lp "$sandbox/a.ts" 2>/dev/null || stat -c %a "$sandbox/a.ts")"
 
+f="$sandbox/zwj.md"; printf 'family 👨‍👩‍👧 ok\nab‍‍cd\n' > "$f"
+run "$f" >/dev/null
+expect "emoji zwj kept, ascii zwj run removed" "$(bytes 'family 👨‍👩‍👧 ok\nabcd\n')" "$(hex "$f")"
+f="$sandbox/fa.txt"; printf 'می‌خواهم\n' > "$f"
+run "$f" >/dev/null
+expect "zwnj between non-ascii kept" "$(bytes 'می‌خواهم\n')" "$(hex "$f")"
+f="$sandbox/nbsp.html"; printf 'a b\n​c　d\n' > "$f"
+expect "spaces reported not removed" "forgerdr scrub: $f: removed U+200B (line 2); kept U+00A0 (line 1), U+3000 (line 2): use an escape such as \\u00a0 or &nbsp; if intended." "$(context "$f")"
+expect "nbsp bytes untouched" "$(bytes 'a b\nc　d\n')" "$(hex "$f")"
+f="$sandbox/only-kept.txt"; printf 'a b\n' > "$f"
+expect "kept alone still reported" "forgerdr scrub: $f: kept U+00A0 (line 1): use an escape such as \\u00a0 or &nbsp; if intended." "$(context "$f")"
+
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - `hooks/guard-bash.sh` strips AI attribution (`Co-Authored-By` naming a model, "Generated with/by <model>", the robot emoji) from commit and pull request commands when it sits on its own line, and refuses the command otherwise, including inside `-F` and `--body-file` files.
+- `hooks/scrub-unicode.sh`: PostToolUse on Write, Edit and MultiEdit that strips zero-width, bidi, tag and stray BOM characters from the written file, keeps joiners next to emoji or non-Latin text, reports NBSP and exotic spaces, and skips binaries and invalid UTF-8.
 
 ## [0.7.0] - 2026-10-11
 
