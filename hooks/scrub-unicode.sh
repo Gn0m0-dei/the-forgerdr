@@ -33,17 +33,26 @@ report="$(perl -CSA -MEncode -MCwd=abs_path -MFile::Temp=tempfile -e '
   my @parts;
   if (%removed) {
     # Written next to the target and renamed over it, so a failed write never leaves the file half-written.
+    # The rename replaces the inode: a symlink survives because its resolved target is what gets replaced,
+    # while hard links and extended attributes do not follow.
     my $target = abs_path($path);
+    my ($dir) = $target =~ m{^(.*)/};
+    my $tmp_path;
+    $SIG{TERM} = sub { exit 1 };
     my $written = eval {
-      my ($tmp, $tmp_path) = tempfile(".scrub-XXXXXX", DIR => ($target =~ m{^(.*)/})[0]);
+      my @st = stat $target or die "cannot stat the file: $!\n";
+      my $tmp;
+      ($tmp, $tmp_path) = eval { tempfile(".scrub-XXXXXX", DIR => $dir, UNLINK => 1) } or die "cannot create a temporary file in $dir: $!\n";
       binmode $tmp, ":raw";
-      print {$tmp} encode("UTF-8", $bom . join "", @out) or die;
-      close $tmp or die;
-      chmod((stat $target)[2] & 07777, $tmp_path) or die;
-      rename $tmp_path, $target or do { unlink $tmp_path; die };
+      print {$tmp} encode("UTF-8", $bom . join "", @out) or die "write failed: $!\n";
+      close $tmp or die "write failed: $!\n";
+      chmod $st[2] & 07777, $tmp_path or die "chmod failed: $!\n";
+      rename $tmp_path, $target or die "rename failed: $!\n";
       1;
     };
-    push @parts, ($written ? "removed " : "could not write the file; still contains ") . $list->(\%removed);
+    unlink $tmp_path if !$written && defined $tmp_path;
+    (my $why = $@ // "") =~ s/\s+\z//;
+    push @parts, ($written ? "removed " : "could not write the file ($why); still contains ") . $list->(\%removed);
   }
   push @parts, "kept " . $list->(\%kept) . ": use an escape such as \\u00a0 or &nbsp; if intended" if %kept;
   print "forgerdr scrub: $path: " . join("; ", @parts) . "." if @parts;
