@@ -62,7 +62,7 @@ Two layouts work without configuration. One repository with its own `.claude/ski
 
 Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`herdr/bin/forge-session.sh`) unless the session is already titled for the single item given; outside herdr, a session that gains a number is asked once to `/rename` itself.
 
-`hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output.
+`hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`, and a commit or pull request that attributes the work to AI (a whole-line trailer or badge is stripped instead and the command runs clean). `hooks/scrub-unicode.sh` removes invisible Unicode (zero-width, bidi controls, tag characters, stray BOMs) from every file the agent writes and reports the exotic spaces it leaves alone. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output.
 
 | Rule file | What it fixes |
 |---|---|
