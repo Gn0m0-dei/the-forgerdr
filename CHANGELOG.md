@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `hooks/guard-bash.sh` strips AI attribution (`Co-Authored-By` naming a model, "Generated with/by <model>", the robot emoji) from commit and pull request commands when it sits on its own line, and refuses the command otherwise, including inside `-F` and `--body-file` files.
+
 ## [0.7.0] - 2026-10-11
 
 ### Changed

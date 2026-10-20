@@ -12,6 +12,25 @@ expect() {
 run() { printf '%s' "$1" | jq -Rs '{tool_input:{command:.}}' | bash "$hook"; }
 decision() { run "$1" | jq -r '.hookSpecificOutput.permissionDecision // empty'; }
 
+rewritten() { run "$1" | jq -r '.hookSpecificOutput.updatedInput.command // empty'; }
+
+# shellcheck disable=SC2016 # the command substitution must reach the hook unexpanded
+heredoc='git commit -m "$(cat <<'"'"'EOF'"'"'
+feat: x
+
+Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>
+EOF
+)"'
+# shellcheck disable=SC2016
+expect "heredoc trailer stripped" "$(printf 'git commit -m "$(cat <<'"'"'EOF'"'"'\nfeat: x\n\nEOF\n)"')" "$(rewritten "$heredoc")"
+expect "heredoc not denied" "" "$(decision "$heredoc")"
+multiline=$'git commit -m "feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>"'
+expect "closing quote kept" $'git commit -m "feat: x\n\n"' "$(rewritten "$multiline")"
+body=$'gh pr create --title "feat: x" --body "Done.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)"'
+expect "pr body robot line stripped" $'gh pr create --title "feat: x" --body "Done.\n\n"' "$(rewritten "$body")"
+expect "clean command not rewritten" "" "$(rewritten 'git commit -m "feat: add login"')"
+expect "rewrite keeps the rest of the input" "x" "$(printf '%s' "$multiline" | jq -Rs '{tool_input:{command:.,description:"x"}}' | bash "$hook" | jq -r '.hookSpecificOutput.updatedInput.description')"
+
 expect "existing denial kept" deny "$(decision 'git reset --hard HEAD~1')"
 expect "plain commit passes" "" "$(decision 'git commit -m "feat: add login"')"
 expect "amend without message passes" "" "$(decision 'git commit --amend --no-edit')"
