@@ -43,6 +43,10 @@ expect "subject mentioning trailer denied (documented false positive)" deny "$(d
 printf 'feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>\n' > "$sandbox/msg"
 expect "trailer inside -F file denied" deny "$(decision "git commit -F $sandbox/msg")"
 expect "trailer inside --body-file denied" deny "$(decision "gh pr create --body-file=$sandbox/msg --title x")"
+expect "git -C before commit still checked" deny "$(decision 'git -C /tmp/x commit -m "feat: x" -m "Co-Authored-By: Claude <noreply@anthropic.com>"')"
+expect "git -c before commit still stripped" $'git -c user.name=x commit -m "feat: x\n\n"' "$(rewritten $'git -c user.name=x commit -m "feat: x\n\nCo-Authored-By: Claude <noreply@anthropic.com>"')"
+expect "quoted -F path read" deny "$(decision "git commit -F \"$sandbox/msg\"")"
+expect "single-quoted --body-file read" deny "$(decision "gh pr create --body-file '$sandbox/msg' --title x")"
 expect "az body with vendor denied" deny "$(decision 'az repos pr create --description "🤖 Generated with [Claude Code](https://claude.com/claude-code)"')"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }

@@ -35,12 +35,13 @@ export ATTR="co-authored-by:[^\n\"']*(?:$vendors|noreply\@anthropic\.com)[^\n\"'
 has_attribution() { perl -CSD -0777 -ne 'exit(/$ENV{ATTR}/i ? 0 : 1)'; }
 attribution_reason="Zero attributions to AI (standards): remove every Co-Authored-By trailer naming a model, every 'Generated with/by <model>' line and the robot emoji from the message or body, then retry."
 
-if printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(])(git[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'; then
+git_options='([[:space:]]+(-C|-c|--git-dir|--work-tree)[= ]*[^[:space:]]+)*'
+if printf '%s' "$command_text" | grep -Eq "(^|[[:space:];&|(])(git$git_options"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'; then
   # Files passed with -F/--file/--body-file/--description-file; a path relative to the agent's cwd may not resolve here.
   while IFS= read -r file; do
     [ -n "$file" ] && [ -f "$file" ] && has_attribution < "$file" && deny "$attribution_reason"
   done <<EOF
-$(printf '%s' "$command_text" | grep -oE '(^|[[:space:]])(-F|--file|--body-file|--description-file)[= ]+[^[:space:]"'"'"']+' | sed -E 's/^[[:space:]]*(-F|--file|--body-file|--description-file)[= ]+//' || true)
+$(printf '%s' "$command_text" | grep -oE '(^|[[:space:]])(-F|--file|--body-file|--description-file)[= ]+("[^"]+"|'"'"'[^'"'"']+'"'"'|[^[:space:]"'"'"']+)' | sed -E 's/^[[:space:]]*(-F|--file|--body-file|--description-file)[= ]+//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)
 EOF
   # A mark that fills a whole line (the usual trailer) is dropped, keeping the quote that closes the message.
   clean="$(printf '%s' "$command_text" | perl -CSD -0777 -pe 's/^[ \t]*(?:$ENV{ATTR})[ \t]*(["'"'"']?)[ \t]*(\n|\z)/$1 ? "$1$2" : ""/gmie')"

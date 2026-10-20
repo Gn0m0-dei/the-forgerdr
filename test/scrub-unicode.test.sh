@@ -46,5 +46,14 @@ expect "nbsp bytes untouched" "$(bytes 'a b\nc　d\n')" "$(hex "$f")"
 f="$sandbox/only-kept.txt"; printf 'a b\n' > "$f"
 expect "kept alone still reported" "forgerdr scrub: $f: kept U+00A0 (line 1): use an escape such as \\u00a0 or &nbsp; if intended." "$(context "$f")"
 
+f="$sandbox/dup.ts"; printf 'a​b​c​d\n' > "$f"
+expect "line listed once per code point" "forgerdr scrub: $f: removed U+200B (line 1)." "$(context "$f")"
+f="$sandbox/ñandú.ts"; printf 'a​b\n' > "$f"
+expect "non-ascii path reported as is" "forgerdr scrub: $f: removed U+200B (line 1)." "$(context "$f")"
+mkdir "$sandbox/rodir"; f="$sandbox/rodir/ro.ts"; printf 'a​b\n' > "$f"; chmod 555 "$sandbox/rodir"
+expect "unwritable directory reported, not silently skipped" "forgerdr scrub: $f: could not write the file; still contains U+200B (line 1)." "$(context "$f")"
+expect "unwritable directory leaves the file untouched" "$(bytes 'a​b\n')" "$(hex "$f")"
+chmod 755 "$sandbox/rodir"
+
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'
