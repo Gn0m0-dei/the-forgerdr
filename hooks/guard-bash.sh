@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse guard for Bash: refuses the git and process commands the standards forbid, and refuses
-# commit and pull request commands that attribute the work to AI.
+# PreToolUse guard for Bash: refuses the git and process commands the standards forbid, strips whole-line
+# AI attribution from commit and pull request commands, and refuses the ones it cannot strip.
 set -euo pipefail
 
 input="$(cat)"
@@ -42,7 +42,13 @@ if printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(])(git[[:space:]]+co
   done <<EOF
 $(printf '%s' "$command_text" | grep -oE '(^|[[:space:]])(-F|--file|--body-file|--description-file)[= ]+[^[:space:]"'"'"']+' | sed -E 's/^[[:space:]]*(-F|--file|--body-file|--description-file)[= ]+//' || true)
 EOF
-  printf '%s' "$command_text" | has_attribution && deny "$attribution_reason"
+  # A mark that fills a whole line (the usual trailer) is dropped, keeping the quote that closes the message.
+  clean="$(printf '%s' "$command_text" | perl -CSD -0777 -pe 's/^[ \t]*(?:$ENV{ATTR})[ \t]*(["'"'"']?)[ \t]*(\n|\z)/$1 ? "$1$2" : ""/gmie')"
+  printf '%s' "$clean" | has_attribution && deny "$attribution_reason"
+  if [ "$clean" != "$command_text" ]; then
+    printf '%s' "$input" | jq -c --arg command "$clean" '{hookSpecificOutput:{hookEventName:"PreToolUse",updatedInput:(.tool_input + {command:$command})}}'
+    exit 0
+  fi
 fi
 
 exit 0
