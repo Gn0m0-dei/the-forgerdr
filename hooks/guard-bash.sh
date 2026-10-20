@@ -29,25 +29,37 @@ case "$command_text" in
     deny "Never kill processes by pattern. Find the exact PID or container name and ask before stopping it." ;;
 esac
 
-# Attribution to AI (standards): a trailer naming a model, "generated with/by <model>", or the robot emoji.
+# Attribution to AI (standards). A trailer is AI when its name is a vendor product or its address is a bot's,
+# so a human co-author who happens to be called Claude or Devin is left alone. "Generated with/by <vendor>"
+# and the robot emoji count anywhere.
+products='claude (?:code|fable|opus|sonnet|haiku)|github copilot|copilot|chatgpt|codex|aider|cursor agent|devin ai|gemini code assist'
+bots='noreply\@anthropic\.com|noreply\@openai\.com|cursoragent\@cursor\.com|aider\@aider\.chat|copilot\@users\.noreply\.github\.com|devin-ai-integration\[bot\]|gemini-code-assist\[bot\]'
 vendors='claude|anthropic|copilot|openai|chatgpt|gpt|gemini|codex|cursor|devin|aider'
-export ATTR="co-authored-by:[^\n\"']*(?:$vendors|noreply\@anthropic\.com)[^\n\"']*|generated (?:with|by)[^\n\"']{0,3}(?:$vendors)[^\n\"']*|\x{1F916}[^\n\"']*"
+export ATTR="co-authored-by:[ \t]*(?:$products)\b[^\n\"']*|[^\n\"']*(?:$bots)[^\n\"']*|generated (?:with|by)[^\n\"']{0,3}(?:$products|$vendors)\b[^\n\"']*|\x{1F916}[^\n\"']*"
 has_attribution() { perl -CSD -0777 -ne 'exit(/$ENV{ATTR}/i ? 0 : 1)'; }
-attribution_reason="Zero attributions to AI (standards): remove every Co-Authored-By trailer naming a model, every 'Generated with/by <model>' line and the robot emoji from the message or body, then retry."
+attribution_reason="Zero attributions to AI (standards): remove every Co-Authored-By trailer naming a model or a bot, every 'Generated with/by <model>' line and the robot emoji from the message or body, then retry."
 
-git_options='([[:space:]]+(-C|-c|--git-dir|--work-tree)[= ]*[^[:space:]]+)*'
-if printf '%s' "$command_text" | grep -Eq "(^|[[:space:];&|(])(git$git_options"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'; then
-  # Files passed with -F/--file/--body-file/--description-file; a path relative to the agent's cwd may not resolve here.
+# Any global git option (-C dir, -c key="a value", --no-pager, --git-dir=x) may sit between git and commit.
+git_option='([[:space:]]+(-[A-Za-z]|--[a-z-]+)(=|[[:space:]]+)?([^[:space:]"'"'"']|"[^"]*"|'"'"'[^'"'"']*'"'"')*)*'
+trigger='(^|[[:space:];&|(`/])(git'"$git_option"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'
+if printf '%s' "$command_text" | grep -Eq "$trigger"; then
+  # Files passed with -F/--file/--body-file/--description-file, glued, quoted or with escaped spaces.
+  cwd="$(printf '%s' "$input" | jq -r '.cwd // empty')"
   while IFS= read -r file; do
-    [ -n "$file" ] && [ -f "$file" ] && has_attribution < "$file" && deny "$attribution_reason"
+    [ -n "$file" ] || continue
+    case "$file" in /*) ;; *) file="${cwd:-$PWD}/$file" ;; esac
+    [ -f "$file" ] && has_attribution < "$file" && deny "$attribution_reason"
   done <<EOF
-$(printf '%s' "$command_text" | grep -oE '(^|[[:space:]])(-F|--file|--body-file|--description-file)[= ]+("[^"]+"|'"'"'[^'"'"']+'"'"'|[^[:space:]"'"'"']+)' | sed -E 's/^[[:space:]]*(-F|--file|--body-file|--description-file)[= ]+//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/' || true)
+$(printf '%s' "$command_text" | grep -oE '(^|[[:space:]])(-F[= ]*|--(file|body-file|description-file)[= ]+)("[^"]+"|'"'"'[^'"'"']+'"'"'|([^[:space:]"'"'"'\\]|\\.)+)' | sed -E 's/^[[:space:]]*(-F[= ]*|--(file|body-file|description-file)[= ]+)//; s/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/; s/\\(.)/\1/g' || true)
 EOF
   # A mark that fills a whole line (the usual trailer) is dropped, keeping the quote that closes the message.
+  stripped="$(printf '%s' "$command_text" | perl -CSD -0777 -ne 'print "$1\n" while /^[ \t]*((?:$ENV{ATTR}))[ \t]*["'"'"']?[ \t]*(?:\n|\z)/gmi')"
   clean="$(printf '%s' "$command_text" | perl -CSD -0777 -pe 's/^[ \t]*(?:$ENV{ATTR})[ \t]*(["'"'"']?)[ \t]*(\n|\z)/$1 ? "$1$2" : ""/gmie')"
   printf '%s' "$clean" | has_attribution && deny "$attribution_reason"
   if [ "$clean" != "$command_text" ]; then
-    printf '%s' "$input" | jq -c --arg command "$clean" '{hookSpecificOutput:{hookEventName:"PreToolUse",updatedInput:(.tool_input + {command:$command})}}'
+    context="forgerdr guard: stripped from the command: $(printf '%s' "$stripped" | paste -sd ';' - | sed 's/;/; /g')"
+    printf '%s' "$input" | jq -c --arg command "$clean" --arg context "$context" \
+      '{hookSpecificOutput:{hookEventName:"PreToolUse",updatedInput:(.tool_input + {command:$command}),additionalContext:$context}}'
     exit 0
   fi
 fi
