@@ -6,13 +6,13 @@ set -euo pipefail
 path="$(jq -r '.tool_input.file_path // empty')"
 [ -n "$path" ] && [ -f "$path" ] || exit 0
 
-report="$(perl -CSA -MEncode -MCwd=abs_path -MFile::Temp=tempfile -e '
+report="$(perl -CSA -MCwd=abs_path -MFile::Temp=tempfile -e '
   my $path = shift;
   my $max_lines = 5;
   open my $in, "<:raw", $path or exit 0;
   local $/; my $bytes = <$in>; close $in;
   exit 0 if index($bytes, "\0") >= 0;
-  my $text = eval { decode("UTF-8", $bytes, Encode::FB_CROAK) }; exit 0 unless defined $text;
+  my $text = $bytes; exit 0 unless utf8::decode($text);
   my $always = qr/[\x{200B}\x{2060}-\x{2064}\x{200E}\x{200F}\x{061C}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{E0000}-\x{E007F}\x{00AD}\x{180E}\x{034F}]/;
   my $joiner = qr/[\x{200C}\x{200D}]/;
   my $space = qr/[\x{00A0}\x{2000}-\x{200A}\x{202F}\x{205F}\x{3000}\x{1680}]/;
@@ -44,7 +44,8 @@ report="$(perl -CSA -MEncode -MCwd=abs_path -MFile::Temp=tempfile -e '
       my $tmp;
       ($tmp, $tmp_path) = eval { tempfile(".scrub-XXXXXX", DIR => $dir, UNLINK => 1) } or die "cannot create a temporary file in $dir: $!\n";
       binmode $tmp, ":raw";
-      print {$tmp} encode("UTF-8", $bom . join "", @out) or die "write failed: $!\n";
+      my $output = $bom . join "", @out; utf8::encode($output);
+      print {$tmp} $output or die "write failed: $!\n";
       close $tmp or die "write failed: $!\n";
       chmod $st[2] & 07777, $tmp_path or die "chmod failed: $!\n";
       rename $tmp_path, $target or die "rename failed: $!\n";
