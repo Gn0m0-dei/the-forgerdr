@@ -1,6 +1,6 @@
 id = "gn0m0dei.forgerdr"
 name = "forgerdr"
-version = "0.8.0"
+version = "0.9.0"
 min_herdr_version = "0.9.0"
 description = "Fan out pull request reviews and items (backlog items, OpenSpec changes, plain tasks) across worktrees, panes and claude agents."
 platforms = ["macos", "linux"]

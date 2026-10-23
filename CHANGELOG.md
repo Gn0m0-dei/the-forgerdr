@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-23
+
 ### Changed
 
 - The spec mode decides what `workitem` and `worktree` take as an item and how its branch is named (`references/items.md`, standards "Branch names"): in `openspec`, an OpenSpec change or a work item URL, the branch built from the change (`feature/#<id>-<slug>` when it references a work item, `feature/<change>` otherwise); in `azure`, a work item URL and `<kind>/AB<id>-<slug>`; in `chat`, a work item URL or free text, the branch asked with two or three proposals. A branch that already carries the work is reused; for a work item, any branch with its id.
