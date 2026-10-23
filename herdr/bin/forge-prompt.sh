@@ -9,7 +9,8 @@ case "$mode" in review|worktree) ;; *) printf 'usage: forge-prompt.sh review|wor
 
 if [ "$mode" = worktree ]; then
   printf 'forgerdr worktree\nItems separated by | (work item URLs, OpenSpec changes or text, as the spec mode says), then an empty line:\n'
-  # Every line is read here, so nothing is left in the terminal for claude to submit; a line break never splits an item.
+  # Lines are read up to the first empty one and joined: a line break never splits an item, and none of them is left
+  # in the terminal for claude to submit.
   input=""
   while IFS= read -r line && [ -n "$line" ]; do input="${input:+$input }$line"; done
   [ -n "${input// /}" ] || { printf 'nothing to do\n'; exit 0; }

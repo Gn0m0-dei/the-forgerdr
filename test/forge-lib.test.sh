@@ -88,6 +88,11 @@ expect "branch for id on origin" "feature/#42-render" "$(forge_branch_for_id "$s
 git -C "$sandbox/workspace/front" branch "fix/AB42-render-again"
 expect "branch for id local first" "fix/AB42-render-again" "$(forge_branch_for_id "$sandbox/workspace/front" 42)"
 expect "branch for id is not a longer id" "" "$(forge_branch_for_id "$sandbox/workspace/front" 4)"
+expect "agent name from an id" "item-1234-front" "$(forge_agent_name item 1234 front)"
+long_one="$(forge_agent_name item "feature/add-search-filters-to-results-page" "a-very-long-repository-name")"
+long_two="$(forge_agent_name item "feature/add-search-filters-to-results-api" "a-very-long-repository-name")"
+expect "agent names herdr accepts" "" "$(printf '%s\n' "$long_one" "$long_two" "$(forge_agent_name session '#12 Botón de acción no visible en la cabecera')" | grep -vE '^[a-z][a-z0-9_-]{0,31}$' || true)"
+expect "agent names differ on a shared prefix" yes "$([ "$long_one" != "$long_two" ] && echo yes)"
 expect "branch checked out in a worktree" "$sandbox/elsewhere/front-feature" "$(forge_checked_out_at "$sandbox/workspace/front" feature)"
 expect "branch free" "" "$(forge_checked_out_at "$sandbox/workspace/front" "fix/AB42-render-again")"
 

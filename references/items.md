@@ -53,6 +53,6 @@ A branch checked out in another clone or worktree (`git worktree list --porcelai
 
 1. The arguments name a change, or a work item URL whose id has an active change: that change.
 2. The branch carries an id: the active change named `<id>-…`. It is `feature/<change>`: that change, when it exists.
-3. The arguments or the branch name a work item and no change matched: there is none. `spec` creates it as `<id>-<slug>`, the slug taken from the branch; `plan` asks whether to create it through `/forgerdr:spec` or keep the plan in chat; `build` and `ship` work without a change.
-4. Nothing names a work item and `openspec list --json` lists exactly one active change: that one.
-5. Ask, one option per active change plus "none".
+3. The arguments or the branch name a work item and no change matched: there is none. `spec` creates it as `<id>-<slug>`, the slug taken from the branch when it carries that id and from the item's title otherwise; `plan` asks whether to create it through `/forgerdr:spec` or keep the plan in chat; `build` and `ship` work without a change.
+4. The arguments describe new work (`/forgerdr:spec <idea>`): there is none, `spec` creates it.
+5. Otherwise ask, one option per active change (`openspec list --json`) plus "none". An active change is never picked without this question: it may belong to other work.

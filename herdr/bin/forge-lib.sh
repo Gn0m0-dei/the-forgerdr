@@ -80,6 +80,14 @@ forge_branch_name() {
   esac
 }
 
+# Agent name herdr accepts ([a-z][a-z0-9_-]{0,31}, unique among live agents): <prefix>-<tag>[-<context>], the tag
+# being the key itself when it is a number (a work item id) and a checksum of it otherwise, so long keys never collide.
+forge_agent_name() {
+  local prefix="$1" key="$2" context="${3:-}" tag
+  case "$key" in ''|*[!0-9]*) tag="$(printf '%s' "$key" | cksum | cut -d' ' -f1)" ;; *) tag="$key" ;; esac
+  printf '%s-%s%s\n' "$prefix" "$tag" "${context:+-$(forge_slug "$context")}" | cut -c1-32
+}
+
 # Provider of a URL or a git remote: azure | github | gitlab | unknown
 forge_provider() {
   case "$1" in

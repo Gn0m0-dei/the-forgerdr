@@ -25,7 +25,7 @@ description = "forgerdr: review pull requests"
 key = "prefix+shift+t"
 type = "plugin_action"
 command = "gn0m0dei.forgerdr.worktree"
-description = "forgerdr: work items in worktrees"
+description = "forgerdr: items in worktrees"
 $end
 EOT
 printf 'forgerdr keybindings written to %s\n' "$config"

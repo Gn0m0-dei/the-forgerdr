@@ -29,7 +29,7 @@ tab="$(forge_herdr tab create ${HERDR_WORKSPACE_ID:+--workspace "$HERDR_WORKSPAC
 pane="$(printf '%s' "$tab" | jq -r '.result.root_pane.pane_id')"
 agent=""
 if [ "$start_agent" = 1 ]; then
-  agent="session-$(forge_slug "$title" | cut -c1-24)"
+  agent="$(forge_agent_name session "$title")"
   forge_start_claude "$agent" "$pane" "$prompt"
 fi
 jq -cn --arg title "$title" --arg cwd "$cwd" --arg pane "$pane" --arg agent "$agent" '{title:$title,cwd:$cwd,pane:$pane,agent:$agent}'
