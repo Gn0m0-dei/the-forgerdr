@@ -27,15 +27,15 @@ Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec a
 
 ## 5. Commit
 
-Uncommitted work: ask permission for the commit, Conventional Commits in English, `Closes: #<id>` when the branch carries a work item. Permission covers that commit only.
+Uncommitted work: ask permission for the commit, Conventional Commits in English, `Closes: #<id>` when the work has a work item (the branch's id, or the one the OpenSpec change references). Permission covers that commit only.
 
 ## 6. Archive the OpenSpec change
 
-Spec mode `openspec` or `openspec:<store>`, with a change for this work: when every task in `tasks.md` is ticked, run `openspec archive <name> --yes` (with `--store <store>` when set). It applies the deltas to `openspec/specs/` and moves the change under `openspec/changes/archive/`. In the repository it is one more commit on this branch, asked like any other, so the pull request carries the code, the updated specs and the archived change together. In a store it is a commit in the store repository, never made without the user's permission. Tasks still open: do not archive; list them in the pull request description.
+Spec mode `openspec` or `openspec:<store>`, with a change for this work (the change of the current work, `${CLAUDE_PLUGIN_ROOT}/references/items.md`): when every task in `tasks.md` is ticked, run `openspec archive <name> --yes` (with `--store <store>` when set). It applies the deltas to `openspec/specs/` and moves the change under `openspec/changes/archive/`. In the repository it is one more commit on this branch, asked like any other, so the pull request carries the code, the updated specs and the archived change together. In a store it is a commit in the store repository, never made without the user's permission. Tasks still open: do not archive; list them in the pull request description.
 
 ## 7. Push and pull request
 
-`git push -u origin HEAD`. Then the pull request through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): base = `<base>`, title `#<id> <slug>` (or the branch name without id), description in English with Problem, Cause, Change, Verification (the commands and their results from step 1), and the work item linked through the provider's relation. Show the title and the description as a draft first; publish on an explicit yes. No AI mention anywhere.
+`git push -u origin HEAD`. Then the pull request through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): base = `<base>`, title `#<id> <slug>` (or the branch name without id), description in English with Problem, Cause, Change, Verification (the commands and their results from step 1), and the work item (the branch's id, or the one the OpenSpec change references) linked through the provider's relation. Show the title and the description as a draft first; publish on an explicit yes. No AI mention anywhere.
 
 Report the pull request URL. The work item's state changes only when the user says.
 

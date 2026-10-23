@@ -35,4 +35,6 @@ Setting `openspec:<store>` checks the store is registered first (`openspec store
 | `openspec:<store>` | an OpenSpec store: a separate repository registered with `openspec store register <path>` | the same CLI with `--store <store>` |
 | `azure` | Azure Boards work items | the azdospec plugin (`/azdo:propose`, `/azdo:apply`, `/azdo:archive`) when installed; forgerdr's own `az` commands otherwise |
 
+The mode also decides what `/forgerdr:workitem` and `/forgerdr:worktree` take as an item and how the branch is named: `${CLAUDE_PLUGIN_ROOT}/references/items.md`.
+
 Whatever the mode, the forgerdr commands are the same and the gates do not move: no implementation before an approved design, no commit without permission, no publication without a yes.

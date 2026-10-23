@@ -11,8 +11,8 @@ Input: the approved plan, wherever the spec mode keeps it (conversation and todo
 
 ## Setup
 
-- Isolated branch: `git switch -c <branch> --no-track origin/<base>`, upstream verified. Inside a herdr worktree the branch already exists.
-- Ledger: the record that survives compaction. `chat` and `openspec`: `mem_save` per task (started, rulings, result); in `openspec`, also tick the task's checkbox in `tasks.md` when it is done, and never add anything else to that file. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
+- Isolated branch, named as the standards say for the spec mode (Git, "Branch names"; in `chat`, `AskUserQuestion` with the proposals): `git switch -c <branch> --no-track origin/<base>`, upstream verified; a branch that already carries the work is reused. Inside a herdr worktree the branch already exists.
+- Ledger: the record that survives compaction. `chat` and `openspec`: `mem_save` per task (started, rulings, result); in `openspec`, when the work has a change (the change of the current work, `${CLAUDE_PLUGIN_ROOT}/references/items.md`), its tasks are the plan: tick the task's checkbox in its `tasks.md` when it is done, and never add anything else to that file. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
 - Read the plan and the spec. Pre-flight: files the plan names exist where it says, the test command runs.
 
 ## Project skills
@@ -38,7 +38,7 @@ No completion claim without fresh evidence from this turn. "Tests pass" needs th
 
 ## Agent mode
 
-The user chose "one agent per task" at the plan handoff, or the plan is long enough that its last tasks would run on a compacted context. Same branch, same worktree, tasks strictly sequential: two agents editing one working tree in parallel is a merge conflict with extra steps.
+The user chose "one agent per task" at the plan handoff, or the plan is long enough that its last tasks would run on a compacted context. Same branch, same worktree, tasks strictly sequential: two agents editing one working tree in parallel is a merge conflict with extra steps. Implementers share the branch's worktree; never isolate one in a worktree of its own (`isolation: "worktree"`), and never split independent tasks across worktrees to cherry-pick them back.
 
 Per task:
 1. Dispatch an implementer with the Agent tool (general-purpose, same worktree): the task text verbatim, the plan's global constraints, the interfaces block, the test command, and the rule "TDD, no commit, report the diff summary and the test output". Nothing else from your context: a fresh implementer reads the codebase, not your assumptions.

@@ -80,6 +80,10 @@ MD
 printf '# Design\n\n## Decision\n\nKeep the filters in the URL query string.\n' > "$dir/design.md"
 printf '# Tasks\n\n## 1. Filters in the URL\n\n- [x] 1.1 Failing test for restoring filters\n- [x] 1.2 Read and write filters through the URL\n' > "$dir/tasks.md"
 
+expect "status of a missing change fails" 1 "$(openspec status --change no-such-change --json >/dev/null 2>&1; echo $?)"
+expect "list names the active change" "$change" "$(openspec list --json | jq -r '.changes[].name')"
+expect "status marks every artifact done" "done done done done" "$(openspec status --change "$change" --json | jq -r '[.artifacts[].status] | join(" ")')"
+expect "list counts the tasks" "2 2" "$(openspec list --json | jq -r '.changes[0] | "\(.completedTasks) \(.totalTasks)"')"
 expect "validate --strict passes" 0 "$(openspec validate "$change" --strict >/dev/null 2>&1; echo $?)"
 expect "status complete" true "$(openspec status --change "$change" --json | jq -r '.isComplete')"
 openspec archive "$change" --yes >/dev/null 2>&1

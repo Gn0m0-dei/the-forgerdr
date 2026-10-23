@@ -24,7 +24,7 @@ A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole 
 | Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
 | Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
 | In this session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
-| One tab per item, on herdr | `workitem` · `worktree` · `review` | one URL or many; a titled session each, worktrees and dev servers when asked |
+| One tab per item, on herdr | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, worktrees and dev servers when asked |
 
 ## Install
 
@@ -60,7 +60,7 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 
 Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, so the agent reads them when they apply, from the main checkout and from any worktree of it. The other way round, a session started at the workspace root gets the skills inside each repository listed by repository.
 
-Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`herdr/bin/forge-session.sh`) unless the session is already titled for the single item given; outside herdr, a session that gains a number is asked once to `/rename` itself.
+Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`, the change name for an OpenSpec change without a work item, the branch slug for free text) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`herdr/bin/forge-session.sh`) unless the session is already titled for the single item given; outside herdr, a session that gains a number is asked once to `/rename` itself.
 
 `hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`, and a commit or pull request that attributes the work to AI (a whole-line trailer or badge is stripped instead and the command runs clean). `hooks/scrub-unicode.sh` removes invisible Unicode (zero-width, bidi controls, tag characters, stray BOMs) from every file the agent writes and reports the exotic spaces it leaves alone. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output.
 
@@ -85,8 +85,8 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
 | `/forgerdr:security` | Runs the security auditor on the diff or a module, has a fresh verifier challenge every critical or high finding, triages confirmed and needs-validation findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
-| `/forgerdr:workitem [--auto] <url...>` | Works backlog items (bug, PBI, task, issue) in the current clone, one titled herdr tab per item: brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment. Six gates, none skipped. |
-| `/forgerdr:worktree [--auto] <url...>` | The same, each item in its own git worktree: branch `fix/#id-slug` or `feature/#id-slug` from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
+| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled herdr tab per item, separated by `\|`: a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
+| `/forgerdr:worktree [--auto] <item> [\| <item>...]` | The same, each item in its own git worktree: its branch (named by the spec mode, reused when it exists) from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files and an uncommitted OpenSpec change copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
 | `/forgerdr:review <url...>` | One titled herdr pane and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
 | `/forgerdr:review-other <url>` | Reviews a colleague's pull request in this session: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
 | `/forgerdr:review-own <url>` | Handles the review comments on your own pull request in this session: fix, reply or question per thread, you pick, then pushes, replies and resolves. |
@@ -100,7 +100,7 @@ Providers are reached through their CLIs, never through MCP servers: `references
 | Flow | What happens after the brief |
 |---|---|
 | manual (default) | analysis, reproduction, root cause or proposal; the next command is suggested and you drive with `spec`, `research`, `plan`, `build`, `debug`, `security`, `ship` |
-| `--auto` | the whole pipeline: a bug goes root cause → fix → security → ship; a backlog item goes spec (the item is the spec) → research when there are alternatives → plan → build → security → ship |
+| `--auto` | the whole pipeline: a bug goes root cause → fix → security → ship; a backlog item goes spec (the item is the spec) → research when there are alternatives → plan → build → security → ship; an OpenSpec change goes from its stage (spec, plan, build or ship) to the end |
 
 The gates hold in both: design approved before code, permission per commit, drafts before anything is published.
 
@@ -114,7 +114,15 @@ The commands are always the same; a setting decides where the design and the tas
 | `openspec` / `openspec:<store>` | the repository's `openspec/`, or a registered OpenSpec store (a separate specs repository) | OpenSpec 1.x through its CLI: `new change`, artifacts from its own templates, `validate --strict`, `archive` on the branch before the pull request |
 | `azure` | Azure Boards: a Feature, backlog items with Gherkin acceptance criteria, child tasks, progress comments | the [azdospec](https://github.com/Gn0m0-dei/azdospec) plugin when installed (forgerdr wraps `/azdo:propose`, `/azdo:apply`, `/azdo:archive`), forgerdr's own `az` commands otherwise |
 
-In `azure`, branches follow azdospec's naming (`feature/AB<id>-<slug>`) so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change.
+The mode also decides what `workitem` and `worktree` take and how the branch is named ([`references/items.md`](references/items.md)):
+
+| Value | Item | Branch |
+|---|---|---|
+| `openspec` / `openspec:<store>` | an OpenSpec change, or a work item URL | from the change: `feature/#<id>-<slug>` when it references a work item, `feature/<change>` otherwise; a work item URL with no change yet, `<kind>/#<id>-<slug>` |
+| `azure` | a work item URL | `<kind>/AB<id>-<slug>` |
+| `chat` | a work item URL or free text | asked, with two or three proposals |
+
+In `azure`, branches follow azdospec's naming so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change. Several items are separated by `|`, and only by `|`.
 
 The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
 
@@ -138,17 +146,17 @@ Two kinds of agents, on purpose. Subagents run inside the session, cost a fresh 
 | Action | Keybinding (after `setup-keys`) | What it does |
 |---|---|---|
 | `review` | `prefix+shift+p` | Opens a pane that asks for pull request URLs and runs `bin/forge-review.sh` |
-| `worktree` | `prefix+shift+t` | Opens a pane that asks for item URLs and runs `bin/forge-worktree.sh` |
+| `worktree` | `prefix+shift+t` | Opens a pane that asks for items separated by `\|` and starts a Claude session running `/forgerdr:worktree` on them, which reads the spec mode |
 | `setup-keys` | | Writes the two keybindings into `~/.config/herdr/config.toml` (managed block) and reloads |
 
 The scripts are plain bash over the herdr CLI and `jq`:
 
 ```bash
-herdr/bin/forge-worktree.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--no-agent] <item-url>...
+herdr/bin/forge-worktree.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT] <item>...
 herdr/bin/forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
 ```
 
-Both print one JSON line per worktree or pane. What they cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags; from the herdr action, the defaults apply: every repository under the current directory, and a dev server only when `package.json` has a single `dev` script.
+Both print one JSON line per worktree or pane. What they cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags: the repositories, the dev command, and the branch and title of every item that is not a work item URL. The herdr `review` action runs its script with the defaults; the `worktree` action starts a Claude session running `/forgerdr:worktree`, so the spec mode decides there too.
 
 ## Development
 

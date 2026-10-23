@@ -81,6 +81,24 @@ mkdir -p "$sandbox/target"
 expect "copy env count" "2" "$(forge_copy_env "$sandbox/workspace/front" "$sandbox/target")"
 expect "copy env placed" "yes" "$([ -f "$sandbox/target/apps/a/env/.env.local" ] && echo yes)"
 
+git -C "$sandbox/workspace/front" update-ref "refs/remotes/origin/feature/#42-render" HEAD
+expect "start ref from the remote branch" "origin/feature/#42-render" "$(forge_start_ref "$sandbox/workspace/front" "feature/#42-render" develop)"
+expect "start ref from the base" "origin/develop" "$(forge_start_ref "$sandbox/workspace/front" "feature/new" develop)"
+expect "branch for id on origin" "feature/#42-render" "$(forge_branch_for_id "$sandbox/workspace/front" 42)"
+git -C "$sandbox/workspace/front" branch "fix/AB42-render-again"
+expect "branch for id local first" "fix/AB42-render-again" "$(forge_branch_for_id "$sandbox/workspace/front" 42)"
+expect "branch for id is not a longer id" "" "$(forge_branch_for_id "$sandbox/workspace/front" 4)"
+expect "branch checked out in a worktree" "$sandbox/elsewhere/front-feature" "$(forge_checked_out_at "$sandbox/workspace/front" feature)"
+expect "branch free" "" "$(forge_checked_out_at "$sandbox/workspace/front" "fix/AB42-render-again")"
+
+mkdir -p "$sandbox/workspace/front/openspec/changes/add-renderer" "$sandbox/change-target"
+touch "$sandbox/workspace/front/openspec/changes/add-renderer/proposal.md"
+expect "copy change missing in the worktree" true "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" add-renderer)"
+expect "copy change placed" yes "$([ -f "$sandbox/change-target/openspec/changes/add-renderer/proposal.md" ] && echo yes)"
+expect "copy change already there" false "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" add-renderer)"
+expect "copy change not a change name" false "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" 'https://github.com/o/r/issues/1')"
+expect "copy change unknown" false "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" other-change)"
+
 export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
 expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
 "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null
