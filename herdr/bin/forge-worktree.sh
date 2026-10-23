@@ -55,6 +55,7 @@ for repo in "${repos[@]}"; do git -C "$repo" fetch origin --quiet; done
 plan_items=()
 plan_repos=()
 plan_branches=()
+planned=""
 item_ids=()
 item_labels=()
 for index in "${!items[@]}"; do
@@ -78,6 +79,8 @@ for index in "${!items[@]}"; do
     fi
     busy="$(forge_checked_out_at "$repo" "$branch")"
     [ -z "$busy" ] || forge_die "$branch is checked out at $busy; free it there or work the item in that clone"
+    ! grep -qxF "$repo	$branch" <<<"$planned" || forge_die "two items resolve to $branch in $repo"
+    planned="$planned$repo	$branch"$'\n'
     plan_items+=("$index"); plan_repos+=("$repo"); plan_branches+=("$branch")
   done
 done
@@ -96,7 +99,9 @@ for step in "${!plan_items[@]}"; do
   path="$(printf '%s' "$worktree" | cut -f1)"
   workspace="$(printf '%s' "$worktree" | cut -f2)"
   [ -n "$path" ] || forge_die "worktree for $branch not found in $repo"
-  git -C "$path" branch --unset-upstream >/dev/null 2>&1 || true
+  # The inherited upstream goes; a reused branch that tracks itself on origin keeps it.
+  [ "$(git -C "$path" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)" = "origin/$branch" ] \
+    || git -C "$path" branch --unset-upstream >/dev/null 2>&1 || true
   env_count="$(forge_copy_env "$repo" "$path")"
   change_copied=false
   [ "$(forge_spec_mode "$(forge_project_key "$repo")")" != openspec ] || change_copied="$(forge_copy_change "$repo" "$path" "$item")"
@@ -117,8 +122,7 @@ for step in "${!plan_items[@]}"; do
     # The agent gets its own pane so the session title can travel in its environment; the root pane stays a shell.
     agent_pane="$(forge_herdr pane split "$root_pane" --direction right --ratio 0.35 --cwd "$path" --env "FORGE_SESSION_TITLE=$title" --focus | jq -r '.result.pane.pane_id')"
     forge_herdr pane rename "$agent_pane" "$title" >/dev/null
-    # An id names the agent; without one the branch does, plus the item's position, since names may share a prefix.
-    agent="item-${id:-$(forge_slug "$branch")-$index}-$(forge_slug "$(basename "$repo")" | cut -c1-12)"
+    agent="$(forge_agent_name item "${id:-$branch}" "$(basename "$repo")")"
     forge_start_claude "$agent" "$agent_pane" "/forgerdr:workitem ${flow_flag}$item"
   fi
   jq -cn --arg item "${id:-$item}" --arg repo "$repo" --arg branch "$branch" --arg path "$path" --arg workspace "$workspace" \

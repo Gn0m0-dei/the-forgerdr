@@ -2,7 +2,7 @@ id = "gn0m0dei.forgerdr"
 name = "forgerdr"
 version = "0.8.0"
 min_herdr_version = "0.9.0"
-description = "Fan out pull request reviews and backlog items across worktrees, panes and claude agents."
+description = "Fan out pull request reviews and items (backlog items, OpenSpec changes, plain tasks) across worktrees, panes and claude agents."
 platforms = ["macos", "linux"]
 
 [[actions]]
@@ -12,7 +12,7 @@ command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin gn0m0
 
 [[actions]]
 id = "worktree"
-title = "forgerdr: work items in worktrees"
+title = "forgerdr: items in worktrees"
 command = ["sh", "-c", "exec \"$HERDR_BIN_PATH\" plugin pane open --plugin gn0m0dei.forgerdr --entrypoint worktree --focus"]
 
 [[actions]]

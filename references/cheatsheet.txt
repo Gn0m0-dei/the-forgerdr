@@ -35,4 +35,4 @@ SETTINGS                                      ~/.config/forgerdr/config.toml
   /forgerdr:setup                               check and complete the environment
 
 HERDR KEYS
-  prefix+shift+p   review pull requests       prefix+shift+t   work items in worktrees
+  prefix+shift+p   review pull requests       prefix+shift+t   items in worktrees

@@ -21,7 +21,7 @@ One item touching two repositories gets two worktrees and two agents, one per re
 ## 2. Branches
 
 - `azure`, or a work item URL in `openspec` with no active change for its id: the script names the branch from the item, or reuses one that already carries the id; pass nothing.
-- An OpenSpec change, or a work item URL in `openspec` whose id has an active change (it is that change): the branch the standards name from the change, reused when it exists (items reference), passed as `--branch <branch> --title <title>` before the item.
+- An OpenSpec change, or a work item URL in `openspec` whose id has an active change (it is that change): the branch the standards name from the change, reused when it exists (items reference), passed as `--branch <branch> --title <title>` before the item. The item passed is the change name, never the URL, so the script copies an uncommitted change and the agent continues it instead of creating it again.
 - `chat`: one `AskUserQuestion` per item with two or three branch proposals (at most four questions per call), then `--branch` and `--title` as above.
 
 Every branch: a local one is reused as it is, one only on `origin` is started from it. The script resolves every branch before creating anything and stops when one is checked out in the main clone or another worktree, naming where: then ask the user, as the items reference says, and run it again.

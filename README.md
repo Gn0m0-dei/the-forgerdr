@@ -17,7 +17,7 @@
   <a href="./CHANGELOG.md"><img alt="Status" src="https://img.shields.io/badge/status-v0-orange?style=flat-square" /></a>
 </p>
 
-A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer, a backlog item workflow, and the two things that make a terminal full of agents worth it: fan out N pull requests into N panes, fan out N backlog items into N worktrees, each with its env files, its dev server and its own agent.
+A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer, a backlog item workflow, and the two things that make a terminal full of agents worth it: fan out N pull requests into N panes, fan out N items (backlog items, OpenSpec changes or plain tasks) into N worktrees, each with its env files, its dev server and its own agent.
 
 | Layer | Pieces | What it gives |
 |---|---|---|
@@ -114,15 +114,9 @@ The commands are always the same; a setting decides where the design and the tas
 | `openspec` / `openspec:<store>` | the repository's `openspec/`, or a registered OpenSpec store (a separate specs repository) | OpenSpec 1.x through its CLI: `new change`, artifacts from its own templates, `validate --strict`, `archive` on the branch before the pull request |
 | `azure` | Azure Boards: a Feature, backlog items with Gherkin acceptance criteria, child tasks, progress comments | the [azdospec](https://github.com/Gn0m0-dei/azdospec) plugin when installed (forgerdr wraps `/azdo:propose`, `/azdo:apply`, `/azdo:archive`), forgerdr's own `az` commands otherwise |
 
-The mode also decides what `workitem` and `worktree` take and how the branch is named ([`references/items.md`](references/items.md)):
+The mode also decides what `workitem` and `worktree` take as an item (an OpenSpec change or a work item URL in `openspec`, a work item URL in `azure`, a URL or free text in `chat`) and how its branch is named: [`references/items.md`](references/items.md) and the standards' "Branch names". Several items are separated by `|`, and only by `|`.
 
-| Value | Item | Branch |
-|---|---|---|
-| `openspec` / `openspec:<store>` | an OpenSpec change, or a work item URL | from the change: `feature/#<id>-<slug>` when it references a work item, `feature/<change>` otherwise; a work item URL with no change yet, `<kind>/#<id>-<slug>` |
-| `azure` | a work item URL | `<kind>/AB<id>-<slug>` |
-| `chat` | a work item URL or free text | asked, with two or three proposals |
-
-In `azure`, branches follow azdospec's naming so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change. Several items are separated by `|`, and only by `|`.
+In `azure`, branches follow azdospec's naming so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change.
 
 The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
 
@@ -156,7 +150,7 @@ herdr/bin/forge-worktree.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [
 herdr/bin/forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
 ```
 
-Both print one JSON line per worktree or pane. What they cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags: the repositories, the dev command, and the branch and title of every item that is not a work item URL. The herdr `review` action runs its script with the defaults; the `worktree` action starts a Claude session running `/forgerdr:worktree`, so the spec mode decides there too.
+Both print one JSON line per worktree or pane. What they cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags: the repositories, the dev command, and the branch and title of every item the script cannot name from a work item (any item in `chat`, a change in `openspec`). The herdr `review` action runs its script with the defaults; the `worktree` action starts a Claude session running `/forgerdr:worktree`, so the spec mode decides there too.
 
 ## Development
 
