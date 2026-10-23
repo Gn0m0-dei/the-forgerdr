@@ -65,12 +65,16 @@ forge_child_repo_skills() {
   done
 }
 
+# Spec mode of a memory project key: chat | openspec | openspec:<store> | azure.
+forge_spec_mode() {
+  "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge-config.sh" get spec "$1" 2>/dev/null || echo chat
+}
+
 # Branch for a work item: <kind>/#<id>-<slug>, or <kind>/AB<id>-<slug> when the workspace's spec mode is azure
 # (the azdospec convention, so /azdo:apply finds the branch it expects).
 forge_branch_name() {
-  local kind="$1" id="$2" slug="$3" key="$4" mode
-  mode="$("$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge-config.sh" get spec "$key" 2>/dev/null || echo chat)"
-  case "$mode" in
+  local kind="$1" id="$2" slug="$3" key="$4"
+  case "$(forge_spec_mode "$key")" in
     azure) printf '%s/AB%s-%s\n' "$kind" "$id" "$slug" ;;
     *) printf '%s/#%s-%s\n' "$kind" "$id" "$slug" ;;
   esac
@@ -234,6 +238,47 @@ forge_copy_env() {
 $(forge_env_files "$source")
 EOT
   printf '%s\n' "$count"
+}
+
+# Ref a worktree for a branch starts from: the branch on origin when the remote has it, the base otherwise.
+forge_start_ref() {
+  local repo="$1" branch="$2" base="$3"
+  if git -C "$repo" show-ref --verify --quiet "refs/remotes/origin/$branch"; then
+    printf 'origin/%s\n' "$branch"
+  else
+    printf 'origin/%s\n' "$base"
+  fi
+}
+
+# Existing branch that carries a work item id (<kind>/#<id>-… or <kind>/AB<id>-…), local first, then on origin
+# without its remote prefix; empty when there is none.
+forge_branch_for_id() {
+  local repo="$1" id="$2" prefix
+  for prefix in refs/heads/ refs/remotes/origin/; do
+    git -C "$repo" for-each-ref --format='%(refname)' "${prefix%/}" \
+      | sed "s#^$prefix##" | grep -E "^[^/]+/(#|AB)$id-" | head -n 1 | grep . && return 0
+  done
+  return 0
+}
+
+# Path of the clone or worktree where a branch is checked out, empty when it is free.
+forge_checked_out_at() {
+  git -C "$1" worktree list --porcelain \
+    | awk -v ref="branch refs/heads/$2" '/^worktree / { path = substr($0, 10) } $0 == ref { print path; exit }'
+}
+
+# Copies an OpenSpec change from a clone into a worktree that lacks it (never committed), printing true or false.
+# Only a kebab-case name can be a change; a URL or free text never matches.
+forge_copy_change() {
+  local source="$1" target="$2" name="$3"
+  case "$name" in ''|*[!a-z0-9-]*) echo false; return ;; esac
+  if [ -d "$source/openspec/changes/$name" ] && [ ! -e "$target/openspec/changes/$name" ]; then
+    { mkdir -p "$target/openspec/changes" && cp -R "$source/openspec/changes/$name" "$target/openspec/changes/"; } \
+      || forge_die "could not copy openspec/changes/$name into $target"
+    echo true
+  else
+    echo false
+  fi
 }
 
 # Dev command of a directory when there is exactly one obvious choice, empty otherwise.

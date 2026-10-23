@@ -1,9 +1,12 @@
 forgerdr — Forge once. Herd many.
 
-START WORK                                    one URL or many, one titled tab each
-  /forgerdr:workitem [--auto|--manual] <url...>  work items in the current clone
-  /forgerdr:worktree [--auto|--manual] <url...>  same, each item in its own worktree + env + dev server
-  /forgerdr:review <url...>                      pull requests: yours -> review-own, others -> review-other
+START WORK                                    one titled tab per item; items separated by |
+  /forgerdr:workitem [--auto|--manual] <item> [| <item>...]
+                                 items in the current clone
+  /forgerdr:worktree [--auto|--manual] <item> [| <item>...]
+                                 same, each item in its own worktree + env + dev server
+  /forgerdr:review <url...>      pull requests: yours -> review-own, others -> review-other
+  item by spec mode              openspec: change or URL · azure: work item URL · chat: URL or text
 
 ONE STEP AT A TIME (manual flow)              run in the current session
   /forgerdr:spec <idea>          study and design before code (spike, bounded, architectural)
@@ -20,6 +23,7 @@ AUTO FLOW (add --auto to workitem or worktree; without it, manual)
   bug       brief -> reproduce -> root cause -> proposal -> fix -> security -> ship
   feature   brief -> spec (item is the spec) -> research -> plan -> build -> security -> ship
   content   brief -> verdict -> comment
+  change    brief -> from its stage (spec, plan, build or ship) -> security -> ship
 
 GATES (every flow)
   design approved before code · permission per commit · drafts before anything

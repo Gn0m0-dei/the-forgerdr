@@ -32,6 +32,7 @@ Do it once per area per session, at the first step that touches code; when the w
 - Code exploration: codebase-memory tools first (`search_graph`, `trace_path`, `get_code_snippet`, `search_code`, `get_architecture`), then Grep/Glob on source. If the project is not indexed, run `index_repository` first.
 - Browser verification: chrome-devtools MCP, interacting for real (clicks, forms, back button, resize), not curl.
 - Backlog, pull requests and repositories: the provider CLI (`az` with the azure-devops extension, `gh`, `glab`), never an MCP server. See `references/providers.md` in the forgerdr plugin.
+- Worktrees: inside herdr, every worktree is a herdr worktree, created the way `/forgerdr:worktree` creates them (`herdr/bin/forge-worktree.sh` in the forgerdr plugin: branch rules, env files, dev server, titled agent) and removed with `herdr worktree remove`. Never `git worktree add`, `EnterWorktree` or a subagent isolated in its own worktree: herdr does not show those checkouts, and they get no env files and no dev server. Outside herdr, no worktrees: work in the current clone and say that worktrees need herdr.
 
 ## Design
 
@@ -89,6 +90,10 @@ Do it once per area per session, at the first step that touches code; when the w
 - **Never create commits without the user's explicit permission.** Permission covers that commit only: work produced afterwards needs asking again, even in the same session.
 - **To undo a commit, uncommit it**: `git reset --soft HEAD~<n>`. It drops the commit and leaves every change staged. Never `--mixed` (unstages everything silently), never `--hard` (destroys the work). Check `git status` afterwards.
 - **Update the base branch before branching off it**: `git fetch origin`, then confirm `git log --oneline <base>..origin/<base>` is empty.
-- Branch names: `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that turns out to be new behaviour. In spec mode `azure` the id is written `AB<id>` (`feature/AB<id>-<slug>`), the azdospec convention. Slug: short, lowercase, hyphenated.
-- Conventional Commits, grouped by feature or logical change. If the branch carries a work item id, the commit message ends with `Closes: #<id>`.
+- Branch names follow the project's spec mode. A work item branch is `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that turns out to be new behaviour. Slug: short, lowercase, hyphenated.
+  - `azure`: the work item branch with the id written `AB<id>` (`feature/AB<id>-<slug>`), the azdospec convention.
+  - `openspec` / `openspec:<store>`: a work item URL with no change yet gets its work item branch. A change gets one from its info: `feature/#<id>-<slug>` when it references a work item, the slug being the change name without a leading `<id>-`; `feature/<change>` otherwise. A change always alters specified behaviour, so a bug's change is a `feature` branch too.
+  - `chat`: ask with two or three proposals; with a work item, the first is its work item branch.
+  - A branch that already carries the work, local or on `origin`, is reused: for a work item, any branch with its id. The forgerdr reference `references/items.md` has the details.
+- Conventional Commits, grouped by feature or logical change. When the work has a work item (the branch's id, or the one the OpenSpec change references), the commit message ends with `Closes: #<id>`.
 - Pull request titles follow `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`feature/#1234-empty-state` or `feature/AB1234-empty-state` → `#1234 empty-state`); with no id, the branch name alone. Description in English: problem, cause, change, verification, linked work item.

@@ -6,6 +6,24 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- The spec mode decides what `workitem` and `worktree` take as an item and how its branch is named (`references/items.md`, standards "Branch names"): in `openspec`, an OpenSpec change or a work item URL, the branch built from the change (`feature/#<id>-<slug>` when it references a work item, `feature/<change>` otherwise); in `azure`, a work item URL and `<kind>/AB<id>-<slug>`; in `chat`, a work item URL or free text, the branch asked with two or three proposals. A branch that already carries the work is reused; for a work item, any branch with its id.
+- Several items are separated by `|`, and only by `|`, so free text with spaces is one item.
+- `workitem` on an OpenSpec change continues from its stage: `spec` while the proposal, specs or design are open, then `plan`, `build` and `ship`.
+- `forge-worktree.sh` takes `--branch` and `--title` before an item, resolves every branch before creating anything and stops when one is checked out elsewhere, reuses a branch that carries the item's id and a branch the remote already has instead of starting a new one from the base, and in spec mode `openspec` copies an uncommitted OpenSpec change from the main clone into the worktree.
+- The herdr `worktree` action reads items up to an empty line and starts a Claude session running `/forgerdr:worktree` on them, so it follows the spec mode too.
+- Every worktree inside herdr is a herdr worktree, created the way `/forgerdr:worktree` creates them and removed with `herdr worktree remove`; never `git worktree add`, `EnterWorktree` or a subagent isolated in its own worktree. `build` in agent mode keeps every implementer in the branch's worktree, strictly sequential.
+- `spec`, `plan`, `build` and `ship` find the change of the current work from the arguments or the branch, take "no change" for a work item that has none instead of an unrelated active change, and ask when nothing decides; `spec` continues an existing change instead of creating it again; `build` names the branch by the spec mode. Every `openspec` command takes `--store` in `openspec:<store>`.
+- `Closes: #<id>` follows the work's work item, from the branch or from the OpenSpec change.
+
+### Fixed
+
+- `/forgerdr:worktree <change>` failed with "no item id": every argument was read as a work item URL.
+- `workitem` would have opened tabs in a loop for an item without an id: the session title is checked against the item's key, and free text goes on in any titled session.
+- Agents of items without an id get unique names in `forge-worktree.sh`, so one prompt can no longer reach another item's agent.
+- `review-other` no longer reports a missing id or work item on a pull request whose branch has none by design, and reviews the diff against the OpenSpec change it carries.
+
 ## [0.8.0] - 2026-10-21
 
 ### Added

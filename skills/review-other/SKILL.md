@@ -23,7 +23,7 @@ Commands per provider: `${CLAUDE_PLUGIN_ROOT}/references/providers.md`.
 
 1. Pull request metadata: title, description, source and target branch, author, linked work items, status.
 2. Existing threads or comments: you never duplicate an existing comment.
-3. Each linked work item: title, description, acceptance criteria. The review judges the diff against the ticket's scope.
+3. Each linked work item: title, description, acceptance criteria. An OpenSpec change in the diff (`openspec/changes/<name>/`, or its copy under `openspec/changes/archive/`) is the spec too: its proposal, spec deltas, design and tasks. In spec mode `openspec:<store>` the change is not in the diff: read it with `openspec show <name> --store <store>`, the name taken from the branch as `${CLAUDE_PLUGIN_ROOT}/references/items.md` says. The review judges the diff against the scope of the ticket and the change.
 4. The diff, from the local clone and without a checkout (`git fetch` + `git diff origin/<target>...origin/<source>` + `--name-status`). The clone is the directory whose `git remote get-url origin` names the repository: the current directory, or a child of it. Without a clone, read files through the provider.
 5. Project context, from the project itself: the project's `CLAUDE.md` (Claude Code loads it; a project without one gets `/init` suggested), `index_repository` on the clone when the graph does not know it and `get_architecture` for structure, modules and patterns, and whatever the repository documents (`README.md`, `CONTRIBUTING.md`, `docs/`). Never assume a layout, a framework or a convention the project does not state or the graph does not show.
 6. `mem_search` with the PR number, the ticket number and the branch slug: earlier sessions may hold design decisions the review must respect, and earlier reviews hold what the user discards.
@@ -41,13 +41,13 @@ Order of the review and of the report: repository → area (package, module, app
 Checks, on top of every rule in the loaded skills and in the standards:
 
 Pull request metadata, reported as general comments with no file:
-- Title follows `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`bugfix/1234-login-button`, `feature/#1234-login-button` or `feature/AB1234-login-button` → `#1234 login-button`).
-- The work item is linked in the provider's "work items" or "closes" relation. A bare `AB#<id>` or `#<id>` in the description does not count.
+- Title follows `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`bugfix/1234-login-button`, `feature/#1234-login-button` or `feature/AB1234-login-button` → `#1234 login-button`). A branch with no id (`feature/<change>`, a name chosen in spec mode `chat`): the branch name alone, and no finding for the missing id.
+- When the branch, the description or the OpenSpec change names a work item, it is linked in the provider's "work items" or "closes" relation. A bare `AB#<id>` or `#<id>` in the description does not count.
 
 Code:
 - Standards: typing (no `any`, no `as`, enums over magic strings, published types reused), lookup tables over conditional chains, short-circuit for one-statement ifs inside hooks, no defensive returns, no silent catch, no hardcoded values a configuration or a registry already manages, comments only where they add value, living docs (stories, examples, API docs) updated with the code they describe.
 - Conventions the project itself documents or the graph shows (naming, module boundaries, where mappers, adapters or handlers live, how existing code of the same kind is written).
-- Scope: the diff does what the ticket asks, nothing more, nothing less.
+- Scope: the diff does what the ticket and the change ask, nothing more, nothing less.
 
 Do not flag:
 - A clear ternary as a candidate for two short-circuits.
