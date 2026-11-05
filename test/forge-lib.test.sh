@@ -104,6 +104,16 @@ expect "copy change already there" false "$(forge_copy_change "$sandbox/workspac
 expect "copy change not a change name" false "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" 'https://github.com/o/r/issues/1')"
 expect "copy change unknown" false "$(forge_copy_change "$sandbox/workspace/front" "$sandbox/change-target" other-change)"
 
+expect "main checkout from a linked worktree" "$sandbox/workspace/front" "$(forge_main_checkout "$sandbox/elsewhere/front-feature")"
+forge_exclude_local "$sandbox/workspace/front" ".claude/worktrees/"
+forge_exclude_local "$sandbox/workspace/front" ".claude/worktrees/"
+expect "exclude added once" 1 "$(grep -cxF '.claude/worktrees/' "$sandbox/workspace/front/.git/info/exclude")"
+expect "no worktreeinclude, nothing listed" "" "$(forge_worktree_includes "$sandbox/workspace/front")"
+mkdir -p "$sandbox/listed-target"
+expect "copy listed non-ASCII name" "1" "$(touch "$sandbox/workspace/front/.env.clé" && printf '.env.clé\n' | forge_copy_listed "$sandbox/workspace/front" "$sandbox/listed-target")"
+expect "env files unquoted" yes "$(forge_env_files "$sandbox/workspace/front" | grep -qxF '.env.clé' && echo yes)"
+expect "claude base ref falls back to HEAD without origin" "$(git -C "$sandbox/workspace/front" rev-parse HEAD)" "$(HOME="$sandbox" forge_claude_base_ref "$sandbox/workspace/front" "$sandbox/workspace/front")"
+
 export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
 expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
 "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null
