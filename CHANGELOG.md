@@ -8,11 +8,12 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 
-- `hooks/worktree.sh` on `WorktreeCreate`, `WorktreeRemove` and `SessionEnd`: Claude Code's own worktrees (`EnterWorktree`, subagents with `isolation: "worktree"`, `claude --worktree`) open as herdr workspaces inside herdr, nested ones included, and as plain git worktrees outside it, under the main checkout's `.claude/worktrees/<name>` on branch `worktree-<name>`, with no upstream. The base follows Claude Code's `worktree.baseRef`: `fresh` starts from the forgerdr base on origin, `head` from the asking directory's HEAD. Ignored `.env*` files and the files `.worktreeinclude` names are copied, and `.claude/worktrees/` is excluded locally. Removing one closes its herdr workspace and deletes its branch only when merged. When a session ends, the worktrees it created with no change and no commit are removed from herdr and git, detached so the cleanup outlives Claude Code; the rest stay.
+- `hooks/worktree.sh` on `WorktreeCreate`, `WorktreeRemove` and `SessionEnd`: Claude Code's own worktrees (`EnterWorktree`, subagents with `isolation: "worktree"`, `claude --worktree`) open as herdr workspaces inside herdr, nested ones included, and as plain git worktrees outside it, under the main checkout's `.claude/worktrees/<name>` on branch `worktree-<name>`, with no upstream. The base follows Claude Code's `worktree.baseRef`: `fresh` starts from the forgerdr base on origin, `head` from the asking directory's HEAD. Ignored `.env*` files and the files `.worktreeinclude` names are copied, non-ASCII names included, and `.claude/worktrees/` is excluded locally. Removing one closes its herdr workspace, refuses while uncommitted work remains, and deletes only the worktree's own branch, while it still points where it started or once it is merged. When a session ends, the worktrees it created with no change and no commit are removed from herdr and git, detached so the cleanup outlives Claude Code and logged to `~/.local/state/forgerdr/worktrees/sweep.log`; worktrees with work, the one the session stands in and one another session also holds stay.
 
 ### Changed
 
-- The worktree rule in the standards: Claude Code's own worktrees are allowed again, since the hook routes them through herdr; `git worktree add` from Bash stays forbidden, and `ExitWorktree` with `discard_changes: true` needs the user's yes.
+- The worktree rule in the standards: Claude Code's own worktrees are allowed again, since the hook routes them through herdr; `git worktree add` from Bash stays forbidden.
+- Ignored file names with non-ASCII characters are copied into `/forgerdr:worktree` worktrees too (git no longer quotes them).
 
 ## [0.9.0] - 2026-10-23
 
