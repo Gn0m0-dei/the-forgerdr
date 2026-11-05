@@ -18,7 +18,7 @@ The arguments are one item or several, separated by `|`. Inside herdr (`test "${
 - One item and the session is already titled for it (opened by `/forgerdr:worktree` or by this step): go on here. Free text has no key: any `FORGE_SESSION_TITLE` means its tab is already open, go on.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-session.sh" --title "<session title>" "/forgerdr:workitem <item>"
+"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-session.sh" --title "<session title>" "/forgerdr:workitem [--auto] <item>"
 ```
 
 Outside herdr: several items are worked one after the other in this session, in the order of step 1; tell the user once to `/rename <session title>` for the first.

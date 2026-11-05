@@ -1,9 +1,9 @@
 forgerdr — Forge once. Herd many.
 
 START WORK                                    one titled tab per item; items separated by |
-  /forgerdr:workitem [--auto|--manual] <item> [| <item>...]
+  /forgerdr:workitem [--auto] <item> [| <item>...]
                                  items in the current clone
-  /forgerdr:worktree [--auto|--manual] <item> [| <item>...]
+  /forgerdr:worktree [--auto] <item> [| <item>...]
                                  same, each item in its own worktree + env + dev server
   /forgerdr:review <url...>      pull requests: yours -> review-own, others -> review-other
   item by spec mode              openspec: change or URL · azure: work item URL · chat: URL or text
