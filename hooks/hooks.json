@@ -34,6 +34,17 @@
         "matcher": "Grep|Glob"
       }
     ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/worktree.sh\" sweep",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "hooks": [
@@ -77,6 +88,28 @@
           {
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/help.sh\"",
             "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "WorktreeCreate": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/worktree.sh\" create",
+            "timeout": 120,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "WorktreeRemove": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/worktree.sh\" remove",
+            "timeout": 60,
             "type": "command"
           }
         ]

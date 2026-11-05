@@ -99,9 +99,7 @@ for step in "${!plan_items[@]}"; do
   path="$(printf '%s' "$worktree" | cut -f1)"
   workspace="$(printf '%s' "$worktree" | cut -f2)"
   [ -n "$path" ] || forge_die "worktree for $branch not found in $repo"
-  # The inherited upstream goes; a reused branch that tracks itself on origin keeps it.
-  [ "$(git -C "$path" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)" = "origin/$branch" ] \
-    || git -C "$path" branch --unset-upstream >/dev/null 2>&1 || true
+  forge_drop_inherited_upstream "$path" "$branch"
   env_count="$(forge_copy_env "$repo" "$path")"
   change_copied=false
   [ "$(forge_spec_mode "$(forge_project_key "$repo")")" != openspec ] || change_copied="$(forge_copy_change "$repo" "$path" "$item")"
