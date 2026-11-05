@@ -234,18 +234,74 @@ forge_env_files() {
     | grep -vE '(^|/)node_modules/' || true
 }
 
-# Copies every ignored env file from a clone into a worktree, printing the count.
-forge_copy_env() {
+# Ignored files a clone's .worktreeinclude names (gitignore syntax), relative paths; nothing without the file.
+forge_worktree_includes() {
+  [ -f "$1/.worktreeinclude" ] || return 0
+  git -C "$1" ls-files --others --ignored --exclude-from="$1/.worktreeinclude" \
+    | git -C "$1" check-ignore --stdin || true
+}
+
+# Copies the files listed on stdin, relative to a clone, into a worktree at the same paths, printing the count.
+forge_copy_listed() {
   local source="$1" target="$2" file count=0
   while IFS= read -r file; do
     [ -n "$file" ] || continue
     mkdir -p "$target/$(dirname "$file")"
     cp "$source/$file" "$target/$file"
     count=$((count + 1))
-  done <<EOT
-$(forge_env_files "$source")
-EOT
+  done
   printf '%s\n' "$count"
+}
+
+# Copies every ignored env file from a clone into a worktree, printing the count.
+forge_copy_env() {
+  forge_env_files "$1" | forge_copy_listed "$1" "$2"
+}
+
+# Main checkout of the repository a directory belongs to, from inside a linked worktree too.
+forge_main_checkout() {
+  local common
+  common="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir)" || return 1
+  dirname "$common"
+}
+
+# Adds a pattern to a repository's local exclude file (never committed), once.
+forge_exclude_local() {
+  local file
+  file="$(git -C "$1" rev-parse --path-format=absolute --git-common-dir)/info/exclude"
+  grep -qxF "$2" "$file" 2>/dev/null && return 0
+  mkdir -p "$(dirname "$file")"
+  printf '%s\n' "$2" >> "$file"
+}
+
+# Drops the upstream a new worktree's branch inherits from its base; a branch that tracks itself on origin keeps it.
+forge_drop_inherited_upstream() {
+  [ "$(git -C "$1" rev-parse --abbrev-ref '@{upstream}' 2>/dev/null)" = "origin/$2" ] \
+    || git -C "$1" branch --unset-upstream >/dev/null 2>&1 || true
+}
+
+# Ref a Claude Code worktree starts from, as its worktree.baseRef setting says (local, project, then user settings):
+# "head" is the HEAD of the directory it was asked from; "fresh", the default, the forgerdr base on origin, or that
+# same HEAD when the remote does not have it.
+forge_claude_base_ref() {
+  local root="$1" from="$2" setting="" file base
+  for file in "$root/.claude/settings.local.json" "$root/.claude/settings.json" "$HOME/.claude/settings.json"; do
+    [ -f "$file" ] || continue
+    setting="$(jq -r '.worktree.baseRef // empty' "$file" 2>/dev/null || true)"
+    [ -z "$setting" ] || break
+  done
+  base="$(forge_base_branch "$root")"
+  if [ "$setting" != head ] && git -C "$root" show-ref --verify --quiet "refs/remotes/origin/$base"; then
+    printf 'origin/%s\n' "$base"
+  else
+    git -C "$from" rev-parse HEAD
+  fi
+}
+
+# Workspace id herdr has open for a worktree path, empty when none.
+forge_workspace_of_path() {
+  forge_herdr worktree list --cwd "$1" \
+    | jq -r --arg path "$2" '.result.worktrees[] | select(.path == $path) | .open_workspace_id // empty'
 }
 
 # Ref a worktree for a branch starts from: the branch on origin when the remote has it, the base otherwise.
