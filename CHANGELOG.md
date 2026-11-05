@@ -14,6 +14,12 @@ All notable changes to this project are documented here. The format follows
 
 - The worktree rule in the standards: Claude Code's own worktrees are allowed again, since the hook routes them through herdr; `git worktree add` from Bash stays forbidden.
 - Ignored file names with non-ASCII characters are copied into `/forgerdr:worktree` worktrees too (git no longer quotes them).
+- Biome 2.6: the configuration is migrated and Markdown stays unformatted, since Biome does not recognise the YAML frontmatter of skills and agents.
+
+### Fixed
+
+- The cheat sheet listed a `--manual` flag that does not exist: the manual flow is the default and needs no flag.
+- `workitem` opening one tab per item now passes `--auto` on to them in its example too, as its flow section says.
 
 ## [0.9.0] - 2026-10-23
 
