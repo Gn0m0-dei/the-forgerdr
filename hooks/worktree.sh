@@ -161,9 +161,10 @@ agent_at_work() {
 
 # Removes the worktrees a session created or reused that have no work left: no change, no untracked file, no commit
 # since it started, no agent still at work in it. The one the session stands in, one another session also holds, and
-# any with work stay. Then closes the agent panes the session opened (hooks/agent-dispatch.sh) whose agent is done.
+# any with work stay. Then closes the agent panes the session opened (hooks/agent-dispatch.sh) that still hold that agent,
+# now done; a pane its agent left, or one at work, stays.
 sweep_session() {
-  local session="$1" cwd file path branch start root changes ahead workspace pane
+  local session="$1" cwd file path branch start root changes ahead workspace pane agent agents
   cwd="$(cd "$2" 2>/dev/null && pwd -P || printf '%s' "$2")"
   file="$state_dir/$session.tsv"
   if [ -f "$file" ]; then
@@ -184,9 +185,12 @@ sweep_session() {
   fi
   file="$state_dir/$session.panes"
   if [ -f "$file" ] && in_herdr; then
-    while IFS=$'\t' read -r pane _; do
-      forge_herdr pane get "$pane" 2>/dev/null | jq '{result: {panes: [.result.pane]}}' | agent_at_work && continue
-      forge_herdr pane close "$pane" >/dev/null 2>&1 || true
+    agents="$(forge_herdr agent list)" || { printf 'forgerdr: herdr could not list agents; agent panes left open\n' >&2; agents='{}'; }
+    while IFS=$'\t' read -r pane agent; do
+      printf '%s' "$agents" | jq -e --arg pane "$pane" --arg agent "$agent" \
+        '.result.agents[]? | select(.pane_id == $pane and .name == $agent and .agent_status != "working" and .agent_status != "blocked")' \
+        >/dev/null || continue
+      forge_herdr pane close "$pane" >/dev/null || printf 'forgerdr: could not close agent pane %s\n' "$pane" >&2
     done < "$file"
   fi
   rm -f "$file" "$state_dir/$session".prompt.*
@@ -197,10 +201,8 @@ case "${1:-}" in
   remove) remove "$(cat)" ;;
   sweep)
     # SessionEnd hooks get a short time budget; the sweep runs detached so it outlives Claude Code, and logs there.
-    # After /clear the session goes on: nothing it opened is swept.
     input="$(cat)"
     session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
-    [ "$(printf '%s' "$input" | jq -r '.reason // empty')" != clear ] || exit 0
     [ -n "$session" ] && { [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.panes" ]; } || exit 0
     perl -MPOSIX -e 'exit 0 if fork; POSIX::setsid(); exec @ARGV' \
       "$0" sweep-session "$session" "$(printf '%s' "$input" | jq -r '.cwd // empty')" \

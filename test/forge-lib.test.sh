@@ -120,6 +120,12 @@ expect "frontmatter field unquoted" "haiku" "$(forge_frontmatter_field "$sandbox
 expect "frontmatter body without leading blank lines" "Body line one.
 ---
 After a rule." "$(forge_frontmatter_body "$sandbox/agent.md")"
+printf -- '---\nname: listy\ntools:\n  - Read\n  - "Grep"\nmodel: haiku\n---\nBody.\n' > "$sandbox/listy.md"
+printf -- '---\nname: flow\ntools: [Read, Glob]\n---\nBody.\n' > "$sandbox/flow.md"
+expect "frontmatter list inline" "Read,Grep" "$(forge_frontmatter_list "$sandbox/agent.md" tools)"
+expect "frontmatter list as YAML items" "Read,Grep" "$(forge_frontmatter_list "$sandbox/listy.md" tools)"
+expect "frontmatter list in flow style" "Read,Glob" "$(forge_frontmatter_list "$sandbox/flow.md" tools)"
+expect "frontmatter list absent" "" "$(forge_frontmatter_list "$sandbox/flow.md" model)"
 expect "plugin agent definition" "$(cd "$(dirname "$0")/.." && pwd)/agents/reviewer.md" "$(forge_agent_definition forgerdr:reviewer "$sandbox")"
 expect "built-in type has no definition" "" "$(forge_agent_definition Explore "$sandbox")"
 
