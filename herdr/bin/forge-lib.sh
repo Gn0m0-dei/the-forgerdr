@@ -360,11 +360,12 @@ forge_frontmatter_body() {
   awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { inside = 0; next } !inside && (started || NF) { started = 1; print }' "$1"
 }
 
-# "pane width height" of a live pane, nothing when herdr does not know it.
+# "pane width height" of a live pane; nothing, and herdr's complaint on stderr, when herdr cannot size it.
 forge_pane_size() {
-  forge_herdr pane layout --pane "$1" 2>/dev/null \
-    | jq -r --arg pane "$1" '.result.layout.panes[] | select(.pane_id == $pane) | "\(.pane_id) \(.rect.width) \(.rect.height)"' \
-      2>/dev/null || true
+  forge_herdr pane layout --pane "$1" \
+    | jq -r --arg pane "$1" '.result.layout.panes[] | select(.pane_id == $pane)
+        | select((.rect.width | type) == "number" and (.rect.height | type) == "number")
+        | "\(.pane_id) \(.rect.width) \(.rect.height)"' || true
 }
 
 # Of "pane width height" lines on stdin, the largest pane that halves along its longer side (a row counts as `aspect`
