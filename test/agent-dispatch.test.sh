@@ -8,7 +8,11 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 hook="$root/hooks/agent-dispatch.sh"
 sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
+# Never the real herdr or the session running this test: every herdr call goes to the fake, and only in_herdr sets the
+# variables a dispatch needs.
+unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH CLAUDE_CODE_MESSAGING_SOCKET FORGE_CLAUDE_ARGS
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" CLAUDE_PLUGIN_ROOT="$root"
+export HERDR_BIN_PATH="$sandbox/herdr" FAKE_HERDR_CALLS="$sandbox/herdr-calls"
 mkdir -p "$HOME"
 state="$XDG_STATE_HOME/forgerdr/worktrees"
 calls="$sandbox/herdr-calls"
@@ -20,7 +24,8 @@ printf '%s\n' "$*" >> "$FAKE_HERDR_CALLS"
 case "$1 $2" in
   "pane split") printf '{"result":{"pane":{"pane_id":"w1:p7"}}}\n' ;;
   "pane list") printf '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w1:p7"}]}}\n' ;;
-  "pane layout") printf '{"result":{"layout":{"panes":[{"pane_id":"w1:p1","rect":{"height":74}},{"pane_id":"w1:p7","rect":{"height":18}},{"pane_id":"w1:p8","rect":{"height":37}}]}}}\n' ;;
+  "pane layout") printf '{"result":{"layout":{"panes":[{"pane_id":"w1:p1","rect":{"width":391,"height":74}},{"pane_id":"w1:p7","rect":{"width":97,"height":74}},{"pane_id":"w1:p8","rect":{"width":195,"height":74}},{"pane_id":"w1:p9","rect":{"width":97,"height":37}}]}}}\n' ;;
+  "tab create") printf '{"result":{"tab":{"tab_id":"w1:t5"},"root_pane":{"pane_id":"w1:p10"}}}\n' ;;
   "agent list") printf '{"result":{"agents":[{"name":"agent-done","pane_id":"w1:p2","agent_status":"idle"},{"name":"agent-busy","pane_id":"w1:p3","agent_status":"working"},{"name":"someone-else","pane_id":"w1:p4","agent_status":"idle"}]}}\n' ;;
   "agent read") printf 'ready\n' ;;
   *) printf '{"result":{}}\n' ;;
@@ -53,7 +58,7 @@ expect "a type with no definition exits cleanly" 0 "$(in_herdr call statusline-s
 expect "and says why" yes "$(logged "statusline-setup has no definition")"
 expect "a type that is a path is refused" "" "$(in_herdr decision ../../notes)"
 expect "and says why" yes "$(logged "unexpected agent type: ../../notes")"
-expect "no messaging socket, in-process" "" "$(HERDR_ENV=1 HERDR_PANE_ID=w1:p1 decision general-purpose)"
+expect "no messaging socket, in-process" "" "$(HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_WORKSPACE_ID=w1 decision general-purpose)"
 
 : > "$calls"
 printf '%s\n' '{"type":"assistant","message":{"model":"claude-haiku-5-5"}}' '{"type":"assistant","message":{"model":"<synthetic>"}}' > "$sandbox/transcript.jsonl"
@@ -82,7 +87,14 @@ expect "researcher gets no Bash" yes "$(contains "$(cat "$calls")" "--tools WebS
 printf 'w1:p8\tagent-x\n' >> "$state/s1.panes"
 : > "$calls"
 in_herdr decision general-purpose >/dev/null
-expect "the tallest agent pane of the session is split" yes "$(grep -q 'pane split w1:p8 --direction down' "$calls" && echo yes)"
+expect "the largest agent pane is split along its longer side" yes "$(grep -q 'pane split w1:p8 --direction right' "$calls" && echo yes)"
+
+printf 'w1:p9\tagent-small\n' > "$state/s1.panes"
+: > "$calls"
+expect "a full set of agent panes opens a tab of agents" deny "$(in_herdr decision general-purpose)"
+expect "the tab is created in this workspace, without focus" yes "$(grep -q -- 'tab create --workspace w1 .*--label agents · ' "$calls" && grep -q -- 'tab create .*--no-focus' "$calls" && echo yes)"
+expect "no pane is split for it" no "$(grep -q 'pane split' "$calls" && echo yes || echo no)"
+expect "its root pane holds the agent" yes "$(grep -q 'agent start .* --pane w1:p10' "$calls" && echo yes)"
 
 : > "$calls"
 in_herdr decision Explore >/dev/null

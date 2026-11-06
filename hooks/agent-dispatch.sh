@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # PreToolUse for Agent: inside herdr, a subagent runs as its own Claude session in a herdr pane instead of inside this
 # session, so it can be watched and talked to: one with isolation "worktree" in its herdr worktree's workspace, any
-# other in a new pane of the current tab (the first to the right of this session, the next ones stacked in that column).
+# other in a new pane of the current tab, laid out as an even grid next to this session, or in a new tab of agents once
+# no agent pane can be halved without going under 80 x 15.
 # It gets the agent's definition (instructions, model, tool list) and this session's permission mode, and sends its
 # final report back with SendMessage. The Agent call is then denied with a reason that says so. Outside herdr, for a
 # fork, for a type it cannot reproduce, or when anything here fails, the subagent runs in this session as usual, and
@@ -23,11 +24,17 @@ readonly LOCK_TRIES=600
 readonly LOCK_PAUSE=0.2
 readonly TRANSCRIPT_TAIL=400
 readonly PANE_RATIO=0.5
+# No agent pane is made smaller than this; a terminal row is about as tall as two columns are wide.
+readonly MIN_COLS=80
+readonly MIN_ROWS=15
+readonly CELL_ASPECT=2
+readonly AGENT_TAB_LABEL="agents ·"
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/worktrees"
 
 lock=""
 system_file=""
 pane=""
+agent_tab=""
 worktree_path=""
 dispatched=""
 cleanup() {
@@ -43,10 +50,12 @@ trap cleanup EXIT
 in_process() {
   if [ "${HERDR_ENV:-}" = 1 ]; then
     printf '%s in-process: %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "${1:-see the conditions in this hook}" >&2
-    if [ -n "$pane" ]; then
+    if [ -n "$agent_tab" ]; then
+      forge_herdr tab close "$agent_tab" >/dev/null || printf 'could not close tab %s\n' "$agent_tab" >&2
+    elif [ -n "$pane" ]; then
       forge_herdr pane close "$pane" >/dev/null || printf 'could not close pane %s\n' "$pane" >&2
-      [ ! -f "$state_dir/$session.panes" ] || forge_drop_line "$state_dir/$session.panes" "$pane"
     fi
+    [ -z "$pane" ] || [ ! -f "$state_dir/$session.panes" ] || forge_drop_line "$state_dir/$session.panes" "$pane"
     if [ -n "$worktree_path" ]; then
       jq -cn --arg path "$worktree_path" --arg session "$session" '{session_id:$session,worktree_path:$path}' \
         | "$plugin_root/hooks/worktree.sh" remove || true
@@ -60,7 +69,7 @@ session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
 [ "${HERDR_ENV:-}" = 1 ] || in_process "not inside herdr"
 mkdir -p "$state_dir"
 exec 2>>"$state_dir/dispatch.log"
-[ -n "${HERDR_PANE_ID:-}" ] || in_process "no HERDR_PANE_ID"
+[ -n "${HERDR_PANE_ID:-}" ] && [ -n "${HERDR_WORKSPACE_ID:-}" ] || in_process "no HERDR_PANE_ID or HERDR_WORKSPACE_ID"
 [ -n "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ] || in_process "no CLAUDE_CODE_MESSAGING_SOCKET: this session cannot receive a report"
 field() { printf '%s' "$input" | jq -r --arg key "$1" '.tool_input[$key] // empty'; }
 type="$(field subagent_type)"
@@ -129,6 +138,7 @@ if [ -n "$system" ]; then
 fi
 
 worktree_note=""
+slot=""
 if [ "$isolation" = worktree ]; then
   name="agent-$(printf '%s' "$session:$title:$RANDOM:$$" | cksum | cut -d' ' -f1)"
   worktree_path="$(jq -cn --arg name "$name" --arg cwd "$cwd" --arg session "$session" '{name:$name,cwd:$cwd,session_id:$session}' \
@@ -143,29 +153,35 @@ if [ "$isolation" = worktree ]; then
   where="its herdr worktree $worktree_path (branch $branch, workspace $workspace)"
   worktree_note="You work in $worktree_path, a git worktree on branch $branch. Do not commit: leave your changes in the working tree for the session that dispatched you to integrate. "
 else
-  # The tallest agent pane this session already has in its tab is split, so the column stays even.
-  tallest=""
+  # The largest agent pane of this session that can still be halved along its longer side is split, so the agents
+  # form an even grid; the first one halves this session's own pane, which is never split again. When none can be,
+  # the agent opens a new tab of agents.
+  sizes=""
   if [ -f "$state_dir/$session.panes" ]; then
-    tallest="$(forge_herdr pane layout --pane "$HERDR_PANE_ID" \
-      | jq -r --rawfile mine "$state_dir/$session.panes" '
-          ($mine | split("\n") | map(split("\t")[0])) as $ids
-          | [.result.layout.panes[] | select(.pane_id as $id | $ids | index($id))]
-          | max_by(.rect.height) | .pane_id // empty')" || in_process "herdr could not read the pane layout"
+    while IFS=$'\t' read -r known _; do
+      sizes="$sizes$(forge_pane_size "$known")"$'\n'
+    done < "$state_dir/$session.panes"
   fi
-  if [ -n "$tallest" ]; then
-    base_pane="$tallest"
-    direction=down
-  else
-    base_pane="$HERDR_PANE_ID"
-    direction=right
-  fi
+  [ -n "${sizes//[[:space:]]/}" ] || sizes="$(forge_pane_size "$HERDR_PANE_ID")"
+  slot="$(printf '%s' "$sizes" | forge_pick_split "$MIN_COLS" "$MIN_ROWS" "$CELL_ASPECT")"
+  base_pane="${slot% *}"
+  direction="${slot#* }"
   workdir="$cwd"
   where="a new herdr pane next to this session"
+  [ -n "$slot" ] || where="a new herdr tab of agents"
 fi
 
-pane="$(forge_herdr pane split "$base_pane" --direction "$direction" --ratio "$PANE_RATIO" --cwd "$workdir" \
-  --env "FORGE_SESSION_TITLE=$title" --env "FORGE_REPORT_TO=uds:$CLAUDE_CODE_MESSAGING_SOCKET" --no-focus \
-  | jq -r '.result.pane.pane_id // empty')" || in_process "herdr could not split a pane for $type"
+agent_env=(--env "FORGE_SESSION_TITLE=$title" --env "FORGE_REPORT_TO=uds:$CLAUDE_CODE_MESSAGING_SOCKET")
+if [ -z "$worktree_path" ] && [ -z "$slot" ]; then
+  created="$(forge_herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$workdir" \
+    --label "$AGENT_TAB_LABEL ${FORGE_SESSION_TITLE:-$(basename "$cwd")}" "${agent_env[@]}" --no-focus)" \
+    || in_process "herdr could not open a tab of agents"
+  agent_tab="$(printf '%s' "$created" | jq -r '.result.tab.tab_id // empty')"
+  pane="$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id // empty')"
+else
+  pane="$(forge_herdr pane split "$base_pane" --direction "$direction" --ratio "$PANE_RATIO" --cwd "$workdir" \
+    "${agent_env[@]}" --no-focus | jq -r '.result.pane.pane_id // empty')" || in_process "herdr could not split a pane for $type"
+fi
 [ -n "$pane" ] || in_process "herdr gave no pane id for $type"
 forge_herdr pane rename "$pane" "$title" >/dev/null || printf 'could not rename pane %s\n' "$pane" >&2
 agent="$(forge_agent_name agent "$session:$title:$pane")"

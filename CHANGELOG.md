@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- Agents dispatched inside herdr form an even grid instead of one ever thinner column: each new agent halves the largest agent pane of the session along its longer side (a row counts as two columns), never below 80 columns by 15 rows, and the session keeps its half of the tab. When no agent pane can be halved, the agent opens a new tab, `agents · <session>`, in the same workspace without taking the focus, and the grid goes on there; a tab whose agents are all closed by the sweep goes with them.
+
+### Fixed
+
+- `test/agent-dispatch.test.sh` no longer reaches the real herdr or the session running it: it clears the herdr and messaging variables and routes every herdr call to its fake.
+
 ## [0.11.0] - 2026-11-06
 
 ### Added

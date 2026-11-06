@@ -129,6 +129,14 @@ expect "frontmatter list absent" "" "$(forge_frontmatter_list "$sandbox/flow.md"
 expect "plugin agent definition" "$(cd "$(dirname "$0")/.." && pwd)/agents/reviewer.md" "$(forge_agent_definition forgerdr:reviewer "$sandbox")"
 expect "built-in type has no definition" "" "$(forge_agent_definition Explore "$sandbox")"
 
+pick() { printf '%s\n' "$@" | forge_pick_split 80 15 2; }
+expect "split a full-width pane to the right" "s right" "$(pick "s 391 74")"
+expect "split a half-width pane to the right" "a right" "$(pick "a 195 74")"
+expect "split a tall quarter down" "a down" "$(pick "a 97 74" "b 97 74")"
+expect "the largest pane is split first" "b right" "$(pick "a 97 74" "b 195 74")"
+expect "nothing halves under the minimum" "" "$(pick "a 97 37" "b 97 37" "c 97 37" "d 97 37")"
+expect "a small pane is never halved" "" "$(pick "s 120 30")"
+
 export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
 expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
 "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null

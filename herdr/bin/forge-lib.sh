@@ -360,6 +360,25 @@ forge_frontmatter_body() {
   awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { inside = 0; next } !inside && (started || NF) { started = 1; print }' "$1"
 }
 
+# "pane width height" of a live pane, nothing when herdr does not know it.
+forge_pane_size() {
+  forge_herdr pane layout --pane "$1" 2>/dev/null \
+    | jq -r --arg pane "$1" '.result.layout.panes[] | select(.pane_id == $pane) | "\(.pane_id) \(.rect.width) \(.rect.height)"' \
+      2>/dev/null || true
+}
+
+# Of "pane width height" lines on stdin, the largest pane that halves along its longer side (a row counts as `aspect`
+# columns) without going under min_cols x min_rows, as "pane right|down"; nothing when no pane can.
+forge_pick_split() {
+  awk -v cols="$1" -v rows="$2" -v aspect="$3" '
+    NF == 3 {
+      if ($2 >= $3 * aspect) { fits = int($2 / 2) >= cols && $3 >= rows; dir = "right" }
+      else { fits = int($3 / 2) >= rows && $2 >= cols; dir = "down" }
+      if (fits && $2 * $3 > best) { best = $2 * $3; pick = $1 " " dir }
+    }
+    END { if (pick != "") print pick }'
+}
+
 # Workspace id herdr has open for a worktree path, empty when none.
 forge_workspace_of_path() {
   forge_herdr worktree list --cwd "$1" \
