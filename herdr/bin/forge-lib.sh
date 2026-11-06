@@ -473,3 +473,45 @@ forge_start_claude() {
   # A start that reports a failure can still bring the agent up (a trust prompt delays it); only the prompt tells.
   forge_herdr agent prompt "$name" "$prompt" >/dev/null || { [ -z "${error:-}" ] || printf '%s\n' "$error" >&2; return 1; }
 }
+
+# First line of the message that gives a dispatched agent a task (hooks/agent-dispatch.sh, hooks/agent-message.sh);
+# hooks/agent-state.sh starts the agent's current task at the last message that carries it.
+FORGE_TASK_HEADER="Task from the Claude session that dispatched you"
+# First words of the report a dispatched agent sends back.
+FORGE_REPORT_PREFIX="Report from"
+
+# The message that gives a dispatched agent a task: the header, the task, and where and how to report.
+# Arguments: agent type, agent name, task title, task, report address, note on where it works (may be empty).
+forge_agent_task() {
+  printf '%s (%s agent %s, "%s"):\n\n%s\n\n---\nYou are running in your own herdr pane. %sWhen you finish, even after waiting for agents of your own, send your complete final report with SendMessage to "%s", beginning with the line "%s %s (%s)". That session sees nothing else of your work: a reply typed in this pane reaches nobody. Ask it the same way if you need a decision.' \
+    "$FORGE_TASK_HEADER" "$1" "$2" "$3" "$4" "$6" "$5" "$FORGE_REPORT_PREFIX" "$2" "$3"
+}
+
+# herdr pane label of a dispatched agent: its state (working, waiting or done) and its task.
+forge_agent_label() {
+  case "$1" in
+    working) printf '▶ working · %s' "$2" ;;
+    waiting) printf '⏸ waiting · %s' "$2" ;;
+    done) printf '✓ done · %s' "$2" ;;
+  esac
+}
+
+# Applies a jq filter, with its jq arguments, to a JSON state file in place.
+forge_json_update() {
+  local file="$1" tmp
+  shift
+  tmp="$(mktemp "$file.XXXXXX")"
+  jq "$@" "$file" > "$tmp" && mv "$tmp" "$file"
+}
+
+# Sets the state of a dispatched agent, and its task title when one is given, in its record and its pane label; the
+# pane is renamed only when the label changes.
+forge_agent_mark() {
+  local record="$1" state="$2" title="${3:-}" before
+  before="$(jq -r '[.state, .title] | join("\t")' "$record")"
+  # shellcheck disable=SC2016 # a jq filter
+  forge_json_update "$record" --arg state "$state" --arg title "$title" '.state = $state | .title = (if $title == "" then .title else $title end)'
+  [ "$(jq -r '[.state, .title] | join("\t")' "$record")" != "$before" ] || return 0
+  forge_herdr pane rename "$(jq -r .pane "$record")" "$(forge_agent_label "$state" "$(jq -r .title "$record")")" >/dev/null \
+    || printf 'forgerdr: could not rename pane %s\n' "$(jq -r .pane "$record")" >&2
+}
