@@ -114,6 +114,15 @@ expect "copy listed non-ASCII name" "1" "$(touch "$sandbox/workspace/front/.env.
 expect "env files unquoted" yes "$(forge_env_files "$sandbox/workspace/front" | grep -qxF '.env.clé' && echo yes)"
 expect "claude base ref falls back to HEAD without origin" "$(git -C "$sandbox/workspace/front" rev-parse HEAD)" "$(HOME="$sandbox" forge_claude_base_ref "$sandbox/workspace/front" "$sandbox/workspace/front")"
 
+printf -- '---\nname: probe\ntools: Read, Grep\nmodel: "haiku"\n---\n\nBody line one.\n---\nAfter a rule.\n' > "$sandbox/agent.md"
+expect "frontmatter field" "Read, Grep" "$(forge_frontmatter_field "$sandbox/agent.md" tools)"
+expect "frontmatter field unquoted" "haiku" "$(forge_frontmatter_field "$sandbox/agent.md" model)"
+expect "frontmatter body without leading blank lines" "Body line one.
+---
+After a rule." "$(forge_frontmatter_body "$sandbox/agent.md")"
+expect "plugin agent definition" "$(cd "$(dirname "$0")/.." && pwd)/agents/reviewer.md" "$(forge_agent_definition forgerdr:reviewer "$sandbox")"
+expect "built-in type has no definition" "" "$(forge_agent_definition Explore "$sandbox")"
+
 export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
 expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
 "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null

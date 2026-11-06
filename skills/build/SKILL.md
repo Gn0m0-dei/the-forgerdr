@@ -46,7 +46,7 @@ Per task:
 3. Dispatch `forgerdr:reviewer` on the task diff with the spec and the plan. Critical or Important: one fix pass by a fresh implementer with the findings as its brief, then the reviewer again. Minor: ledger.
 4. Commit when the plan says so, after asking. Ledger the task.
 
-Watching the agents live: run the implementer in a herdr pane instead (`herdr pane split --current --direction right --cwd "$PWD"`, `herdr agent start task-<n> --kind claude --pane <id>`, `herdr agent prompt task-<n> "<brief>" --wait`), one pane at a time, same sequence. Use it when the user wants to see or interrupt the work; subagents otherwise, they are cheaper and leave no topology to clean.
+Inside herdr every dispatched agent runs in a herdr pane of its own (standards, "Agents"): the Agent call comes back as dispatched, and the report arrives later as a message. End the turn to wait for it before reading the diff; never dispatch the same task again while it runs.
 
 ## Finish
 

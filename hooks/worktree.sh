@@ -154,23 +154,42 @@ remove() {
   drop_branch "$root" "$branch" "$start"
 }
 
+# Whether an agent in a herdr pane list is still at work (working, or blocked on a question).
+agent_at_work() {
+  jq -e '[.result.panes[] | select(.agent_status == "working" or .agent_status == "blocked")] | length > 0' >/dev/null
+}
+
 # Removes the worktrees a session created or reused that have no work left: no change, no untracked file, no commit
-# since it started. The one the session stands in, one another session also holds, and any with work stay.
+# since it started, no agent still at work in it. The one the session stands in, one another session also holds, and
+# any with work stay. Then closes the agent panes the session opened (hooks/agent-dispatch.sh) whose agent is done.
 sweep_session() {
-  local session="$1" cwd file path branch start root changes ahead
+  local session="$1" cwd file path branch start root changes ahead workspace pane
   cwd="$(cd "$2" 2>/dev/null && pwd -P || printf '%s' "$2")"
   file="$state_dir/$session.tsv"
-  [ -f "$file" ] || return 0
-  while IFS=$'\t' read -r path branch start; do
-    [ -d "$path" ] && [ -n "$start" ] || continue
-    case "$cwd/" in "$path"/*) continue ;; esac
-    ! listed_by_other_session "$session" "$path" || continue
-    changes="$(uncommitted "$path")" && [ -z "$changes" ] || continue
-    ahead="$(git -C "$path" rev-list --count "$start..HEAD")" && [ "$ahead" = 0 ] || continue
-    root="$(forge_main_checkout "$path")"
-    drop_worktree "$root" "$path" && drop_branch "$root" "$branch" "$start"
-  done < "$file"
-  rm -f "$file"
+  if [ -f "$file" ]; then
+    while IFS=$'\t' read -r path branch start; do
+      [ -d "$path" ] && [ -n "$start" ] || continue
+      case "$cwd/" in "$path"/*) continue ;; esac
+      ! listed_by_other_session "$session" "$path" || continue
+      changes="$(uncommitted "$path")" && [ -z "$changes" ] || continue
+      ahead="$(git -C "$path" rev-list --count "$start..HEAD")" && [ "$ahead" = 0 ] || continue
+      root="$(forge_main_checkout "$path")"
+      if in_herdr; then
+        workspace="$(forge_workspace_of_path "$root" "$path")"
+        [ -z "$workspace" ] || ! forge_herdr pane list --workspace "$workspace" | agent_at_work || continue
+      fi
+      drop_worktree "$root" "$path" && drop_branch "$root" "$branch" "$start"
+    done < "$file"
+    rm -f "$file"
+  fi
+  file="$state_dir/$session.panes"
+  if [ -f "$file" ] && in_herdr; then
+    while IFS=$'\t' read -r pane _; do
+      forge_herdr pane get "$pane" 2>/dev/null | jq '{result: {panes: [.result.pane]}}' | agent_at_work && continue
+      forge_herdr pane close "$pane" >/dev/null 2>&1 || true
+    done < "$file"
+  fi
+  rm -f "$file" "$state_dir/$session".prompt.*
 }
 
 case "${1:-}" in
@@ -178,9 +197,11 @@ case "${1:-}" in
   remove) remove "$(cat)" ;;
   sweep)
     # SessionEnd hooks get a short time budget; the sweep runs detached so it outlives Claude Code, and logs there.
+    # After /clear the session goes on: nothing it opened is swept.
     input="$(cat)"
     session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
-    [ -n "$session" ] && [ -f "$state_dir/$session.tsv" ] || exit 0
+    [ "$(printf '%s' "$input" | jq -r '.reason // empty')" != clear ] || exit 0
+    [ -n "$session" ] && { [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.panes" ]; } || exit 0
     perl -MPOSIX -e 'exit 0 if fork; POSIX::setsid(); exec @ARGV' \
       "$0" sweep-session "$session" "$(printf '%s' "$input" | jq -r '.cwd // empty')" \
       </dev/null >/dev/null 2>>"$state_dir/sweep.log" ;;
