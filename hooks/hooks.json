@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" ask",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -42,6 +53,26 @@
           }
         ],
         "matcher": "Agent|Task"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-message.sh\"",
+            "timeout": 300,
+            "type": "command"
+          }
+        ],
+        "matcher": "SendMessage"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" ask",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "AskUserQuestion"
       }
     ],
     "SessionEnd": [
@@ -66,6 +97,16 @@
           }
         ],
         "matcher": "startup|resume|clear|compact"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" session",
+            "timeout": 5,
+            "type": "command"
+          }
+        ],
+        "matcher": "startup|resume"
       }
     ],
     "Stop": [
@@ -82,7 +123,7 @@
       {
         "hooks": [
           {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-report.sh\"",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" stop",
             "timeout": 10,
             "type": "command"
           }
@@ -106,6 +147,15 @@
         "hooks": [
           {
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/help.sh\"",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" prompt",
             "timeout": 5,
             "type": "command"
           }

@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A dispatched agent's herdr pane label shows its state and its current task: `▶ working · <task>`, `⏸ waiting · <task>` while it waits for a permission, an answer or agents of its own, and `✓ done · <task>` once it has reported. `hooks/agent-state.sh` (which replaces `hooks/agent-report.sh`) keeps it up to date from the agent's own SessionStart, UserPromptSubmit, PermissionRequest, AskUserQuestion and Stop hooks.
+- `hooks/agent-message.sh` on PreToolUse for SendMessage: a message to an agent the session dispatched, addressed by its herdr agent name, goes to that agent's session. To an agent that is done it is its next task: worded with the same report instructions as the first one, its label taking the message's summary. To one still on its task, such as an answer to its question, it goes as it is. When its pane was closed, the agent is reopened in a new pane of the grid, resuming its Claude session (`claude --resume`) with its own model, tools and permission mode, and the call is answered with a reason that says so. Each dispatched agent's record (its pane, task, Claude session, message address and arguments) lives in `~/.local/state/forgerdr/worktrees/<session>.agents/` and goes with the session's sweep.
+
+### Changed
+
+- The report reminder counts from the agent's current task, not its first one: an agent given a second pass that ends its turn without reporting is reminded again, and is shown as waiting if it ends it once more.
+- The build skill and the standards send a fix pass, or a second review of a reviewer's own findings, to the agent that did the first one instead of a fresh agent; a new task, a final review and a security verification still get a new agent.
+
 ## [0.12.0] - 2026-11-06
 
 ### Added

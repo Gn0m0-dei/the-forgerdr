@@ -43,10 +43,10 @@ The user chose "one agent per task" at the plan handoff, or the plan is long eno
 Per task:
 1. Dispatch an implementer with the Agent tool (general-purpose, same worktree): the task text verbatim, the plan's global constraints, the interfaces block, the test command, and the rule "TDD, no commit, report the diff summary and the test output". Nothing else from your context: a fresh implementer reads the codebase, not your assumptions.
 2. Read its report, then `git diff` yourself: the report is a claim, the diff is the evidence.
-3. Dispatch `forgerdr:reviewer` on the task diff with the spec and the plan. Critical or Important: one fix pass by a fresh implementer with the findings as its brief, then the reviewer again. Minor: ledger.
+3. Dispatch `forgerdr:reviewer` on the task diff with the spec and the plan. Critical or Important: one fix pass by the task's implementer with the findings as its brief, then the same reviewer again on its own findings. Minor: ledger.
 4. Commit when the plan says so, after asking. Ledger the task.
 
-Inside herdr every dispatched agent runs in a herdr pane of its own (standards, "Agents"): the Agent call comes back as dispatched, and the report arrives later as a message. End the turn to wait for it before reading the diff; never dispatch the same task again while it runs.
+Inside herdr every dispatched agent runs in a herdr pane of its own (standards, "Agents"): the Agent call comes back as dispatched, and the report arrives later as a message. End the turn to wait for it before reading the diff; never dispatch the same task again while it runs. A fix pass or a second review of the same task goes to the agent that did the first one, with SendMessage to its herdr agent name, so it keeps what it already read; a new task gets a new agent. Outside herdr, a fix pass gets a fresh implementer.
 
 ## Finish
 

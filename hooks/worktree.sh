@@ -162,7 +162,7 @@ agent_at_work() {
 # Removes the worktrees a session created or reused that have no work left: no change, no untracked file, no commit
 # since it started, no agent still at work in it. The one the session stands in, one another session also holds, and
 # any with work stay. Then closes the agent panes the session opened (hooks/agent-dispatch.sh) that still hold that agent,
-# now done; a pane its agent left, or one at work, stays.
+# now done; a pane its agent left, or one at work, stays. The records of its agents go with it.
 sweep_session() {
   local session="$1" cwd file path branch start root changes ahead workspace pane agent agents
   cwd="$(cd "$2" 2>/dev/null && pwd -P || printf '%s' "$2")"
@@ -194,6 +194,7 @@ sweep_session() {
     done < "$file"
   fi
   rm -f "$file" "$state_dir/$session".prompt.*
+  rm -rf "$state_dir/$session.agents"
 }
 
 case "${1:-}" in
@@ -203,7 +204,7 @@ case "${1:-}" in
     # SessionEnd hooks get a short time budget; the sweep runs detached so it outlives Claude Code, and logs there.
     input="$(cat)"
     session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
-    [ -n "$session" ] && { [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.panes" ]; } || exit 0
+    [ -n "$session" ] && { [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.panes" ] || [ -d "$state_dir/$session.agents" ]; } || exit 0
     perl -MPOSIX -e 'exit 0 if fork; POSIX::setsid(); exec @ARGV' \
       "$0" sweep-session "$session" "$(printf '%s' "$input" | jq -r '.cwd // empty')" \
       </dev/null >/dev/null 2>>"$state_dir/sweep.log" ;;
