@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Smallest check that fails if agent-dispatch.sh breaks: which calls stay in-process and how a dispatched one is started,
-# against a fake herdr that records its calls (the real herdr and real sessions are run by hand).
+# Smallest check that fails if agent dispatch breaks: which calls stay in-process and how a dispatched one is started
+# (hooks/agent-dispatch.sh), the report reminder (hooks/agent-report.sh) and the agent panes the sweep closes
+# (hooks/worktree.sh), against a fake herdr that records its calls. Real herdr and real sessions are run by hand.
 # Run: bash test/agent-dispatch.test.sh
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -9,7 +10,9 @@ sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" CLAUDE_PLUGIN_ROOT="$root"
 mkdir -p "$HOME"
+state="$XDG_STATE_HOME/forgerdr/worktrees"
 calls="$sandbox/herdr-calls"
+: > "$calls"
 
 cat > "$sandbox/herdr" <<'SH'
 #!/usr/bin/env bash
@@ -18,6 +21,7 @@ case "$1 $2" in
   "pane split") printf '{"result":{"pane":{"pane_id":"w1:p7"}}}\n' ;;
   "pane list") printf '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w1:p7"}]}}\n' ;;
   "pane layout") printf '{"result":{"layout":{"panes":[{"pane_id":"w1:p1","rect":{"height":74}},{"pane_id":"w1:p7","rect":{"height":18}},{"pane_id":"w1:p8","rect":{"height":37}}]}}}\n' ;;
+  "agent list") printf '{"result":{"agents":[{"name":"agent-done","pane_id":"w1:p2","agent_status":"idle"},{"name":"agent-busy","pane_id":"w1:p3","agent_status":"working"},{"name":"someone-else","pane_id":"w1:p4","agent_status":"idle"}]}}\n' ;;
   "agent read") printf 'ready\n' ;;
   *) printf '{"result":{}}\n' ;;
 esac
@@ -28,40 +32,54 @@ failures=0
 expect() {
   if [ "$2" = "$3" ]; then printf 'ok   %s\n' "$1"; else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; failures=$((failures + 1)); fi
 }
+contains() { case "$1" in *"$2"*) echo yes ;; *) echo no ;; esac; }
 call() {
-  jq -cn --arg type "$1" --arg prompt "${2:-Do the task.}" --arg isolation "${3:-}" --arg cwd "$sandbox" \
-    '{session_id:"s1",cwd:$cwd,transcript_path:"",tool_name:"Agent",tool_input:{subagent_type:$type,description:"Probe task",prompt:$prompt,isolation:$isolation}}' \
+  jq -cn --arg type "$1" --arg isolation "${2:-}" --arg mode "${3:-}" --arg cwd "$sandbox" --arg transcript "${TRANSCRIPT:-}" \
+    '{session_id:"s1",cwd:$cwd,transcript_path:$transcript,permission_mode:$mode,tool_name:"Agent",tool_input:{subagent_type:$type,description:"Probe task",prompt:"Do the task.",isolation:$isolation}}' \
     | bash "$hook"
 }
 decision() { call "$@" | jq -r '.hookSpecificOutput.permissionDecision // empty'; }
-contains() { case "$1" in *"$2"*) echo yes ;; *) echo no ;; esac; }
 in_herdr() {
   HERDR_ENV=1 HERDR_PANE_ID=w1:p1 HERDR_WORKSPACE_ID=w1 HERDR_BIN_PATH="$sandbox/herdr" \
     CLAUDE_CODE_MESSAGING_SOCKET=/tmp/cc-socks/42.sock FAKE_HERDR_CALLS="$calls" "$@"
 }
+logged() { grep -q -- "$1" "$state/dispatch.log" && echo yes || echo no; }
 
 unset HERDR_ENV
 expect "outside herdr the subagent stays in-process" "" "$(decision general-purpose)"
 expect "a fork stays in-process" "" "$(in_herdr decision fork)"
-expect "a built-in type it cannot reproduce stays in-process" "" "$(in_herdr decision statusline-setup)"
+expect "and says why" yes "$(logged "a fork inherits")"
+expect "a type with no definition exits cleanly" 0 "$(in_herdr call statusline-setup >/dev/null; echo $?)"
+expect "and says why" yes "$(logged "statusline-setup has no definition")"
+expect "a type that is a path is refused" "" "$(in_herdr decision ../../notes)"
+expect "and says why" yes "$(logged "unexpected agent type: ../../notes")"
 expect "no messaging socket, in-process" "" "$(HERDR_ENV=1 HERDR_PANE_ID=w1:p1 decision general-purpose)"
 
 : > "$calls"
-expect "general-purpose is dispatched to herdr" deny "$(in_herdr decision general-purpose)"
-expect "first agent pane splits this session to the right" "pane split w1:p1 --direction right" "$(grep -o 'pane split w1:p1 --direction right' "$calls")"
+printf '%s\n' '{"type":"assistant","message":{"model":"claude-haiku-5-5"}}' '{"type":"assistant","message":{"model":"<synthetic>"}}' > "$sandbox/transcript.jsonl"
+expect "general-purpose is dispatched to herdr" deny "$(TRANSCRIPT="$sandbox/transcript.jsonl" in_herdr decision general-purpose "" plan)"
+expect "first agent pane splits this session to the right" yes "$(grep -q 'pane split w1:p1 --direction right' "$calls" && echo yes)"
 start="$(cat "$calls")"
-expect "plain general-purpose session" "no" "$( [ "$(contains "$start" --append-system-prompt-file)$(contains "$start" --disallowedTools)" = nono ] && echo no || echo yes)"
-expect "prompt carries the report address" yes "$(grep -q 'uds:/tmp/cc-socks/42.sock' "$calls" && echo yes)"
-expect "pane recorded for the session" 1 "$(wc -l < "$XDG_STATE_HOME/forgerdr/worktrees/s1.panes" | tr -d ' ')"
+expect "plain general-purpose session" no "$(contains "$start" "--tools ")"
+expect "the session's model, never a synthetic one" yes "$(contains "$start" "--model claude-haiku-5-5")"
+expect "the session's permission mode" yes "$(contains "$start" "--permission-mode plan")"
+expect "the message opens with a fixed header" yes "$(contains "$start" "Task from the Claude session that dispatched you")"
+expect "the message carries the report address" yes "$(contains "$start" "uds:/tmp/cc-socks/42.sock")"
+expect "pane recorded for the session" 1 "$(wc -l < "$state/s1.panes" | tr -d ' ')"
 
 : > "$calls"
 in_herdr decision forgerdr:reviewer >/dev/null
-expect "next agent stacks below the last one" yes "$(grep -q 'pane split w1:p7 --direction down' "$calls" && echo yes)"
 start="$(cat "$calls")"
-expect "reviewer gets its definition in a file" yes "$(grep -q -- "--append-system-prompt-file $XDG_STATE_HOME/forgerdr/worktrees/s1\.prompt\.[A-Za-z0-9]*" "$calls" && grep -q "You review a diff" "$XDG_STATE_HOME"/forgerdr/worktrees/s1.prompt.* && echo yes)"
-expect "reviewer loses the write tools" yes "$(contains "$start" "--disallowedTools Edit,Write,NotebookEdit,MultiEdit")"
+expect "next agent stacks below the last one" yes "$(contains "$start" "pane split w1:p7 --direction down")"
+expect "reviewer gets its definition in a file" yes "$(grep -q -- "--append-system-prompt-file $state/s1\.prompt\.[A-Za-z0-9]*" "$calls" && grep -q "You review a diff" "$state"/s1.prompt.* && echo yes)"
+expect "reviewer keeps its tool list" yes "$(contains "$start" "--tools Read,Grep,Glob,Bash,SendMessage,ToolSearch")"
+expect "reviewer gets no MCP servers" yes "$(contains "$start" "--strict-mcp-config")"
 
-printf 'w1:p8\tagent-x\n' >> "$XDG_STATE_HOME/forgerdr/worktrees/s1.panes"
+: > "$calls"
+in_herdr decision forgerdr:researcher >/dev/null
+expect "researcher gets no Bash" yes "$(contains "$(cat "$calls")" "--tools WebSearch,WebFetch,Read,Grep,Glob,SendMessage,ToolSearch")"
+
+printf 'w1:p8\tagent-x\n' >> "$state/s1.panes"
 : > "$calls"
 in_herdr decision general-purpose >/dev/null
 expect "the tallest agent pane of the session is split" yes "$(grep -q 'pane split w1:p8 --direction down' "$calls" && echo yes)"
@@ -76,14 +94,24 @@ expect "the reason says it is not an error" yes "$(contains "$reason" "Not an er
 report_hook="$root/hooks/agent-report.sh"
 to="uds:/tmp/cc-socks/42.sock"
 prompt_line='{"type":"user","message":{"content":"Do the task."}}'
-sent_line='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SendMessage","input":{"to":"uds:/tmp/cc-socks/42.sock","message":"Report"}}]}}'
+report_line='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SendMessage","input":{"to":"uds:/tmp/cc-socks/42.sock","message":"Report from agent-1 (task)\nDone."}}]}}'
+question_line='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SendMessage","input":{"to":"uds:/tmp/cc-socks/42.sock","message":"Which file?"}}]}}'
 text_line='{"type":"assistant","message":{"content":[{"type":"text","text":"Done."}]}}'
 stop() { printf '%s\n' "$@" > "$sandbox/t.jsonl"; jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:false}' | FORGE_REPORT_TO="$to" bash "$report_hook" | jq -r '.decision // empty'; }
 expect "a non-dispatched session is never reminded" "" "$(printf '{}' | bash "$report_hook")"
-expect "a turn without a report is reminded" block "$(stop "$prompt_line" "$text_line")"
-expect "a turn that reported is not" "" "$(stop "$prompt_line" "$sent_line" "$text_line")"
-expect "a report from an earlier turn does not count" block "$(stop "$prompt_line" "$sent_line" "$prompt_line" "$text_line")"
+expect "an agent that has not reported is reminded" block "$(stop "$prompt_line" "$text_line")"
+expect "a question is not a report" block "$(stop "$prompt_line" "$question_line" "$text_line")"
+expect "an agent that reported is not" "" "$(stop "$prompt_line" "$report_line" "$text_line")"
+expect "nor later, when the user talks to it in its pane" "" "$(stop "$prompt_line" "$report_line" "$prompt_line" "$text_line")"
 expect "the reminder is given once" "" "$(jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:true}' | FORGE_REPORT_TO="$to" bash "$report_hook")"
+
+printf 'w1:p2\tagent-done\nw1:p3\tagent-busy\nw1:p4\tagent-gone\n' > "$state/s9.panes"
+: > "$calls"
+in_herdr bash "$root/hooks/worktree.sh" sweep-session s9 "$sandbox"
+expect "sweep closes a done agent's pane" yes "$(grep -q 'pane close w1:p2' "$calls" && echo yes)"
+expect "sweep leaves an agent at work" no "$(grep -q 'pane close w1:p3' "$calls" && echo yes || echo no)"
+expect "sweep leaves a pane its agent left" no "$(grep -q 'pane close w1:p4' "$calls" && echo yes || echo no)"
+expect "sweep drops the session's agent panes" no "$([ -f "$state/s9.panes" ] && echo yes || echo no)"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

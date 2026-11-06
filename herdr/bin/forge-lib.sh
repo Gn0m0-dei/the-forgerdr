@@ -318,19 +318,41 @@ forge_agent_definition() {
       file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/agents/$name.md"
       if [ "$plugin" = forgerdr ] && [ -f "$file" ]; then printf '%s\n' "$file"; return 0; fi
       # shellcheck disable=SC2012 # newest installed version first; plugin cache paths have no spaces
-      ls -td "$HOME"/.claude/plugins/cache/*/"$plugin"/*/agents/"$name".md 2>/dev/null | head -n 1 ;;
+      ls -td "$HOME"/.claude/plugins/cache/*/"$plugin"/*/agents/"$name".md 2>/dev/null | head -n 1 || true ;;
     *)
       top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$dir")"
       for file in "$top/.claude/agents/$type.md" "$HOME/.claude/agents/$type.md"; do
         [ -f "$file" ] && { printf '%s\n' "$file"; return 0; }
       done ;;
   esac
+  return 0
 }
 
 # One field of a Markdown file's YAML frontmatter, unquoted; empty when absent.
 forge_frontmatter_field() {
   awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { exit } inside' "$1" \
     | sed -n "s/^$2:[[:space:]]*//p" | head -n 1 | tr -d '"'
+}
+
+# A list field of a Markdown file's YAML frontmatter, written inline ("a, b" or "[a, b]") or as "- item" lines,
+# comma-separated without spaces; empty when absent.
+forge_frontmatter_list() {
+  awk -v key="$2" '
+    NR == 1 && $0 == "---" { inside = 1; next }
+    inside && $0 == "---" { exit }
+    !inside { next }
+    listing && /^[[:space:]]*-[[:space:]]*/ { item = $0; sub(/^[[:space:]]*-[[:space:]]*/, "", item); gsub(/["\047]/, "", item); out = out (out == "" ? "" : ",") item; next }
+    { listing = 0 }
+    $0 ~ "^" key ":" { value = $0; sub("^" key ":[[:space:]]*", "", value); gsub(/["\047\[\]]/, "", value); gsub(/[[:space:]]*,[[:space:]]*/, ",", value); if (value == "") listing = 1; else out = value }
+    END { print out }
+  ' "$1"
+}
+
+# Removes the lines of a tab-separated state file whose first field is the given value.
+forge_drop_line() {
+  local tmp
+  tmp="$(mktemp "$1.XXXXXX")"
+  value="$2" awk -F'\t' '$1 != ENVIRON["value"]' "$1" > "$tmp" && mv "$tmp" "$1"
 }
 
 # A Markdown file without its YAML frontmatter and the blank lines that follow it.
@@ -416,9 +438,10 @@ forge_start_claude() {
   read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
   extra+=("$@")
   # A new pane's shell may still be starting (agent_pane_busy); a slow login shell takes seconds.
-  for _ in $(seq 1 40); do
+  local tries=40 pause=0.5
+  for _ in $(seq 1 "$tries"); do
     error="$(forge_herdr agent start "$name" --kind claude --pane "$pane" ${extra[@]+-- "${extra[@]}"} 2>&1 >/dev/null)" && break
-    case "$error" in *agent_pane_busy*) sleep 0.5 ;; *) break ;; esac
+    case "$error" in *agent_pane_busy*) sleep "$pause" ;; *) break ;; esac
   done
   forge_herdr agent wait "$name" --until idle --until blocked --timeout 60000 >/dev/null 2>&1 || true
   screen="$(forge_herdr agent read "$name" --source detection 2>/dev/null || true)"
