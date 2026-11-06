@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-11-06
+
 ### Added
 
 - `hooks/agent-dispatch.sh` on PreToolUse for Agent: inside herdr every subagent runs as its own Claude session in a herdr pane instead of inside the session, so it can be watched and talked to. One with `isolation: "worktree"` opens in its herdr worktree's workspace; any other in a new pane of the current tab, stacked in one column. The agent gets its definition (instructions through `--append-system-prompt-file`, its own tool list through `--tools` plus what reporting needs, no MCP servers unless the list names them), the dispatching session's permission mode, and its model unless the call or the definition names one; it reports back with SendMessage. Nested agents work the same way. A fork, a type it cannot reproduce or that is not a plain name, a session that cannot receive messages, and every agent outside herdr stay in-process; inside herdr each fallback is logged to `~/.local/state/forgerdr/worktrees/dispatch.log`.
