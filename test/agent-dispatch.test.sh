@@ -8,9 +8,10 @@ root="$(cd "$(dirname "$0")/.." && pwd)"
 hook="$root/hooks/agent-dispatch.sh"
 sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
-# Never the real herdr or the session running this test: every herdr call goes to the fake, and only in_herdr sets the
+# Never the real herdr or the session running this test: every herdr call goes to the fake, and each case sets the
 # variables a dispatch needs.
-unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH CLAUDE_CODE_MESSAGING_SOCKET FORGE_CLAUDE_ARGS
+unset HERDR_ENV HERDR_PANE_ID HERDR_TAB_ID HERDR_WORKSPACE_ID HERDR_SOCKET_PATH CLAUDE_CODE_MESSAGING_SOCKET FORGE_CLAUDE_ARGS \
+  FORGE_SESSION_TITLE FORGE_REPORT_TO
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" CLAUDE_PLUGIN_ROOT="$root"
 export HERDR_BIN_PATH="$sandbox/herdr" FAKE_HERDR_CALLS="$sandbox/herdr-calls"
 mkdir -p "$HOME"
@@ -24,9 +25,15 @@ printf '%s\n' "$*" >> "$FAKE_HERDR_CALLS"
 case "$1 $2" in
   "pane split") printf '{"result":{"pane":{"pane_id":"w1:p7"}}}\n' ;;
   "pane list") printf '{"result":{"panes":[{"pane_id":"w1:p1"},{"pane_id":"w1:p7"}]}}\n' ;;
-  "pane layout") printf '{"result":{"layout":{"panes":[{"pane_id":"w1:p1","rect":{"width":391,"height":74}},{"pane_id":"w1:p7","rect":{"width":97,"height":74}},{"pane_id":"w1:p8","rect":{"width":195,"height":74}},{"pane_id":"w1:p9","rect":{"width":97,"height":37}}]}}}\n' ;;
+  "pane layout")
+    case "$4" in
+      w1:p1|w1:p7|w1:p8|w1:p9|w1:p10) printf '{"result":{"layout":{"panes":[{"pane_id":"w1:p1","rect":{"width":391,"height":74}},{"pane_id":"w1:p7","rect":{"width":97,"height":74}},{"pane_id":"w1:p8","rect":{"width":195,"height":74}},{"pane_id":"w1:p9","rect":{"width":97,"height":37}}]}}}\n' ;;
+      *) printf '{"error":{"code":"pane_not_found"}}\n' >&2; exit 1 ;;
+    esac ;;
+  "agent prompt") [ -z "${FAKE_FAIL_PROMPT:-}" ] || { printf '{"error":{"code":"agent_not_found"}}\n' >&2; exit 1; } ;;
   "tab create") printf '{"result":{"tab":{"tab_id":"w1:t5"},"root_pane":{"pane_id":"w1:p10"}}}\n' ;;
   "agent list") printf '{"result":{"agents":[{"name":"agent-done","pane_id":"w1:p2","agent_status":"idle"},{"name":"agent-busy","pane_id":"w1:p3","agent_status":"working"},{"name":"someone-else","pane_id":"w1:p4","agent_status":"idle"}]}}\n' ;;
+  "pane get") printf '{"result":{"pane":{"pane_id":"w1:p7","label":"Probe task"}}}\n' ;;
   "agent read") printf 'ready\n' ;;
   *) printf '{"result":{}}\n' ;;
 esac
@@ -50,7 +57,6 @@ in_herdr() {
 }
 logged() { grep -q -- "$1" "$state/dispatch.log" && echo yes || echo no; }
 
-unset HERDR_ENV
 expect "outside herdr the subagent stays in-process" "" "$(decision general-purpose)"
 expect "a fork stays in-process" "" "$(in_herdr decision fork)"
 expect "and says why" yes "$(logged "a fork inherits")"
@@ -92,7 +98,7 @@ expect "the largest agent pane is split along its longer side" yes "$(grep -q 'p
 printf 'w1:p9\tagent-small\n' > "$state/s1.panes"
 : > "$calls"
 expect "a full set of agent panes opens a tab of agents" deny "$(in_herdr decision general-purpose)"
-expect "the tab is created in this workspace, without focus" yes "$(grep -q -- 'tab create --workspace w1 .*--label agents · ' "$calls" && grep -q -- 'tab create .*--no-focus' "$calls" && echo yes)"
+expect "the tab is created in this workspace, without focus" yes "$(grep -q -- "tab create --workspace w1 .*--label agents · $(basename "$sandbox") " "$calls" && grep -q -- 'tab create .*--no-focus' "$calls" && echo yes)"
 expect "no pane is split for it" no "$(grep -q 'pane split' "$calls" && echo yes || echo no)"
 expect "its root pane holds the agent" yes "$(grep -q 'agent start .* --pane w1:p10' "$calls" && echo yes)"
 
@@ -103,6 +109,21 @@ expect "Explore is read-only" yes "$(grep -q -- '--disallowedTools Edit,Write,No
 reason="$(in_herdr call general-purpose | jq -r '.hookSpecificOutput.permissionDecisionReason')"
 expect "the reason says it is not an error" yes "$(contains "$reason" "Not an error:")"
 
+printf 'w1:p9\tagent-small\n' > "$state/s1.panes"
+: > "$calls"
+expect "a dispatch that fails after opening a tab stays in-process" "" "$(FAKE_FAIL_PROMPT=1 in_herdr decision general-purpose)"
+expect "and closes that tab" yes "$(grep -q 'tab close w1:t5' "$calls" && echo yes)"
+expect "and forgets its pane" no "$(grep -q 'w1:p10' "$state/s1.panes" && echo yes || echo no)"
+
+printf 'w1:p2\tagent-dead\n' > "$state/s1.panes"
+: > "$calls"
+in_herdr decision general-purpose >/dev/null
+expect "a dead agent pane is ignored and the session pane is halved" yes "$(grep -q 'pane split w1:p1 --direction right' "$calls" && echo yes)"
+
+rm -f "$state/s1.panes"
+expect "an unreadable layout stays in-process" "" "$(HERDR_ENV=1 HERDR_PANE_ID=w1:pZ HERDR_WORKSPACE_ID=w1 CLAUDE_CODE_MESSAGING_SOCKET=/tmp/cc-socks/42.sock decision general-purpose)"
+expect "and says why" yes "$(logged "could not read the size of w1:pZ")"
+
 report_hook="$root/hooks/agent-report.sh"
 to="uds:/tmp/cc-socks/42.sock"
 prompt_line='{"type":"user","message":{"content":"Do the task."}}'
@@ -110,12 +131,21 @@ report_line='{"type":"assistant","message":{"content":[{"type":"tool_use","name"
 question_line='{"type":"assistant","message":{"content":[{"type":"tool_use","name":"SendMessage","input":{"to":"uds:/tmp/cc-socks/42.sock","message":"Which file?"}}]}}'
 text_line='{"type":"assistant","message":{"content":[{"type":"text","text":"Done."}]}}'
 stop() { printf '%s\n' "$@" > "$sandbox/t.jsonl"; jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:false}' | FORGE_REPORT_TO="$to" bash "$report_hook" | jq -r '.decision // empty'; }
-expect "a non-dispatched session is never reminded" "" "$(printf '{}' | bash "$report_hook")"
+printf '%s\n' '{"type":"user","message":{"content":"Hi."}}' > "$sandbox/plain.jsonl"
+expect "a non-dispatched session is never reminded" "" "$(jq -cn --arg t "$sandbox/plain.jsonl" '{transcript_path:$t,stop_hook_active:false}' | bash "$report_hook")"
 expect "an agent that has not reported is reminded" block "$(stop "$prompt_line" "$text_line")"
 expect "a question is not a report" block "$(stop "$prompt_line" "$question_line" "$text_line")"
 expect "an agent that reported is not" "" "$(stop "$prompt_line" "$report_line" "$text_line")"
 expect "nor later, when the user talks to it in its pane" "" "$(stop "$prompt_line" "$report_line" "$prompt_line" "$text_line")"
 expect "the reminder is given once" "" "$(jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:true}' | FORGE_REPORT_TO="$to" bash "$report_hook")"
+stop_json() { printf '%s\n' "$@" > "$sandbox/t.jsonl"; jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:false}' | FORGE_REPORT_TO="$to" bash "$report_hook"; }
+printf '%s\n' "$prompt_line" "$report_line" "$text_line" > "$sandbox/t.jsonl"
+: > "$calls"
+jq -cn --arg t "$sandbox/t.jsonl" '{transcript_path:$t,stop_hook_active:false}' \
+  | in_herdr env HERDR_PANE_ID=w1:p7 FORGE_REPORT_TO="$to" bash "$report_hook" >/dev/null
+expect "the pane title shows the agent is done" yes "$(grep -q 'pane rename w1:p7 ✓ done · Probe task' "$calls" && echo yes)"
+expect "the turn that reports says the agent can be closed" yes "$(contains "$(stop_json "$prompt_line" "$report_line" "$text_line" | jq -r '.systemMessage // empty')" "DONE")"
+expect "a later turn does not repeat it" "" "$(stop_json "$prompt_line" "$report_line" "$prompt_line" "$text_line")"
 
 printf 'w1:p2\tagent-done\nw1:p3\tagent-busy\nw1:p4\tagent-gone\n' > "$state/s9.panes"
 : > "$calls"

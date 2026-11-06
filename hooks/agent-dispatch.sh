@@ -29,6 +29,7 @@ readonly MIN_COLS=80
 readonly MIN_ROWS=15
 readonly CELL_ASPECT=2
 readonly AGENT_TAB_LABEL="agents ·"
+readonly TAB_LABEL_MAX=40
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/worktrees"
 
 lock=""
@@ -162,22 +163,29 @@ else
       sizes="$sizes$(forge_pane_size "$known")"$'\n'
     done < "$state_dir/$session.panes"
   fi
-  [ -n "${sizes//[[:space:]]/}" ] || sizes="$(forge_pane_size "$HERDR_PANE_ID")"
+  if [ -z "${sizes//[[:space:]]/}" ]; then
+    sizes="$(forge_pane_size "$HERDR_PANE_ID")"
+    [ -n "$sizes" ] || in_process "herdr could not read the size of $HERDR_PANE_ID"
+  fi
+  # forge: the lock is per session; a nested agent splitting its own pane while this session splits the same one can
+  # both read the old size and go under the minimum once. A lock per tab is the upgrade if that shows up.
   slot="$(printf '%s' "$sizes" | forge_pick_split "$MIN_COLS" "$MIN_ROWS" "$CELL_ASPECT")"
   base_pane="${slot% *}"
   direction="${slot#* }"
   workdir="$cwd"
-  where="a new herdr pane next to this session"
+  where="a new herdr pane in this session's agent grid"
   [ -n "$slot" ] || where="a new herdr tab of agents"
 fi
 
 agent_env=(--env "FORGE_SESSION_TITLE=$title" --env "FORGE_REPORT_TO=uds:$CLAUDE_CODE_MESSAGING_SOCKET")
 if [ -z "$worktree_path" ] && [ -z "$slot" ]; then
+  tab_label="$(printf '%s' "${FORGE_SESSION_TITLE:-$(basename "$cwd")}" | tr -s '[:cntrl:]' ' ' | cut -c1-"$TAB_LABEL_MAX")"
   created="$(forge_herdr tab create --workspace "$HERDR_WORKSPACE_ID" --cwd "$workdir" \
-    --label "$AGENT_TAB_LABEL ${FORGE_SESSION_TITLE:-$(basename "$cwd")}" "${agent_env[@]}" --no-focus)" \
+    --label "$AGENT_TAB_LABEL $tab_label" "${agent_env[@]}" --no-focus)" \
     || in_process "herdr could not open a tab of agents"
-  agent_tab="$(printf '%s' "$created" | jq -r '.result.tab.tab_id // empty')"
-  pane="$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id // empty')"
+  agent_tab="$(printf '%s' "$created" | jq -r '.result.tab.tab_id // empty')" || in_process "herdr gave no tab for $type"
+  pane="$(printf '%s' "$created" | jq -r '.result.root_pane.pane_id // empty')" || in_process "herdr gave no tab for $type"
+  [ -n "$agent_tab" ] || in_process "herdr gave no tab for $type"
 else
   pane="$(forge_herdr pane split "$base_pane" --direction "$direction" --ratio "$PANE_RATIO" --cwd "$workdir" \
     "${agent_env[@]}" --no-focus | jq -r '.result.pane.pane_id // empty')" || in_process "herdr could not split a pane for $type"

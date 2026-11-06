@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A dispatched agent that has sent its report says so in its pane, `✅ DONE: report delivered … You can close this pane now`, and its herdr pane title becomes `✓ done · <task>`, so finished agents are easy to spot and close by hand. Talking to it afterwards does not repeat either.
+
 ### Changed
 
 - Agents dispatched inside herdr form an even grid instead of one ever thinner column: each new agent halves the largest agent pane of the session along its longer side (a row counts as two columns), never below 80 columns by 15 rows, and the session keeps its half of the tab. When no agent pane can be halved, the agent opens a new tab, `agents · <session>`, in the same workspace without taking the focus, and the grid goes on there; a tab whose agents are all closed by the sweep goes with them.
