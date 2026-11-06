@@ -13,6 +13,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Changed
 
+- The standards forbid personal or sensitive data (an email, a name, an account id, a token, a hostname or a local path) in a `User-Agent`, `From` or custom client header, in code, scripts and commands; a site that asks automated clients to identify themselves gets a generic client name, and a demand for a personal contact goes to the user. The security audit's general classes check outgoing request headers for the same leak.
 - The report reminder counts from the agent's current task, not its first one: an agent given a second pass that ends its turn without reporting is reminded again, and is shown as waiting if it ends it once more.
 - The build skill and the standards send a fix pass, or a second review of a reviewer's own findings, to the agent that did the first one instead of a fresh agent; a new task, a final review and a security verification still get a new agent.
 
