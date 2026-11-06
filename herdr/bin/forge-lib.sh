@@ -307,6 +307,37 @@ forge_claude_base_ref() {
   fi
 }
 
+# Definition file of a named subagent type: <plugin>:<name> from this plugin or the plugin cache, otherwise the
+# repository's .claude/agents or ~/.claude/agents; empty for a built-in type.
+forge_agent_definition() {
+  local type="$1" dir="$2" plugin name top file
+  case "$type" in
+    *:*)
+      plugin="${type%%:*}"
+      name="${type#*:}"
+      file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/agents/$name.md"
+      if [ "$plugin" = forgerdr ] && [ -f "$file" ]; then printf '%s\n' "$file"; return 0; fi
+      # shellcheck disable=SC2012 # newest installed version first; plugin cache paths have no spaces
+      ls -td "$HOME"/.claude/plugins/cache/*/"$plugin"/*/agents/"$name".md 2>/dev/null | head -n 1 ;;
+    *)
+      top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$dir")"
+      for file in "$top/.claude/agents/$type.md" "$HOME/.claude/agents/$type.md"; do
+        [ -f "$file" ] && { printf '%s\n' "$file"; return 0; }
+      done ;;
+  esac
+}
+
+# One field of a Markdown file's YAML frontmatter, unquoted; empty when absent.
+forge_frontmatter_field() {
+  awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { exit } inside' "$1" \
+    | sed -n "s/^$2:[[:space:]]*//p" | head -n 1 | tr -d '"'
+}
+
+# A Markdown file without its YAML frontmatter and the blank lines that follow it.
+forge_frontmatter_body() {
+  awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { inside = 0; next } !inside && (started || NF) { started = 1; print }' "$1"
+}
+
 # Workspace id herdr has open for a worktree path, empty when none.
 forge_workspace_of_path() {
   forge_herdr worktree list --cwd "$1" \
@@ -378,9 +409,17 @@ forge_root_pane() {
 }
 
 # Starts a claude agent in a pane, accepts the folder trust prompt when it shows (it defaults to "No, exit"), and sends the prompt.
+# Arguments after the prompt, and the words of FORGE_CLAUDE_ARGS, go to claude. Fails when the prompt cannot be delivered.
 forge_start_claude() {
-  local name="$1" pane="$2" prompt="$3" screen
-  forge_herdr agent start "$name" --kind claude --pane "$pane" >/dev/null 2>&1 || true
+  local name="$1" pane="$2" prompt="$3" screen error extra=()
+  shift 3
+  read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
+  extra+=("$@")
+  # A new pane's shell may still be starting (agent_pane_busy); a slow login shell takes seconds.
+  for _ in $(seq 1 40); do
+    error="$(forge_herdr agent start "$name" --kind claude --pane "$pane" ${extra[@]+-- "${extra[@]}"} 2>&1 >/dev/null)" && break
+    case "$error" in *agent_pane_busy*) sleep 0.5 ;; *) break ;; esac
+  done
   forge_herdr agent wait "$name" --until idle --until blocked --timeout 60000 >/dev/null 2>&1 || true
   screen="$(forge_herdr agent read "$name" --source detection 2>/dev/null || true)"
   case "$screen" in
@@ -388,5 +427,6 @@ forge_start_claude() {
       forge_herdr agent send-keys "$name" down enter >/dev/null
       forge_herdr agent wait "$name" --until idle --timeout 60000 >/dev/null 2>&1 || true ;;
   esac
-  forge_herdr agent prompt "$name" "$prompt" >/dev/null
+  # A start that reports a failure can still bring the agent up (a trust prompt delays it); only the prompt tells.
+  forge_herdr agent prompt "$name" "$prompt" >/dev/null || { [ -z "${error:-}" ] || printf '%s\n' "$error" >&2; return 1; }
 }

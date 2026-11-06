@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `hooks/agent-dispatch.sh` on PreToolUse for Agent: inside herdr every subagent runs as its own Claude session in a herdr pane instead of inside the session, so it can be watched and talked to. One with `isolation: "worktree"` opens in its herdr worktree's workspace; any other in a new pane of the current tab, stacked in one column. The agent gets its definition (instructions through `--append-system-prompt-file`, model, no write tools when it has none) and the model of the dispatching session unless the call or the definition says otherwise, and reports back with SendMessage. Nested agents work the same way. A fork, a built-in type it cannot reproduce, a session that cannot receive messages, and every agent outside herdr stay in-process; every fallback is logged to `~/.local/state/forgerdr/worktrees/dispatch.log`.
+- `hooks/agent-report.sh` on Stop: a dispatched agent that ends a turn without reporting is reminded once.
+- The SessionEnd sweep closes the agent panes the session opened once they are done, leaves worktrees where an agent is still at work, and sweeps nothing after `/clear`.
+
+### Fixed
+
+- Starting an agent in a new herdr pane no longer fails while the pane's shell is still starting (`agent_pane_busy`), which a slow login shell such as nushell made common in `/forgerdr:worktree`, `workitem` tabs and the new dispatch.
+
 ## [0.10.0] - 2026-11-05
 
 ### Added

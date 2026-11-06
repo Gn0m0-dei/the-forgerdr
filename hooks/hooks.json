@@ -32,6 +32,16 @@
           }
         ],
         "matcher": "Grep|Glob"
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-dispatch.sh\"",
+            "timeout": 120,
+            "type": "command"
+          }
+        ],
+        "matcher": "Agent|Task"
       }
     ],
     "SessionEnd": [
@@ -65,6 +75,15 @@
             "async": true,
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/engram-session.sh\" stop",
             "timeout": 5,
+            "type": "command"
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-report.sh\"",
+            "timeout": 10,
             "type": "command"
           }
         ]
