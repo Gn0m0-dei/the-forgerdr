@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.12.0] - 2026-11-06
+
 ### Added
 
 - A dispatched agent that has sent its report says so in its pane, `✅ DONE: report delivered … You can close this pane now`, and its herdr pane title becomes `✓ done · <task>`, so finished agents are easy to spot and close by hand. Talking to it afterwards does not repeat either.
