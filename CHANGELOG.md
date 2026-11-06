@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.0] - 2026-11-06
+
 ### Added
 
 - A dispatched agent's herdr pane label shows its state and its current task: `▶ working · <task>`, `⏸ waiting · <task>` while it waits for a permission, an answer or agents of its own, and `✓ done · <task>` once it has reported. `hooks/agent-state.sh` (which replaces `hooks/agent-report.sh`) keeps it up to date from the agent's own SessionStart, UserPromptSubmit, PermissionRequest, AskUserQuestion and Stop hooks.
