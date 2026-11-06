@@ -20,6 +20,7 @@ Applied in every audit. Each item is a question to answer from the code, not a b
 
 ## Secrets and cryptography
 - Secrets in code, config, history, logs, error messages, URLs or anything the client receives.
+- Personal data or secrets in outgoing request headers: an email, name, account id, token, hostname or local path in a `User-Agent`, `From` or custom client header, which every server, proxy and log on the way keeps.
 - Tokens, keys and nonces from a non-cryptographic random source.
 - Secret comparison that leaks timing; unauthenticated encryption; reused nonces or static IVs.
 - What the code does when a crypto step fails: an error path that continues without it.
