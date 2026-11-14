@@ -41,6 +41,12 @@ attribution_reason="Zero attributions to AI (standards): remove every Co-Authore
 
 # Any global git option (-C dir, -c key="a value", --no-pager, --git-dir=x) may sit between git and commit.
 git_option='([[:space:]]+(-[A-Za-z]|--[a-z-]+)(=|[[:space:]]+)?([^[:space:]"'"'"']|"[^"]*"|'"'"'[^'"'"']*'"'"')*)*'
+
+# Inside herdr a worktree goes through herdr, which closes its workspace with it; git alone leaves the workspace open.
+if [ "${HERDR_ENV:-}" = 1 ] && printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(`/])git'"$git_option"'[[:space:]]+worktree[[:space:]]+remove([[:space:]]|$)'; then
+  deny "Inside herdr, remove a worktree through herdr so its workspace closes with it: herdr worktree remove --workspace <id>, the id being the open_workspace_id that herdr worktree list --cwd <repo> gives for its path. herdr refuses uncommitted work; --force throws it away, so ask the user first. A worktree with no workspace open: herdr worktree open --cwd <repo> --path <path> --no-focus, then remove it the same way."
+fi
+
 trigger='(^|[[:space:];&|(`/])(git'"$git_option"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'
 if printf '%s' "$command_text" | grep -Eq "$trigger"; then
   # Files passed with -F/--file/--body-file/--description-file, glued, quoted or with escaped spaces.
