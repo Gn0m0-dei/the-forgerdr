@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
-# Smallest check that fails if the worktree hook breaks, on its git path (outside herdr; the herdr path is run by
-# hand inside herdr). Run: bash test/worktree-hook.test.sh
+# Smallest check that fails if the worktree hook breaks, on its git path (outside herdr), and on the herdr workspaces
+# it closes against a fake herdr; the rest of the herdr path is run by hand inside herdr.
+# Run: bash test/worktree-hook.test.sh
 set -euo pipefail
 hook="$(cd "$(dirname "$0")/.." && pwd)/hooks/worktree.sh"
 sandbox="$(cd "$(mktemp -d)" && pwd -P)"
 trap 'rm -rf "$sandbox"' EXIT
-unset HERDR_ENV
-export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state"
+# Never the real herdr: every herdr call goes to the fake below.
+unset HERDR_ENV HERDR_WORKSPACE_ID
+export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" HERDR_BIN_PATH="$sandbox/herdr"
 mkdir -p "$HOME"
 git config --global user.name forgerdr-test
 git config --global user.email forgerdr-test@example.invalid
@@ -99,6 +101,61 @@ late="$(create late "$repo" s3)"
 jq -cn --arg cwd "$repo" '{session_id:"s3",cwd:$cwd,hook_event_name:"SessionEnd",reason:"other"}' | bash "$hook" sweep
 for _ in 1 2 3 4 5 6 7 8 9 10; do [ -e "$late" ] || break; sleep 0.5; done
 expect "SessionEnd sweep runs detached and removes a clean worktree" no "$(exists "$late")"
+
+# Workspaces of worktrees removed where no hook sees it (git or rm from Bash, the user's terminal), against a fake herdr
+# that records its calls.
+cat > "$sandbox/herdr" <<'SH'
+#!/usr/bin/env bash
+printf '%s\n' "$*" >> "$(dirname "$0")/herdr-calls"
+case "$1 $2" in
+  "workspace list") cat "$(dirname "$0")/workspaces.json" ;;
+  "pane list")
+    case "$4" in w-busy) status=working ;; w-asks) status=blocked ;; w-mute) exit 1 ;; *) status=idle ;; esac
+    printf '{"result":{"panes":[{"pane_id":"%s:p1","agent_status":"%s"}]}}\n' "$4" "$status" ;;
+  *) printf '{"result":{}}\n' ;;
+esac
+SH
+chmod +x "$sandbox/herdr"
+calls="$sandbox/herdr-calls"
+gone="$repo/.claude/worktrees"
+jq -n --arg gone "$gone" --arg alive "$path" --arg user "$sandbox/herdr-worktrees/feature-x" '{result:{workspaces:[
+  {workspace_id:"w-main",worktree:null},
+  {workspace_id:"w-gone",worktree:{checkout_path:($gone + "/agent-gone"),is_linked_worktree:true}},
+  {workspace_id:"w-busy",worktree:{checkout_path:($gone + "/agent-busy"),is_linked_worktree:true}},
+  {workspace_id:"w-asks",worktree:{checkout_path:($gone + "/agent-asks"),is_linked_worktree:true}},
+  {workspace_id:"w-mute",worktree:{checkout_path:($gone + "/agent-mute"),is_linked_worktree:true}},
+  {workspace_id:"w-here",worktree:{checkout_path:($gone + "/agent-here"),is_linked_worktree:true}},
+  {workspace_id:"w-alive",worktree:{checkout_path:$alive,is_linked_worktree:true}},
+  {workspace_id:"w-user",worktree:{checkout_path:$user,is_linked_worktree:true}}]}}' > "$sandbox/workspaces.json"
+in_herdr() { HERDR_ENV=1 HERDR_WORKSPACE_ID=w-here "$@"; }
+closed() { grep -qxF "workspace close $1" "$calls" && echo yes || echo no; }
+
+: > "$calls"
+in_herdr bash "$hook" orphans </dev/null
+expect "closes the workspace of a removed worktree" yes "$(closed w-gone)"
+expect "leaves one where an agent is working" no "$(closed w-busy)"
+expect "leaves one where an agent asks" no "$(closed w-asks)"
+expect "leaves one whose panes herdr cannot list" no "$(closed w-mute)"
+expect "leaves the one this session stands in" no "$(closed w-here)"
+expect "leaves one whose worktree is still there" no "$(closed w-alive)"
+expect "leaves a worktree that is not Claude Code's own" no "$(closed w-user)"
+expect "leaves a workspace with no worktree" no "$(closed w-main)"
+
+: > "$calls"
+expect "SessionStart prints nothing into the context" "" "$(jq -cn --arg cwd "$repo" '{session_id:"s4",cwd:$cwd,hook_event_name:"SessionStart",source:"startup"}' | in_herdr bash "$hook" orphans)"
+expect "and closes them" yes "$(closed w-gone)"
+
+: > "$calls"
+in_herdr bash "$hook" sweep-session s5 "$repo"
+expect "a session's sweep closes them too, with no worktree of its own" yes "$(closed w-gone)"
+
+: > "$calls"
+jq -cn --arg path "$gone/agent-gone" '{session_id:"s1",hook_event_name:"WorktreeRemove",worktree_path:$path}' | in_herdr bash "$hook" remove
+expect "removing a worktree already gone closes its workspace" yes "$(closed w-gone)"
+
+: > "$calls"
+bash "$hook" orphans </dev/null
+expect "outside herdr nothing is asked of herdr" "" "$(cat "$calls")"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'
