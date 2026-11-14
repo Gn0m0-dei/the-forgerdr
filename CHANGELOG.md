@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.13.1] - 2026-11-15
+
 ### Fixed
 
 - A herdr workspace no longer stays open after its Claude Code worktree is removed where no hook sees it, with `git worktree remove` or `rm` from Bash or a terminal. Inside herdr, `hooks/worktree.sh` closes the workspaces of `.claude/worktrees/` checkouts gone from disk when a session starts or ends, and when Claude Code asks to remove a worktree that is already gone; the one the session stands in and one where an agent is still working or asking stay.
