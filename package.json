@@ -19,7 +19,7 @@
     "validate": "claude plugin validate ."
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.5",
+    "@biomejs/biome": "2.6.7",
     "husky": "9.1.7"
   }
 }
