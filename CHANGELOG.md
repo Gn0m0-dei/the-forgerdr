@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.14.0] - 2026-11-16
+
 ### Added
 
 - Work items of an external backlog: an Azure DevOps organization other than the repository's remote, as when a client hosts the code and another company runs the backlog. Everything that stays in the repository names such an item `EXT-<id>`: the branch (`feature/EXT-<id>-<slug>`), the commit footer (`Refs: EXT-<id>`, never `#<id>`, which Azure Repos links to the item with that id in the repository's organization) and the pull request title, with no `--work-items` and no backlog URL. `forge_item_external` detects it from the item's URL, `/forgerdr:worktree` names the branch, and existing `EXT-<id>` branches are reused. Where the backlog is lives in `git config azdospec.organization` and `azdospec.project`, the keys azdospec's `/azdo:init` writes; without azdospec, the first external item worked offers to save them.
