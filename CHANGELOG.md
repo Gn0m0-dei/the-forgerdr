@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Work items of an external backlog: an Azure DevOps organization other than the repository's remote, as when a client hosts the code and another company runs the backlog. Everything that stays in the repository names such an item `EXT-<id>`: the branch (`feature/EXT-<id>-<slug>`), the commit footer (`Refs: EXT-<id>`, never `#<id>`, which Azure Repos links to the item with that id in the repository's organization) and the pull request title, with no `--work-items` and no backlog URL. `forge_item_external` detects it from the item's URL, `/forgerdr:worktree` names the branch, and existing `EXT-<id>` branches are reused. Where the backlog is lives in `git config azdospec.organization` and `azdospec.project`, the keys azdospec's `/azdo:init` writes; without azdospec, the first external item worked offers to save them.
+
+### Fixed
+
+- `forge_azure_org` reads the organization of a legacy `https://<org>.visualstudio.com/...` URL and of a git remote, including an SSH remote whose host is an alias of `~/.ssh/config`, instead of returning nothing.
+- Pull request threads, work item comments and work item types work in an Azure DevOps organization reached only with a personal access token, such as a guest account in a client's organization: the providers reference reaches them through `az devops invoke` instead of `az rest`, which signs in with `az login` alone. The thread list also skips deleted threads, which the API returns.
+- The providers reference resolves an SSH host alias with `ssh -G` before choosing the provider, takes the organization and project from the URL at hand before the remote's, decodes the project (`%20`), always passes `--organization`, and documents a personal access token per organization (`az devops login --organization`) next to `az login`.
+
 ## [0.13.1] - 2026-11-15
 
 ### Fixed

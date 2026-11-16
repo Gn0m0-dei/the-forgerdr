@@ -70,10 +70,12 @@ forge_spec_mode() {
   "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge-config.sh" get spec "$1" 2>/dev/null || echo chat
 }
 
-# Branch for a work item: <kind>/#<id>-<slug>, or <kind>/AB<id>-<slug> when the workspace's spec mode is azure
-# (the azdospec convention, so /azdo:apply finds the branch it expects).
+# Branch for a work item: <kind>/EXT-<id>-<slug> for an item of an external backlog (fifth argument "external"),
+# else <kind>/AB<id>-<slug> when the workspace's spec mode is azure (the azdospec convention, so /azdo:apply finds
+# the branch it expects), else <kind>/#<id>-<slug>.
 forge_branch_name() {
-  local kind="$1" id="$2" slug="$3" key="$4"
+  local kind="$1" id="$2" slug="$3" key="$4" backlog="${5:-}"
+  [ "$backlog" != external ] || { printf '%s/EXT-%s-%s\n' "$kind" "$id" "$slug"; return; }
   case "$(forge_spec_mode "$key")" in
     azure) printf '%s/AB%s-%s\n' "$kind" "$id" "$slug" ;;
     *) printf '%s/#%s-%s\n' "$kind" "$id" "$slug" ;;
@@ -154,9 +156,23 @@ forge_url_id() {
   printf '%s' "$1" | sed -nE 's#.*/([0-9]+)/?([?\#].*)?$#\1#p'
 }
 
-# Azure organization URL from a work item or pull request URL.
+# Azure organization URL (https://dev.azure.com/<org>, lowercase) from a work item or pull request URL, or from
+# a git remote: https with or without a user, the legacy <org>.visualstudio.com host, or ssh, whose host may be
+# an alias of ~/.ssh/config since only the v3/<org>/ path is read. Empty for anything else.
 forge_azure_org() {
-  printf '%s' "$1" | sed -nE 's#^(https://dev\.azure\.com/[^/]+)/.*#\1#p'
+  printf '%s' "$1" | sed -nE '
+    s#^https://([^@/]+@)?dev\.azure\.com/([^/]+)/.*#https://dev.azure.com/\2#p
+    s#^https://([^./]+)\.visualstudio\.com/.*#https://dev.azure.com/\1#p
+    s#^[^/]*:v3/([^/]+)/.*#https://dev.azure.com/\1#p' | head -n 1 | tr '[:upper:]' '[:lower:]'
+}
+
+# Whether a work item lives in an external backlog: an Azure DevOps item whose organization is not the one of
+# the repository's remote. Nothing links across organizations, and a #<id> in a commit would link the item with
+# that id in the repository's organization, so the repository refers to it as EXT-<id>.
+forge_item_external() {
+  local url="$1" repo="$2"
+  [ "$(forge_provider "$url")" = azure ] || return 1
+  [ "$(forge_azure_org "$url")" != "$(forge_azure_org "$(git -C "$repo" remote get-url origin 2>/dev/null)")" ]
 }
 
 # GitHub or GitLab project path (owner/repo) from a URL.
@@ -396,13 +412,13 @@ forge_start_ref() {
   fi
 }
 
-# Existing branch that carries a work item id (<kind>/#<id>-… or <kind>/AB<id>-…), local first, then on origin
-# without its remote prefix; empty when there is none.
+# Existing branch that carries a work item id (<kind>/#<id>-…, <kind>/AB<id>-… or <kind>/EXT-<id>-…), local first,
+# then on origin without its remote prefix; empty when there is none.
 forge_branch_for_id() {
   local repo="$1" id="$2" prefix
   for prefix in refs/heads/ refs/remotes/origin/; do
     git -C "$repo" for-each-ref --format='%(refname)' "${prefix%/}" \
-      | sed "s#^$prefix##" | grep -E "^[^/]+/(#|AB)$id-" | head -n 1 | grep . && return 0
+      | sed "s#^$prefix##" | grep -E "^[^/]+/(#|AB|EXT-)$id-" | head -n 1 | grep . && return 0
   done
   return 0
 }

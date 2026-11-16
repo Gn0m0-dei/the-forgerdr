@@ -43,7 +43,7 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 
 ## 1. Analysis
 
-- Read the whole item: title, type, description, acceptance criteria, repro steps, comments, linked pull requests and commits. An OpenSpec change: its files, its stage and its work item, as the items reference says. Free text: the text, and what the repository and memory say about the area it names. Given several items, order them by real severity (crashes over visual inconsistencies, reproducible over vague, severity over nominal priority) and propose the order.
+- Read the whole item: title, type, description, acceptance criteria, repro steps, comments, linked pull requests and commits. An item of an external backlog (another Azure DevOps organization than the remote's) is read in its own one, and saves where the backlog is when nothing does yet (items reference). An OpenSpec change: its files, its stage and its work item, as the items reference says. Free text: the text, and what the repository and memory say about the area it names. Given several items, order them by real severity (crashes over visual inconsistencies, reproducible over vague, severity over nominal priority) and propose the order.
 - **Brief first, before touching anything**: in the reply language, five to eight lines: what the item asks in your own words, who reported it and when, the area or component it points at, whether it looks like code or content, what is already linked (pull requests, commits, duplicates), and what you are going to check next. No gate here: the user reads it while you go on, and interrupts if the reading is wrong.
 - Classify: **code** (ours) or **content / data / configuration someone else owns** (migrations, translations, editorial content). Content items get a verdict and a comment, not code.
 - Old items often no longer reproduce: check linked pull requests, "fixed in" commits and the git log of the touched area before testing.
@@ -70,8 +70,8 @@ An OpenSpec change skips steps 2 and 3: its stage comes next (Flow).
 - Branch: named as the standards say for the spec mode (Git, "Branch names"; in `chat`, `AskUserQuestion` with the proposals), reused when one already carries the item (items reference). New: `git switch -c <branch> --no-track origin/<base>`; existing: `git switch <branch>`. Then verify `git rev-parse --abbrev-ref @{upstream}` fails or names the branch itself. Working inside a worktree the forgerdr created: the branch already exists, verify the upstream only.
 - A working tree mounted by a running container (watched folders, hot reload) must not be churned by git: check `git diff --stat HEAD origin/<base> -- <mounted-path>` before branching there and warn the user if files would be rewritten.
 - Implement the minimal fix. Verify it in the browser before claiming anything.
-- **No commit without permission.** Gate 3. When granted: Conventional Commits in English, `Closes: #<id>` footer when there is a work item, no AI mention of any kind. Pair programming the user names: `Co-authored-by: <colleague>`.
-- Pull request to the base branch, title `#<id> <slug>` (the branch name without a work item), description in English (problem, cause, change, verification), work item linked through the provider. Gate 4.
+- **No commit without permission.** Gate 3. When granted: Conventional Commits in English, `Closes: #<id>` footer when there is a work item (`Refs: EXT-<id>` for an item of an external backlog), no AI mention of any kind. Pair programming the user names: `Co-authored-by: <colleague>`.
+- Pull request to the base branch, title `#<id> <slug>` (the branch name without a work item), description in English (problem, cause, change, verification), work item linked through the provider; an item of an external backlog gets `EXT-<id> <slug>`, no link and no URL. Gate 4.
 
 ## 5. Comment on the item
 

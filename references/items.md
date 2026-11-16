@@ -35,7 +35,7 @@ The branch follows the standards (Git, "Branch names") for the spec mode. Before
 
 | Item | Existing branch |
 |---|---|
-| work item, or a change with one | `git branch --all --list '*/#<id>-*' '*/AB<id>-*'` |
+| work item, or a change with one | `git branch --all --list '*/#<id>-*' '*/AB<id>-*' '*/EXT-<id>-*'` |
 | change without a work item | `feature/<change>` exactly |
 | free text | the name chosen, exactly |
 
@@ -46,6 +46,27 @@ A branch checked out in another clone or worktree (`git worktree list --porcelai
 | work item, or a change with one | `#<id>` | `#<id> <title>` |
 | change without a work item | the change name | `<change>` |
 | free text | none | a few words of it; the branch slug once the branch is chosen |
+
+## An item of an external backlog
+
+A work item is external when its backlog is not the repository's own: an Azure DevOps item whose organization is not the one of `git remote get-url origin`, as when a client hosts the code and another company runs the backlog (`forge_item_external` in `herdr/bin/forge-lib.sh`). Nothing links across organizations, and a `#<id>` in a commit links the item with that id in the repository's organization, so whatever stays in the repository names it `EXT-<id>`, with no link and no backlog URL:
+
+| | Own backlog | External backlog |
+|---|---|---|
+| Branch | the standards' "Branch names" | `fix/EXT-<id>-<slug>`, `feature/EXT-<id>-<slug>` |
+| Commit footer | `Closes: #<id>` | `Refs: EXT-<id>` |
+| Pull request | title `#<id> <slug>`, the item linked through the provider | title `EXT-<id> <slug>`, `EXT-<id>` in the description, no link |
+
+The item itself is read, commented and updated in its own organization, the one of its URL.
+
+Where the backlog is, when no item URL is at hand (a design in spec mode `azure`, a pull request from a branch that only carries the id): `git config azdospec.organization` (the organization's name) and `git config azdospec.project`, the keys azdospec's `/azdo:init` writes. They live in `.git/config`: never committed, shared by every worktree of the clone. Unset, the backlog is the remote's. Without azdospec, the first item worked from another organization than the remote's offers to save them from its URL (the project decoded: `%20` is a space) and saves them on a yes:
+
+```bash
+git config --local azdospec.organization <org>
+git config --local azdospec.project "<project>"
+```
+
+The work is external when its branch carries `EXT-<id>`, or when `azdospec.organization` is set and differs from the remote's organization.
 
 ## The change of the current work
 

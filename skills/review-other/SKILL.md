@@ -41,8 +41,8 @@ Order of the review and of the report: repository → area (package, module, app
 Checks, on top of every rule in the loaded skills and in the standards:
 
 Pull request metadata, reported as general comments with no file:
-- Title follows `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`bugfix/1234-login-button`, `feature/#1234-login-button` or `feature/AB1234-login-button` → `#1234 login-button`). A branch with no id (`feature/<change>`, a name chosen in spec mode `chat`): the branch name alone, and no finding for the missing id.
-- When the branch, the description or the OpenSpec change names a work item, it is linked in the provider's "work items" or "closes" relation. A bare `AB#<id>` or `#<id>` in the description does not count.
+- Title follows `#<id> <branch-slug>`, the slug being the branch without its type prefix and its id (`bugfix/1234-login-button`, `feature/#1234-login-button` or `feature/AB1234-login-button` → `#1234 login-button`; `feature/EXT-1234-login-button` → `EXT-1234 login-button`). A branch with no id (`feature/<change>`, a name chosen in spec mode `chat`): the branch name alone, and no finding for the missing id.
+- When the branch, the description or the OpenSpec change names a work item, it is linked in the provider's "work items" or "closes" relation. A bare `AB#<id>` or `#<id>` in the description does not count. An `EXT-<id>` item lives in an external backlog that cannot be linked (`${CLAUDE_PLUGIN_ROOT}/references/items.md`): no finding for the missing link, but one for any `#<id>` or backlog URL that names it.
 
 Code:
 - Standards: typing (no `any`, no `as`, enums over magic strings, published types reused), lookup tables over conditional chains, short-circuit for one-statement ifs inside hooks, no defensive returns, no silent catch, no hardcoded values a configuration or a registry already manages, comments only where they add value, living docs (stories, examples, API docs) updated with the code they describe.

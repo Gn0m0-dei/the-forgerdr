@@ -74,8 +74,10 @@ for index in "${!items[@]}"; do
   for repo in "${repos[@]}"; do
     branch="${item_branches[$index]}"
     if [ -z "$branch" ]; then
+      backlog=own
+      ! forge_item_external "${items[$index]}" "$repo" || backlog=external
       branch="$(forge_branch_for_id "$repo" "$id")"
-      [ -n "$branch" ] || branch="$(forge_branch_name "$kind" "$id" "$slug" "$(forge_project_key "$repo")")"
+      [ -n "$branch" ] || branch="$(forge_branch_name "$kind" "$id" "$slug" "$(forge_project_key "$repo")" "$backlog")"
     fi
     busy="$(forge_checked_out_at "$repo" "$branch")"
     [ -z "$busy" ] || forge_die "$branch is checked out at $busy; free it there or work the item in that clone"

@@ -33,6 +33,11 @@ expect "url repo gitlab" "repo" "$(forge_url_repo 'https://gitlab.com/group/sub/
 expect "url id" "4242" "$(forge_url_id 'https://dev.azure.com/org/proj/_git/R/pullrequest/4242?_a=files')"
 expect "url id trailing slash" "1234" "$(forge_url_id 'https://dev.azure.com/org/proj/_workitems/edit/1234/')"
 expect "azure org" "https://dev.azure.com/acme" "$(forge_azure_org 'https://dev.azure.com/acme/P/_workitems/edit/1')"
+expect "azure org legacy host" "https://dev.azure.com/acme" "$(forge_azure_org 'https://acme.visualstudio.com/P/_workitems/edit/1')"
+expect "azure org https remote" "https://dev.azure.com/acme" "$(forge_azure_org 'https://Acme@dev.azure.com/Acme/My%20Project/_git/repo')"
+expect "azure org ssh remote" "https://dev.azure.com/acme" "$(forge_azure_org 'git@ssh.dev.azure.com:v3/acme/My%20Project/repo')"
+expect "azure org ssh alias remote" "https://dev.azure.com/acme" "$(forge_azure_org 'git@azure-work:v3/acme/My%20Project/repo')"
+expect "azure org github remote" "" "$(forge_azure_org 'git@github.com:acme/repo.git')"
 expect "url project github" "owner/repo" "$(forge_url_project 'https://github.com/owner/repo/issues/5')"
 expect "url project gitlab" "group/sub/repo" "$(forge_url_project 'https://gitlab.com/group/sub/repo/-/issues/5')"
 
@@ -88,6 +93,16 @@ expect "branch for id on origin" "feature/#42-render" "$(forge_branch_for_id "$s
 git -C "$sandbox/workspace/front" branch "fix/AB42-render-again"
 expect "branch for id local first" "fix/AB42-render-again" "$(forge_branch_for_id "$sandbox/workspace/front" 42)"
 expect "branch for id is not a longer id" "" "$(forge_branch_for_id "$sandbox/workspace/front" 4)"
+git -C "$sandbox/workspace/front" branch "fix/EXT-77-checkout"
+expect "branch for an external id" "fix/EXT-77-checkout" "$(forge_branch_for_id "$sandbox/workspace/front" 77)"
+git -C "$sandbox/workspace/back" remote set-url origin git@azure-work:v3/contoso/Web%20Portal/portal
+external() { forge_item_external "$1" "${2:-$sandbox/workspace/back}" && echo external || echo own; }
+expect "item of the remote's organization" own "$(external 'https://dev.azure.com/Contoso/Web%20Portal/_workitems/edit/12')"
+expect "item of another organization" external "$(external 'https://dev.azure.com/fabrikam/Delivery/_workitems/edit/12')"
+expect "issue of another provider" own "$(external 'https://github.com/fabrikam/portal/issues/12')"
+git -C "$sandbox/lonely" remote add origin git@github.com:fabrikam/portal.git
+expect "azure item for a github remote" external "$(external 'https://dev.azure.com/fabrikam/Delivery/_workitems/edit/12' "$sandbox/lonely")"
+git -C "$sandbox/workspace/back" remote set-url origin git@ssh.dev.azure.com:v3/org/proj/MY.Repo
 expect "agent name from an id" "item-1234-front" "$(forge_agent_name item 1234 front)"
 long_one="$(forge_agent_name item "feature/add-search-filters-to-results-page" "a-very-long-repository-name")"
 long_two="$(forge_agent_name item "feature/add-search-filters-to-results-api" "a-very-long-repository-name")"
@@ -142,6 +157,8 @@ expect "branch default" "feature/#1234-login-button" "$(forge_branch_name featur
 "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null
 expect "branch azure" "fix/AB1234-login-button" "$(forge_branch_name fix 1234 login-button acme)"
 expect "branch other project" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button other)"
+expect "branch external in azure" "fix/EXT-1234-login-button" "$(forge_branch_name fix 1234 login-button acme external)"
+expect "branch external elsewhere" "feature/EXT-1234-login-button" "$(forge_branch_name feature 1234 login-button other external)"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

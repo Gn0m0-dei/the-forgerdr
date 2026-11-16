@@ -118,6 +118,8 @@ The mode also decides what `workitem` and `worktree` take as an item (an OpenSpe
 
 In `azure`, branches follow azdospec's naming so `/azdo:apply` works on the branch forgerdr created instead of opening its own. In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change.
 
+The backlog may live in another Azure DevOps organization than the code, as when a client hosts the repository and another company runs the backlog. Nothing links across organizations, and a `#<id>` in a commit would link the item with that id in the client's organization, so such an item is named `EXT-<id>` in everything that stays in the repository: the branch (`feature/EXT-1234-login-button`), the commit footer (`Refs: EXT-1234`) and the pull request title, never with a link or a backlog URL. Where the backlog is lives in the clone's `.git/config` (`azdospec.organization`, `azdospec.project`), shared with azdospec and never committed: [`references/items.md`](references/items.md).
+
 The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
 
 ## Agents

@@ -26,7 +26,7 @@ Then `AskUserQuestion` (multiSelect, one option per thread) for the ones to act 
 
 ## 3. Act
 
-Fixes: one thread at a time, test first when the change is testable, suite green. Commit with permission (one commit per logical group, `Closes:` footer kept), `git push`. Replies: the draft shown first, in the reply language (a team that states another language overrides it), short, no preamble, naming the commit hash when a fix was pushed.
+Fixes: one thread at a time, test first when the change is testable, suite green. Commit with permission (one commit per logical group, work item footer kept, `Closes:` or `Refs:`), `git push`. Replies: the draft shown first, in the reply language (a team that states another language overrides it), short, no preamble, naming the commit hash when a fix was pushed.
 
 ## 4. Close the loop
 

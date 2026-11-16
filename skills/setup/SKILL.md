@@ -43,7 +43,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 ## Sign-ins (the user runs them)
 
-`az login`, `gh auth login`, `glab auth login` (skip glab when the user has no GitLab projects). Checks: `az account show`, `gh auth status`, `glab auth status`. Tell the user to run each with the `!` prefix in the prompt and continue when they confirm.
+`az login`, `gh auth login`, `glab auth login` (skip glab when the user has no GitLab projects). Checks: `az account show`, `gh auth status`, `glab auth status`. Tell the user to run each with the `!` prefix in the prompt and continue when they confirm. An Azure DevOps organization the `az login` identity cannot reach (a guest account, a client's organization) takes a personal access token for that organization alone: `az devops login --organization https://dev.azure.com/<org>`, the token pasted when asked.
 
 ## Claude Code
 
