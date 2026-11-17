@@ -1,6 +1,6 @@
 # Items
 
-What `/forgerdr:workitem` and `/forgerdr:worktree` take as an item, and how `spec`, `plan`, `build` and `ship` find the OpenSpec change they work on. The project's spec mode decides both: it is printed at session start, and `${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh get spec <project-key>` reads it. In `openspec:<store>`, every `openspec` command below takes `--store <store>`.
+What `/forgerdr:workitem` and `/forgerdr:worktree` take as an item, and how `spec`, `plan`, `build` and `ship` find the OpenSpec change they work on. The project's spec mode decides both: it is printed at session start, and `${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh get spec <project-key>` reads it. In `openspec:<store>`, every `openspec` command below takes `--store <store>`.
 
 ## Several items
 
@@ -49,7 +49,7 @@ A branch checked out in another clone or worktree (`git worktree list --porcelai
 
 ## An item of an external backlog
 
-A work item is external when its backlog is not the repository's own: an Azure DevOps item whose organization is not the one of `git remote get-url origin`, as when a client hosts the code and another company runs the backlog (`forge_item_external` in `herdr/bin/forge-lib.sh`). Nothing links across organizations, and a `#<id>` in a commit links the item with that id in the repository's organization, so whatever stays in the repository names it `EXT-<id>`, with no link and no backlog URL:
+A work item is external when its backlog is not the repository's own: an Azure DevOps item whose organization is not the one of `git remote get-url origin`, as when a client hosts the code and another company runs the backlog (`forge_item_external` in `bin/forge-lib.sh`). Nothing links across organizations, and a `#<id>` in a commit links the item with that id in the repository's organization, so whatever stays in the repository names it `EXT-<id>`, with no link and no backlog URL:
 
 | | Own backlog | External backlog |
 |---|---|---|

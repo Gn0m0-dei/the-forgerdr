@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # WorktreeCreate, WorktreeRemove and SessionEnd for Claude Code's own worktrees (EnterWorktree, isolated subagents,
-# claude --worktree): herdr worktrees inside herdr, plain git worktrees outside it, always under the main checkout's
-# .claude/worktrees/<name> on branch worktree-<name>; when a session ends, the ones it created with no work left go.
-# Nothing here removes uncommitted work or a commit: git and herdr remove only clean worktrees, and a branch goes only
-# while it still points where it started or is merged. Inside herdr, when a session starts or ends, the workspaces of
-# those worktrees removed where no hook sees it are closed.
+# claude --worktree): git worktrees under the main checkout's .claude/worktrees/<name> on branch worktree-<name>, each
+# opened as a herdr app space that does not take the focus when the session runs in the app; when a session ends, the
+# ones it created with no work left go, their spaces with them.
+# Nothing here removes uncommitted work or a commit: git removes only clean worktrees, and a branch goes only while it
+# still points where it started or is merged. Inside the app, when a session starts or ends, the spaces forgerdr opened
+# for worktrees that were removed where no hook sees it are closed.
 # Usage: worktree.sh create|remove|sweep|orphans  (hook JSON on stdin)
 #        worktree.sh sweep-session <session-id> <cwd>  (what sweep runs detached)
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
 plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-# shellcheck source=herdr/bin/forge-lib.sh
-. "$plugin_root/herdr/bin/forge-lib.sh"
+# shellcheck source=bin/forge-lib.sh
+. "$plugin_root/bin/forge-lib.sh"
 
 readonly WORKTREES_DIR=".claude/worktrees"
 readonly BRANCH_PREFIX="worktree-"
@@ -20,8 +21,6 @@ readonly BRANCH_PREFIX="worktree-"
 readonly FETCH_SECONDS=5
 readonly TAB=$'\t'
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/worktrees"
-
-in_herdr() { [ "${HERDR_ENV:-}" = 1 ]; }
 
 # Runs a command, sending it TERM (which git cleans up after) when it outlasts the given seconds.
 capped() {
@@ -70,15 +69,22 @@ uncommitted() {
   git -C "$1" status --porcelain
 }
 
-# Removes a clean worktree from herdr (its workspace with it) or from git; both refuse a dirty one.
+# Removes a clean worktree, then closes its herdr app spaces; nothing goes when git refuses (a dirty one) or a space must
+# stay (the one this session runs in, one with an agent at work).
 drop_worktree() {
-  local root="$1" path="$2" workspace=""
-  in_herdr && workspace="$(forge_workspace_of_path "$root" "$path")"
-  if [ -n "$workspace" ]; then
-    forge_herdr worktree remove --workspace "$workspace" >/dev/null
-  else
-    git -C "$root" worktree remove "$path"
-  fi
+  local root="$1" path="$2"
+  ! forge_in_herdr || forge_spaces_closable "$path" || return 1
+  git -C "$root" worktree remove "$path" || return 1
+  ! forge_in_herdr || forge_close_spaces_of "$path" \
+    || printf 'forgerdr: the space of %s stays open until the app closes it as an orphan\n' "$path" >&2
+}
+
+# Opens a worktree as a herdr app space when the session runs in the app and none is open on it; a worktree still works
+# when the app does not answer.
+open_space() {
+  forge_in_herdr || return 0
+  [ -z "$(forge_spaces_of "$2")" ] || return 0
+  forge_open_space "$1" "$2" >/dev/null || printf 'forgerdr: the herdr app did not open a space for %s\n' "$2" >&2
 }
 
 # Deletes a worktree's own branch while it still points at the commit it started from, or once it is merged;
@@ -109,9 +115,7 @@ create() {
   git -C "$root" worktree prune
 
   if [ -d "$path" ] && git -C "$root" worktree list --porcelain | grep -qxF "worktree $path"; then
-    if in_herdr && [ -z "$(forge_workspace_of_path "$root" "$path")" ]; then
-      forge_herdr worktree open --cwd "$root" --path "$path" --label "$label" --no-focus >/dev/null
-    fi
+    open_space "$label" "$path"
     record "$session" "$path" "$(git -C "$path" branch --show-current)" "$(git -C "$path" rev-parse HEAD)"
     printf '%s\n' "$path"
     return 0
@@ -122,9 +126,7 @@ create() {
   GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" \
     capped "$FETCH_SECONDS" git -C "$root" fetch origin "$base_branch" --quiet >/dev/null 2>&1 || true
   base="$(forge_claude_base_ref "$root" "$cwd")"
-  if in_herdr; then
-    forge_herdr worktree create --cwd "$root" --branch "$branch" --base "$base" --path "$path" --label "$label" --no-focus >/dev/null
-  elif git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
+  if git -C "$root" show-ref --verify --quiet "refs/heads/$branch"; then
     git -C "$root" worktree add --quiet "$path" "$branch" >&2
   else
     git -C "$root" worktree add --quiet --no-track -b "$branch" "$path" "$base" >&2
@@ -135,6 +137,7 @@ create() {
   forge_drop_inherited_upstream "$path" "$branch"
   { forge_env_files "$root"; forge_worktree_includes "$root"; } | sort -u | forge_copy_listed "$root" "$path" >/dev/null \
     || printf 'forgerdr: some ignored files could not be copied into %s\n' "$path" >&2
+  open_space "$label" "$path"
   printf '%s\n' "$path"
 }
 
@@ -144,7 +147,7 @@ remove() {
   [ -n "$path" ] || forge_die "no worktree_path given"
   if [ ! -d "$path" ]; then
     forget "$path"
-    ! in_herdr || close_orphans
+    ! forge_in_herdr || close_orphans
     return 0
   fi
   changes="$(uncommitted "$path")" || forge_die "cannot read the state of $path; left in place"
@@ -159,38 +162,33 @@ remove() {
   drop_branch "$root" "$branch" "$start"
 }
 
-# Whether an agent in a herdr workspace is still at work (working, or blocked on a question); assumed so when herdr
-# cannot list its panes.
-agent_at_work() {
-  local panes
-  panes="$(forge_herdr pane list --workspace "$1")" || return 0
-  printf '%s' "$panes" | jq -e '[.result.panes[] | select(.agent_status == "working" or .agent_status == "blocked")] | length > 0' >/dev/null
-}
-
-# Closes the herdr workspaces of Claude Code's own worktrees whose checkout is gone from disk: removed with git or rm
-# from Bash or a terminal, where no hook sees it, herdr keeps the workspace open. The one this session stands in and
-# one where an agent is still at work stay.
+# Closes the herdr app spaces forgerdr opened for worktrees whose checkout is gone from disk: removed with git or rm from
+# Bash or a terminal, where no hook sees it, the app keeps the space open. The one this session stands in and one where
+# an agent is still at work stay.
 close_orphans() {
-  local workspaces id path
-  workspaces="$(forge_herdr workspace list)" || { printf 'forgerdr: herdr could not list workspaces; orphaned ones left open\n' >&2; return 0; }
-  while IFS=$'\t' read -r id path; do
-    [ -n "$id" ] && [ ! -e "$path" ] || continue
-    ! agent_at_work "$id" || continue
-    forge_herdr workspace close "$id" >/dev/null \
-      || printf 'forgerdr: could not close workspace %s of the removed worktree %s\n' "$id" "$path" >&2
-  done <<EOF
-$(printf '%s' "$workspaces" | jq -r --arg dir "/$WORKTREES_DIR/" --arg own "${HERDR_WORKSPACE_ID:-}" \
-  '.result.workspaces[] | select(.workspace_id != $own and ((.worktree.checkout_path // "") | contains($dir)))
-   | [.workspace_id, .worktree.checkout_path] | @tsv')
-EOF
+  local file own listed path id
+  file="$(forge_spaces_file)"
+  [ -f "$file" ] || return 0
+  listed="$(forge_app ls 2>/dev/null)" || { printf 'forgerdr: the herdr app did not answer; spaces of removed worktrees left open\n' >&2; return 0; }
+  own="$(forge_own_space)" || { printf 'forgerdr: hc cannot tell which space this session runs in; spaces of removed worktrees left open\n' >&2; return 0; }
+  while IFS=$'\t' read -r path id; do
+    [ -n "$path" ] && [ ! -e "$path" ] && [ "$id" != "$own" ] || continue
+    # The same id on another folder is another space.
+    if printf '%s' "$listed" | jq -e --arg id "$id" --arg path "$path" 'any(.spaces[]?; .id == $id and .folder == $path)' >/dev/null 2>&1; then
+      ! forge_space_at_work "$id" || continue
+      forge_do space.close --id "$id" --confirmed true >/dev/null \
+        || { printf 'forgerdr: could not close space %s of the removed worktree %s\n' "$id" "$path" >&2; continue; }
+    fi
+    forge_forget_space "$path"
+  done < <(cat "$file")
 }
 
 # Removes the worktrees a session created or reused that have no work left: no change, no untracked file, no commit
-# since it started, no agent still at work in it. The one the session stands in, one another session also holds, and
-# any with work stay. Then closes the agent panes the session opened (hooks/agent-dispatch.sh) that still hold that agent,
-# now done; a pane its agent left, or one at work, stays. The records of its agents go with it.
+# since it started, no agent still at work in its space. The one the session stands in, one another session also holds,
+# and any with work stay. Then ends the agent terminals the session started (hooks/agent-dispatch.sh) whose agent is done
+# or waiting for input, and removes the ones already ended; an agent at work stays. The records of its agents go with it.
 sweep_session() {
-  local session="$1" cwd file path branch start root changes ahead workspace pane agent agents
+  local session="$1" cwd file path branch start root changes ahead space terminal info
   cwd="$(cd "$2" 2>/dev/null && pwd -P || printf '%s' "$2")"
   file="$state_dir/$session.tsv"
   if [ -f "$file" ]; then
@@ -201,38 +199,38 @@ sweep_session() {
       changes="$(uncommitted "$path")" && [ -z "$changes" ] || continue
       ahead="$(git -C "$path" rev-list --count "$start..HEAD")" && [ "$ahead" = 0 ] || continue
       root="$(forge_main_checkout "$path")"
-      if in_herdr; then
-        workspace="$(forge_workspace_of_path "$root" "$path")"
-        [ -z "$workspace" ] || ! agent_at_work "$workspace" || continue
+      if forge_in_herdr; then
+        for space in $(forge_spaces_of "$path"); do ! forge_space_at_work "$space" || continue 2; done
       fi
       drop_worktree "$root" "$path" && drop_branch "$root" "$branch" "$start"
     done < "$file"
     rm -f "$file"
   fi
-  file="$state_dir/$session.panes"
-  if [ -f "$file" ] && in_herdr; then
-    agents="$(forge_herdr agent list)" || { printf 'forgerdr: herdr could not list agents; agent panes left open\n' >&2; agents='{}'; }
-    while IFS=$'\t' read -r pane agent; do
-      printf '%s' "$agents" | jq -e --arg pane "$pane" --arg agent "$agent" \
-        '.result.agents[]? | select(.pane_id == $pane and .name == $agent and .agent_status != "working" and .agent_status != "blocked")' \
-        >/dev/null || continue
-      forge_herdr pane close "$pane" >/dev/null || printf 'forgerdr: could not close agent pane %s\n' "$pane" >&2
+  file="$state_dir/$session.terminals"
+  if [ -f "$file" ] && forge_in_herdr; then
+    while IFS=$'\t' read -r terminal _; do
+      info="$(forge_hc get "$terminal" --json 2>/dev/null)" || continue
+      if printf '%s' "$info" | jq -e '.state == "live" and .status.app? == "claude-code" and (.status.state? == "idle" or .status.state? == "done")' >/dev/null; then
+        forge_end_terminal "$terminal" || printf 'forgerdr: could not end agent terminal %s\n' "$terminal" >&2
+      elif printf '%s' "$info" | jq -e '.state != "live"' >/dev/null; then
+        forge_hc rm "$terminal" >/dev/null 2>&1 || true
+      fi
     done < "$file"
   fi
   rm -f "$file" "$state_dir/$session".prompt.*
   rm -rf "$state_dir/$session.agents"
-  ! in_herdr || close_orphans
+  ! forge_in_herdr || close_orphans
 }
 
 case "${1:-}" in
   create) create "$(cat)" ;;
   remove) remove "$(cat)" ;;
-  orphans) cat >/dev/null; ! in_herdr || close_orphans ;;
+  orphans) cat >/dev/null; ! forge_in_herdr || close_orphans ;;
   sweep)
     # SessionEnd hooks get a short time budget; the sweep runs detached so it outlives Claude Code, and logs there.
     input="$(cat)"
     session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
-    [ -n "$session" ] && { in_herdr || [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.panes" ] || [ -d "$state_dir/$session.agents" ]; } || exit 0
+    [ -n "$session" ] && { forge_in_herdr || [ -f "$state_dir/$session.tsv" ] || [ -f "$state_dir/$session.terminals" ] || [ -d "$state_dir/$session.agents" ]; } || exit 0
     mkdir -p "$state_dir"
     perl -MPOSIX -e 'exit 0 if fork; POSIX::setsid(); exec @ARGV' \
       "$0" sweep-session "$session" "$(printf '%s' "$input" | jq -r '.cwd // empty')" \

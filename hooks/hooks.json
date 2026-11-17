@@ -1,16 +1,5 @@
 {
   "hooks": {
-    "PermissionRequest": [
-      {
-        "hooks": [
-          {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" ask",
-            "timeout": 5,
-            "type": "command"
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -63,16 +52,6 @@
           }
         ],
         "matcher": "SendMessage"
-      },
-      {
-        "hooks": [
-          {
-            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/agent-state.sh\" ask",
-            "timeout": 5,
-            "type": "command"
-          }
-        ],
-        "matcher": "AskUserQuestion"
       }
     ],
     "SessionEnd": [

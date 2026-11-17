@@ -42,9 +42,10 @@ attribution_reason="Zero attributions to AI (standards): remove every Co-Authore
 # Any global git option (-C dir, -c key="a value", --no-pager, --git-dir=x) may sit between git and commit.
 git_option='([[:space:]]+(-[A-Za-z]|--[a-z-]+)(=|[[:space:]]+)?([^[:space:]"'"'"']|"[^"]*"|'"'"'[^'"'"']*'"'"')*)*'
 
-# Inside herdr a worktree goes through herdr, which closes its workspace with it; git alone leaves the workspace open.
-if [ "${HERDR_ENV:-}" = 1 ] && printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(`/])git'"$git_option"'[[:space:]]+worktree[[:space:]]+remove([[:space:]]|$)'; then
-  deny "Inside herdr, remove a worktree through herdr so its workspace closes with it: herdr worktree remove --workspace <id>, the id being the open_workspace_id that herdr worktree list --cwd <repo> gives for its path. herdr refuses uncommitted work; --force throws it away, so ask the user first. A worktree with no workspace open: herdr worktree open --cwd <repo> --path <path> --no-focus, then remove it the same way."
+# Inside the herdr app a worktree's space closes before the worktree goes; git alone leaves the space open on a folder
+# that is gone.
+if [ -n "${HC_TERMINAL_ID:-}" ] && printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(`/])git'"$git_option"'[[:space:]]+worktree[[:space:]]+remove([[:space:]]|$)'; then
+  deny "Inside the herdr app, remove a worktree with ${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/bin/forge-worktree-remove.sh <path>: it closes the worktree's herdr space first, which git alone leaves open, and keeps the branch. It refuses uncommitted work; --force throws it away, so ask the user first."
 fi
 
 trigger='(^|[[:space:];&|(`/])(git'"$git_option"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'

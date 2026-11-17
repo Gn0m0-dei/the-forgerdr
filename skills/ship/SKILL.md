@@ -43,4 +43,4 @@ Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azd
 
 ## 8. Worktree
 
-A herdr worktree stays open until the pull request merges unless the user asks: then `herdr worktree remove --workspace <id>` and the branch is kept. `mem_save` the pull request, the branch and what is pending.
+A worktree stays, with its herdr space, until the pull request merges unless the user asks: then `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`, which closes its space and keeps the branch. `mem_save` the pull request, the branch and what is pending.

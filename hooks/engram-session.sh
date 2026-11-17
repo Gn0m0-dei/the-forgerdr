@@ -5,8 +5,8 @@
 set -euo pipefail
 
 plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-# shellcheck source=herdr/bin/forge-lib.sh
-. "$plugin_root/herdr/bin/forge-lib.sh"
+# shellcheck source=bin/forge-lib.sh
+. "$plugin_root/bin/forge-lib.sh"
 # shellcheck source=hooks/engram-lib.sh
 . "$plugin_root/hooks/engram-lib.sh"
 

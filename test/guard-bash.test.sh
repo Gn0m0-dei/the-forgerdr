@@ -4,7 +4,7 @@ set -euo pipefail
 hook="$(cd "$(dirname "$0")/.." && pwd)/hooks/guard-bash.sh"
 sandbox="$(mktemp -d)"
 trap 'rm -rf "$sandbox"' EXIT
-unset HERDR_ENV
+unset HC_TERMINAL_ID
 
 failures=0
 expect() {
@@ -65,16 +65,17 @@ expect "escaped space in -F path read" deny "$(decision "git commit -F $sandbox/
 expect "relative -F resolved against cwd" deny "$(printf '%s' 'git commit -F msg' | jq -Rs --arg cwd "$sandbox" '{cwd:$cwd,tool_input:{command:.}}' | bash "$hook" | jq -r '.hookSpecificOutput.permissionDecision // empty')"
 expect "az body with vendor denied" deny "$(decision 'az repos pr create --description "🤖 Generated with [Claude Code](https://claude.com/claude-code)"')"
 
-in_herdr() { HERDR_ENV=1 "$@"; }
-expect "git worktree remove denied inside herdr" deny "$(in_herdr decision 'git worktree remove --force .claude/worktrees/agent-1')"
-expect "git -C before worktree remove denied inside herdr" deny "$(in_herdr decision 'git -C /x worktree remove /x/.claude/worktrees/agent-1')"
+in_herdr() { HC_TERMINAL_ID=t5 "$@"; }
+expect "git worktree remove denied inside the herdr app" deny "$(in_herdr decision 'git worktree remove --force .claude/worktrees/agent-1')"
+expect "git -C before worktree remove denied inside the herdr app" deny "$(in_herdr decision 'git -C /x worktree remove /x/.claude/worktrees/agent-1')"
 # shellcheck disable=SC2016 # the loop must reach the hook unexpanded
-expect "worktree remove in a loop denied inside herdr" deny "$(in_herdr decision 'for w in .claude/worktrees/agent-*; do git worktree remove "$w"; done')"
-expect "and the reason names the herdr way" yes "$(in_herdr run 'git worktree remove x' | jq -r .hookSpecificOutput.permissionDecisionReason | grep -q 'herdr worktree remove --workspace' && echo yes)"
-expect "git worktree remove passes outside herdr" "" "$(decision 'git worktree remove x')"
-expect "git worktree list passes inside herdr" "" "$(in_herdr decision 'git worktree list --porcelain')"
-expect "git worktree prune passes inside herdr" "" "$(in_herdr decision 'git worktree prune')"
-expect "herdr worktree remove passes inside herdr" "" "$(in_herdr decision 'herdr worktree remove --workspace w1')"
+expect "worktree remove in a loop denied inside the herdr app" deny "$(in_herdr decision 'for w in .claude/worktrees/agent-*; do git worktree remove "$w"; done')"
+expect "and the reason names the script that closes its space" yes "$(in_herdr run 'git worktree remove x' | jq -r .hookSpecificOutput.permissionDecisionReason | grep -q 'bin/forge-worktree-remove.sh <path>' && echo yes)"
+expect "git worktree remove passes outside the herdr app" "" "$(decision 'git worktree remove x')"
+expect "git worktree list passes inside the herdr app" "" "$(in_herdr decision 'git worktree list --porcelain')"
+expect "git worktree prune passes inside the herdr app" "" "$(in_herdr decision 'git worktree prune')"
+# shellcheck disable=SC2016 # literal arguments
+expect "the remove script passes inside the herdr app" "" "$(in_herdr decision '"$CLAUDE_PLUGIN_ROOT/bin/forge-worktree-remove.sh" .claude/worktrees/agent-1')"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

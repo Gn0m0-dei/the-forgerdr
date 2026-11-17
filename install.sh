@@ -47,8 +47,9 @@ main() {
   step "azure-devops extension"
   az extension show --name azure-devops >/dev/null 2>&1 || az extension add --name azure-devops
 
-  step "herdr"
-  command -v herdr >/dev/null 2>&1 || curl -fsSL https://herdr.dev/install.sh | sh
+  step "herdr app"
+  # The desktop app and herdr-core (hc), into ~/Applications (macOS) or ~/.local/share (Linux) and ~/.local/bin.
+  command -v herdr-app >/dev/null 2>&1 || curl -fsSL https://releases.herdr.dev/app/install.sh | sh
 
   step "claude code"
   command -v claude >/dev/null 2>&1 || curl -fsSL https://claude.ai/install.sh | bash
@@ -58,7 +59,7 @@ main() {
 
   step "done"
   cat <<'NEXT'
-Open Claude Code in any project and run:
+Open the herdr app, start Claude Code in one of its terminals, in any project, and run:
 
   /plugin marketplace add Gn0m0-dei/the-forgerdr
   /plugin install forgerdr@the-forgerdr

@@ -1,6 +1,6 @@
 ---
 name: help
-description: "Prints the forgerdr cheat sheet: commands, the manual and auto flows, settings and herdr keys. Answered by a hook without reaching the model. Use on /forgerdr:help."
+description: "Prints the forgerdr cheat sheet: commands, the manual and auto flows, settings and the herdr app keys. Answered by a hook without reaching the model. Use on /forgerdr:help."
 ---
 
 # Help

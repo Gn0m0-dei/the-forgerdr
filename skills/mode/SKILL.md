@@ -5,15 +5,15 @@ description: "Shows or changes a forgerdr setting, globally or for the current p
 
 # Mode
 
-Settings live in `~/.config/forgerdr/config.toml`, outside the repositories, with a global default and overrides per memory project key (the key printed at session start). `${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh` reads and writes it.
+Settings live in `~/.config/forgerdr/config.toml`, outside the repositories, with a global default and overrides per memory project key (the key printed at session start). `${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh` reads and writes it.
 
 ## Show
 
 No arguments: print the current value of every setting for this project and the global default.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh" get spec <project-key>
-"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh" get spec
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get spec <project-key>
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get spec
 ```
 
 ## Set
@@ -21,7 +21,7 @@ No arguments: print the current value of every setting for this project and the 
 `/forgerdr:mode spec <value>` sets the global default; `--project` sets it for the current project only.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh" set spec <value> [<project-key>]
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" set spec <value> [<project-key>]
 ```
 
 Setting `openspec:<store>` checks the store is registered first (`openspec store list --json`); when it is not, offer `openspec store register <path>` and set the mode only after it. The change applies to the next skill that reads it, in this session. Confirm in one line: setting, scope, old value, new value.

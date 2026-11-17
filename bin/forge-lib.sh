@@ -2,8 +2,61 @@
 # Shared functions for the forgerdr scripts. Sourced, never executed.
 # shellcheck shell=bash
 
-forge_herdr() {
-  "${HERDR_BIN_PATH:-herdr}" "$@"
+# herdr-core's CLI, which runs every terminal and agent, and the herdr app's, which shows them in spaces, tabs and panes.
+# FORGE_HC and FORGE_HERDR_APP replace them in the tests.
+forge_hc() {
+  "${FORGE_HC:-hc}" "$@"
+}
+
+forge_app() {
+  "${FORGE_HERDR_APP:-herdr-app}" "$@"
+}
+
+# A herdr app command, as herdr-app do <command> --<argument> <value>...: prints what it made, fails with its error.
+forge_do() {
+  forge_app "do" "$@"
+}
+
+# Whether this runs in a herdr-core terminal: one the herdr app shows, or one hc started.
+forge_in_herdr() {
+  [ -n "${HC_TERMINAL_ID:-}" ]
+}
+
+# How long forgerdr waits on a terminal or a lock: this many checks, this many seconds apart.
+FORGE_WAIT_TRIES="${FORGE_READY_TRIES:-120}"
+FORGE_WAIT_PAUSE="${FORGE_READY_PAUSE:-0.5}"
+
+# The herdr app space this terminal shows in; empty for a terminal outside any space, such as a sub-agent. Fails when hc
+# cannot tell.
+forge_own_space() {
+  local info
+  [ -n "${HC_TERMINAL_ID:-}" ] || return 0
+  info="$(forge_hc get "$HC_TERMINAL_ID" --json 2>/dev/null)" || return 1
+  printf '%s' "$info" | jq -er '.labels["herdr.space"]? // ""'
+}
+
+# Runs a command holding a lock next to a state file, so sessions that rewrite and append to the same file do not lose
+# each other's lines. A lock older than the wait is taken as left behind by a session that died.
+forge_locked() {
+  local lock="$1.lock" status=0
+  shift
+  mkdir -p "$(dirname "$lock")"
+  for _ in $(seq 1 "$FORGE_WAIT_TRIES"); do
+    mkdir "$lock" 2>/dev/null && break
+    sleep 0.05
+  done
+  [ -d "$lock" ] || mkdir "$lock"
+  "$@" || status=$?
+  rmdir "$lock" 2>/dev/null || true
+  return "$status"
+}
+
+# A label of a terminal, this one when none is given; empty when it has none or hc cannot tell. The herdr app labels
+# the terminals it shows with herdr.space and herdr.tab.
+forge_terminal_label() {
+  local terminal="${2:-${HC_TERMINAL_ID:-}}"
+  [ -n "$terminal" ] || return 0
+  forge_hc get "$terminal" --json 2>/dev/null | jq -r --arg key "$1" '.labels[$key]? // empty' || true
 }
 
 forge_die() {
@@ -82,8 +135,9 @@ forge_branch_name() {
   esac
 }
 
-# Agent name herdr accepts ([a-z][a-z0-9_-]{0,31}, unique among live agents): <prefix>-<tag>[-<context>], the tag
-# being the key itself when it is a number (a work item id) and a checksum of it otherwise, so long keys never collide.
+# Agent name, also its terminal's name in herdr-core ([a-z][a-z0-9_-]{0,31}; hc wants it unique among live terminals):
+# <prefix>-<tag>[-<context>], the tag being the key itself when it is a number (a work item id) and a checksum of it
+# otherwise, so long keys never collide.
 forge_agent_name() {
   local prefix="$1" key="$2" context="${3:-}" tag
   case "$key" in ''|*[!0-9]*) tag="$(printf '%s' "$key" | cksum | cut -d' ' -f1)" ;; *) tag="$key" ;; esac
@@ -331,7 +385,7 @@ forge_agent_definition() {
     *:*)
       plugin="${type%%:*}"
       name="${type#*:}"
-      file="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/agents/$name.md"
+      file="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)/agents/$name.md"
       if [ "$plugin" = forgerdr ] && [ -f "$file" ]; then printf '%s\n' "$file"; return 0; fi
       # shellcheck disable=SC2012 # newest installed version first; plugin cache paths have no spaces
       ls -td "$HOME"/.claude/plugins/cache/*/"$plugin"/*/agents/"$name".md 2>/dev/null | head -n 1 || true ;;
@@ -374,32 +428,6 @@ forge_drop_line() {
 # A Markdown file without its YAML frontmatter and the blank lines that follow it.
 forge_frontmatter_body() {
   awk 'NR == 1 && $0 == "---" { inside = 1; next } inside && $0 == "---" { inside = 0; next } !inside && (started || NF) { started = 1; print }' "$1"
-}
-
-# "pane width height" of a live pane; nothing, and herdr's complaint on stderr, when herdr cannot size it.
-forge_pane_size() {
-  forge_herdr pane layout --pane "$1" \
-    | jq -r --arg pane "$1" '.result.layout.panes[] | select(.pane_id == $pane)
-        | select((.rect.width | type) == "number" and (.rect.height | type) == "number")
-        | "\(.pane_id) \(.rect.width) \(.rect.height)"' || true
-}
-
-# Of "pane width height" lines on stdin, the largest pane that halves along its longer side (a row counts as `aspect`
-# columns) without going under min_cols x min_rows, as "pane right|down"; nothing when no pane can.
-forge_pick_split() {
-  awk -v cols="$1" -v rows="$2" -v aspect="$3" '
-    NF == 3 {
-      if ($2 >= $3 * aspect) { fits = int($2 / 2) >= cols && $3 >= rows; dir = "right" }
-      else { fits = int($3 / 2) >= rows && $2 >= cols; dir = "down" }
-      if (fits && $2 * $3 > best) { best = $2 * $3; pick = $1 " " dir }
-    }
-    END { if (pick != "") print pick }'
-}
-
-# Workspace id herdr has open for a worktree path, empty when none.
-forge_workspace_of_path() {
-  forge_herdr worktree list --cwd "$1" \
-    | jq -r --arg path "$2" '.result.worktrees[] | select(.path == $path) | .open_workspace_id // empty'
 }
 
 # Ref a worktree for a branch starts from: the branch on origin when the remote has it, the base otherwise.
@@ -455,39 +483,219 @@ forge_dev_command() {
   fi
 }
 
-# Path and workspace id of the worktree of a branch: "path<TAB>workspace_id".
-forge_worktree_of() {
-  forge_herdr worktree list --cwd "$1" \
-    | jq -r --arg branch "$2" '.result.worktrees[] | select(.branch == $branch) | [.path, (.open_workspace_id // "")] | @tsv'
+# The herdr app's folder: its settings, layouts and keys.
+forge_app_home() {
+  printf '%s\n' "${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
 }
 
-# First pane of a workspace.
-forge_root_pane() {
-  forge_herdr pane list --workspace "$1" | jq -r '.result.panes[0].pane_id'
+# Where new item worktrees go: the herdr app's worktrees.directory setting, ~/.herdr/worktrees by default, so the app's
+# own Open and Remove worktree find them.
+forge_worktrees_dir() {
+  local dir
+  dir="$(jq -r '.worktrees.directory // empty' "$(forge_app_home)/settings.json" 2>/dev/null || true)"
+  # shellcheck disable=SC2088 # expanded below, as the herdr app expands it
+  dir="${dir:-~/.herdr/worktrees}"
+  # shellcheck disable=SC2088 # the same
+  case "$dir" in "~") dir="$HOME" ;; "~/"*) dir="$HOME/${dir#"~/"}" ;; esac
+  printf '%s\n' "$dir"
 }
 
-# Starts a claude agent in a pane, accepts the folder trust prompt when it shows (it defaults to "No, exit"), and sends the prompt.
-# Arguments after the prompt, and the words of FORGE_CLAUDE_ARGS, go to claude. Fails when the prompt cannot be delivered.
-forge_start_claude() {
-  local name="$1" pane="$2" prompt="$3" screen error extra=()
-  shift 3
-  read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
-  extra+=("$@")
-  # A new pane's shell may still be starting (agent_pane_busy); a slow login shell takes seconds.
-  local tries=40 pause=0.5
-  for _ in $(seq 1 "$tries"); do
-    error="$(forge_herdr agent start "$name" --kind claude --pane "$pane" ${extra[@]+-- "${extra[@]}"} 2>&1 >/dev/null)" && break
-    case "$error" in *agent_pane_busy*) sleep "$pause" ;; *) break ;; esac
+# Path of a branch's worktree: <worktrees dir>/<repository>/<branch, its slashes made dashes>, as the herdr app names its own.
+forge_worktree_path() {
+  printf '%s/%s/%s\n' "$(forge_worktrees_dir)" "$(basename "$1")" "$(printf '%s' "$2" | tr '/' '-')"
+}
+
+# Adds a worktree for a branch: the local branch when there is one, else a new branch from the start ref; then drops
+# the upstream it inherits from a base.
+forge_add_worktree() {
+  local repo="$1" branch="$2" start="$3" path="$4"
+  mkdir -p "$(dirname "$path")"
+  if git -C "$repo" show-ref --verify --quiet "refs/heads/$branch"; then
+    git -C "$repo" worktree add --quiet "$path" "$branch" >&2
+  else
+    git -C "$repo" worktree add --quiet -b "$branch" "$path" "$start" >&2
+  fi
+  forge_drop_inherited_upstream "$path" "$branch"
+}
+
+# The herdr app spaces forgerdr opened for worktrees, "path<TAB>space id" per line, so a space goes with its worktree.
+forge_spaces_file() {
+  printf '%s/forgerdr/spaces.tsv\n' "${XDG_STATE_HOME:-$HOME/.local/state}"
+}
+
+forge_append_line() {
+  printf '%s\n' "$2" >> "$1"
+}
+
+# Opens a worktree as a herdr app space that does not take the focus: named, its first tab named when a name is given,
+# running the argv given as JSON or a shell. Records it and prints what herdr-app made: {"space", "tab", "terminal"}.
+forge_open_space() {
+  local name="$1" path="$2" tab="${3:-}" argv="${4:-}" made file
+  made="$(forge_do space.new --name "$name" --folder "$path" ${tab:+--tab "$tab"} ${argv:+--argv "$argv"} --focus false)" \
+    || return 1
+  file="$(forge_spaces_file)"
+  mkdir -p "$(dirname "$file")"
+  forge_locked "$file" forge_append_line "$file" "$(printf '%s\t%s' "$path" "$(printf '%s' "$made" | jq -r .space)")"
+  printf '%s\n' "$made"
+}
+
+# Forgets the spaces recorded for a path.
+forge_forget_space() {
+  local file
+  file="$(forge_spaces_file)"
+  [ ! -f "$file" ] || forge_locked "$file" forge_drop_line "$file" "$1"
+}
+
+# Ids of the herdr app spaces open on a folder, the folder named as given or with its symlinks resolved; nothing when the
+# app does not answer.
+forge_spaces_of() {
+  local listed real
+  listed="$(forge_app ls 2>/dev/null)" || return 0
+  real="$(cd "$1" 2>/dev/null && pwd -P || printf '%s' "$1")"
+  printf '%s' "$listed" | jq -r --arg path "$1" --arg real "$real" '.spaces[]? | select(.folder == $path or .folder == $real) | .id' \
+    2>/dev/null || true
+}
+
+# Whether a terminal's agent is at work: working, or blocked on a question.
+forge_terminal_at_work() {
+  forge_hc get "$1" --json 2>/dev/null \
+    | jq -e '.state == "live" and (.status.state? == "working" or .status.state? == "blocked")' >/dev/null
+}
+
+# Ends a herdr-core terminal, by address or name, and removes it once it has ended (hc kill returns before it has), so
+# it does not linger in hc ls --all. Fails when it is still live after the wait; a terminal hc does not know is ended.
+forge_end_terminal() {
+  local state=""
+  forge_hc kill "$1" >/dev/null 2>&1 || true
+  for _ in $(seq 1 "$FORGE_WAIT_TRIES"); do
+    state="$(forge_hc get "$1" --json 2>/dev/null | jq -r '.state // empty')" || state=""
+    [ "$state" = live ] || break
+    sleep "$FORGE_WAIT_PAUSE"
   done
-  forge_herdr agent wait "$name" --until idle --until blocked --timeout 60000 >/dev/null 2>&1 || true
-  screen="$(forge_herdr agent read "$name" --source detection 2>/dev/null || true)"
-  case "$screen" in
-    *"trust this folder"*)
-      forge_herdr agent send-keys "$name" down enter >/dev/null
-      forge_herdr agent wait "$name" --until idle --timeout 60000 >/dev/null 2>&1 || true ;;
+  [ "$state" != live ] || return 1
+  [ -z "$state" ] || forge_hc rm "$1" >/dev/null 2>&1 || true
+}
+
+# Whether an agent is at work in a herdr app space, its sub-agents included. Anything the app's answer does not make
+# plain (no answer, an answer of another shape) counts as at work, so nothing at work is closed by mistake.
+forge_space_at_work() {
+  local listed verdict sub
+  listed="$(forge_app ls 2>/dev/null)" || return 0
+  # shellcheck disable=SC2016 # a jq filter
+  verdict="$(printf '%s' "$listed" | jq -r --arg id "$1" '
+    (.spaces | if type == "array" then . else error("no spaces") end) as $spaces
+    | ([$spaces[] | select(.id == $id)] | first) as $space
+    | if $space == null then "gone"
+      else ($space.tabs | if type == "array" then . else error("no tabs") end)
+        | [.[] | .terminals | if type == "array" then .[] else error("no terminals") end] as $terminals
+        | if any($terminals[]; .status == "working" or .status == "blocked") then "busy"
+          else "subs " + ([$terminals[] | .sub_agents[]? | if type == "object" then (.terminal // .address // "") else . end
+            | strings | select(length > 0)] | join(" ")) end
+      end' 2>/dev/null)" || return 0
+  case "$verdict" in
+    gone) return 1 ;;
+    "subs "*)
+      for sub in ${verdict#subs }; do
+        forge_terminal_at_work "$sub" && return 0
+      done
+      return 1 ;;
+    *) return 0 ;;
   esac
-  # A start that reports a failure can still bring the agent up (a trust prompt delays it); only the prompt tells.
-  forge_herdr agent prompt "$name" "$prompt" >/dev/null || { [ -z "${error:-}" ] || printf '%s\n' "$error" >&2; return 1; }
+}
+
+# Fails, saying why, when the herdr app spaces open on a worktree must not be closed: one is the space this terminal
+# shows in, hc cannot tell which that is, or, unless forced, an agent is at work in one. Nothing to say while the app
+# does not answer.
+forge_spaces_closable() {
+  local path="$1" force="${2:-}" own id
+  forge_app ls >/dev/null 2>&1 || return 0
+  own="$(forge_own_space)" || { printf 'forgerdr: hc cannot tell which space this session runs in; %s left in place\n' "$path" >&2; return 1; }
+  for id in $(forge_spaces_of "$path"); do
+    [ "$id" != "$own" ] || { printf 'forgerdr: %s is open in the space this session runs in\n' "$path" >&2; return 1; }
+    [ -n "$force" ] || ! forge_space_at_work "$id" || { printf 'forgerdr: an agent is at work in the space of %s\n' "$path" >&2; return 1; }
+  done
+}
+
+# Closes the herdr app spaces open on a worktree, ending their terminals, and forgets them; forge_spaces_closable says
+# first whether they may go. While the app does not answer nothing is closed and the record stays, so the space is
+# closed as an orphan once it answers again.
+forge_close_spaces_of() {
+  local path="$1" id
+  forge_app ls >/dev/null 2>&1 || return 0
+  for id in $(forge_spaces_of "$path"); do
+    forge_do space.close --id "$id" --confirmed true >/dev/null \
+      || { printf 'forgerdr: the herdr app could not close space %s of %s\n' "$id" "$path" >&2; return 1; }
+  done
+  forge_forget_space "$path"
+}
+
+# Starts a program in a new herdr-core terminal, through the user's login interactive shell as the herdr app starts
+# agents, so it gets what the shell profile sets (PATH, version managers, exported keys); a shell that takes neither the
+# sh nor the fish form, such as nushell, gives way to a login sh with this PATH. The terminal ends with the program and
+# hc types no note about it into this one. Options, then -- and the program with its arguments:
+#   --name N            its name, unique among live terminals
+#   --cwd DIR           where it starts
+#   --space ID --tab ID the herdr app tab it shows in as a pane; without them it is a sub-agent of this terminal,
+#                       listed under it in the app's Agents sidebar
+# Prints the terminal's address. Fails with 1 when hc starts nothing, with 2 when it started a terminal whose address it
+# did not print (end it by its name).
+forge_launch() {
+  local args=(run --bg --json --no-notify) shell="${SHELL:-/bin/sh}" out
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --name|--cwd) args+=("$1" "$2"); shift 2 ;;
+      --space) [ -z "$2" ] || args+=(--label "herdr.space=$2"); shift 2 ;;
+      --tab) [ -z "$2" ] || args+=(--label "herdr.tab=$2"); shift 2 ;;
+      --) shift; break ;;
+      *) printf 'forge_launch: unknown option %s\n' "$1" >&2; return 1 ;;
+    esac
+  done
+  # shellcheck disable=SC2016 # expanded by that shell
+  case "$(basename "$shell")" in
+    sh|bash|zsh|dash|ksh|mksh) args+=(-- "$shell" -lic 'exec "$@"' "$shell") ;;
+    fish) args+=(-- "$shell" -lic 'exec $argv') ;;
+    *) args+=(-- /bin/sh -lc 'exec "$@"' sh env "PATH=$PATH") ;;
+  esac
+  out="$(forge_hc "${args[@]}" "$@")" || return 1
+  printf '%s' "$out" | jq -er '.address' 2>/dev/null || return 2
+}
+
+# The argv the herdr app runs for a titled Claude session, as JSON for space.new and tab.new (the app runs it in the
+# user's login interactive shell): FORGE_SESSION_TITLE in its environment (hooks/session-start.sh makes it the session
+# title), the words of FORGE_CLAUDE_ARGS, then the prompt.
+forge_claude_argv() {
+  local extra=()
+  read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
+  # shellcheck disable=SC2016 # a jq filter
+  jq -cn --arg title "$1" --arg prompt "$2" '["env", ("FORGE_SESSION_TITLE=" + $title), "claude"] + $ARGS.positional + [$prompt]' \
+    --args -- ${extra[@]+"${extra[@]}"}
+}
+
+# Waits for a Claude agent just started in a terminal to come up: up once it reports a status, the folder trust prompt
+# accepted once on the way (it defaults to "No, exit"). Fails with 1 when the terminal ends first, with 2 when claude has
+# reported nothing by the end of the wait (not found, a bad argument, a slow start); a shell the herdr app keeps after
+# claude exits stays live, so only the status tells.
+forge_claude_ready() {
+  local terminal="$1" info status screen trust accepted=""
+  for _ in $(seq 1 "$FORGE_WAIT_TRIES"); do
+    info="$(forge_hc get "$terminal" --json 2>/dev/null)" || return 1
+    [ "$(printf '%s' "$info" | jq -r '.state // empty')" = live ] || return 1
+    status="$(printf '%s' "$info" | jq -r '[.status.state? // "", .status.msg? // ""] | join(" ")')"
+    trust=""
+    case "$status" in
+      blocked*trust*) trust=1 ;;
+      " ")
+        screen="$(forge_hc read "$terminal" --lines 0 2>/dev/null || true)"
+        case "$screen" in *"trust this folder"*) trust=1 ;; esac ;;
+      *) return 0 ;;
+    esac
+    if [ -n "$trust" ] && [ -z "$accepted" ]; then
+      forge_hc keys "$terminal" down enter >/dev/null || return 1
+      accepted=1
+    fi
+    sleep "$FORGE_WAIT_PAUSE"
+  done
+  return 2
 }
 
 # First line of the message that gives a dispatched agent a task (hooks/agent-dispatch.sh, hooks/agent-message.sh);
@@ -499,17 +707,8 @@ FORGE_REPORT_PREFIX="Report from"
 # The message that gives a dispatched agent a task: the header, the task, and where and how to report.
 # Arguments: agent type, agent name, task title, task, report address, note on where it works (may be empty).
 forge_agent_task() {
-  printf '%s (%s agent %s, "%s"):\n\n%s\n\n---\nYou are running in your own herdr pane. %sWhen you finish, even after waiting for agents of your own, send your complete final report with SendMessage to "%s", beginning with the line "%s %s (%s)". That session sees nothing else of your work: a reply typed in this pane reaches nobody. Ask it the same way if you need a decision.' \
+  printf '%s (%s agent %s, "%s"):\n\n%s\n\n---\nYou are running in a herdr terminal of your own. %sWhen you finish, even after waiting for agents of your own, send your complete final report with SendMessage to "%s", beginning with the line "%s %s (%s)". That session sees nothing else of your work: a reply typed in this terminal reaches nobody. Ask it the same way if you need a decision.' \
     "$FORGE_TASK_HEADER" "$1" "$2" "$3" "$4" "$6" "$5" "$FORGE_REPORT_PREFIX" "$2" "$3"
-}
-
-# herdr pane label of a dispatched agent: its state (working, waiting or done) and its task.
-forge_agent_label() {
-  case "$1" in
-    working) printf '▶ working · %s' "$2" ;;
-    waiting) printf '⏸ waiting · %s' "$2" ;;
-    done) printf '✓ done · %s' "$2" ;;
-  esac
 }
 
 # Applies a jq filter, with its jq arguments, to a JSON state file in place.
@@ -520,14 +719,8 @@ forge_json_update() {
   jq "$@" "$file" > "$tmp" && mv "$tmp" "$file"
 }
 
-# Sets the state of a dispatched agent, and its task title when one is given, in its record and its pane label; the
-# pane is renamed only when the label changes.
+# Sets the state of a dispatched agent (working or done), and its task title when one is given, in its record.
 forge_agent_mark() {
-  local record="$1" state="$2" title="${3:-}" before
-  before="$(jq -r '[.state, .title] | join("\t")' "$record")"
   # shellcheck disable=SC2016 # a jq filter
-  forge_json_update "$record" --arg state "$state" --arg title "$title" '.state = $state | .title = (if $title == "" then .title else $title end)'
-  [ "$(jq -r '[.state, .title] | join("\t")' "$record")" != "$before" ] || return 0
-  forge_herdr pane rename "$(jq -r .pane "$record")" "$(forge_agent_label "$state" "$(jq -r .title "$record")")" >/dev/null \
-    || printf 'forgerdr: could not rename pane %s\n' "$(jq -r .pane "$record")" >&2
+  forge_json_update "$1" --arg state "$2" --arg title "${3:-}" '.state = $state | .title = (if $title == "" then .title else $title end)'
 }

@@ -1,37 +1,26 @@
 #!/usr/bin/env bash
-# Hooks of an agent hooks/agent-dispatch.sh started in a herdr pane (FORGE_REPORT_TO and FORGE_AGENT_RECORD are set in
-# its pane). Its current task starts at the last message that gave it one: its first prompt, or a later message from
-# the session that dispatched it (hooks/agent-message.sh). Its pane label follows it:
-#   session  SessionStart: records its Claude session, its message address and its pane, so it can be reached and resumed.
-#   prompt   UserPromptSubmit: "▶ working · <task>".
-#   ask      PermissionRequest, and PreToolUse for AskUserQuestion: "⏸ waiting · <task>" until it works again.
+# Hooks of an agent hooks/agent-dispatch.sh started in a herdr terminal (FORGE_REPORT_TO and FORGE_AGENT_RECORD are set
+# in its environment). Its current task starts at the last message that gave it one: its first prompt, or a later
+# message from the session that dispatched it (hooks/agent-message.sh). Its record follows it; the herdr app shows its
+# status itself, from what Claude Code reports:
+#   session  SessionStart: records its Claude session, its message address and its terminal, so it can be reached and
+#            resumed.
+#   prompt   UserPromptSubmit: working.
 #   stop     Stop: while the task has no "Report from" report to the session that dispatched it, one reminder that a
-#            reply typed in its pane reaches nobody; an agent that ends its turn again (waiting for agents of its own or
-#            for an answer) is "⏸ waiting". The turn that sends the report ends with a "done" message in the pane and the
-#            label "✓ done · <task>"; a question typed in its pane afterwards brings neither again.
+#            reply typed in its terminal reaches nobody; an agent that ends its turn again (waiting for agents of its own
+#            or for an answer) is left alone. The turn that sends the report ends with a "done" message and the record
+#            done; a question typed to it afterwards brings neither again.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
 plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-# shellcheck source=herdr/bin/forge-lib.sh
-. "$plugin_root/herdr/bin/forge-lib.sh"
+# shellcheck source=bin/forge-lib.sh
+. "$plugin_root/bin/forge-lib.sh"
 
 readonly TRANSCRIPT_TAIL=5000
-# How long a waiting agent is watched for herdr to see it blocked on the question, then working again.
-readonly BLOCKED_WAIT_MS=15000
-readonly WORKING_WAIT_MS=3600000
 
 record="${FORGE_AGENT_RECORD:-}"
-in_herdr() { [ "${HERDR_ENV:-}" = 1 ] && [ -n "$record" ] && [ -f "$record" ]; }
-
-# Back to working once herdr sees the agent take up its work again after a question, unless its state moved on.
-watch() {
-  local name
-  name="$(jq -r .name "$record")"
-  forge_herdr agent wait "$name" --until blocked --timeout "$BLOCKED_WAIT_MS" >/dev/null 2>&1 || true
-  forge_herdr agent wait "$name" --until working --timeout "$WORKING_WAIT_MS" >/dev/null 2>&1 || return 0
-  [ "$(jq -r .state "$record")" != waiting ] || forge_agent_mark "$record" working
-}
+dispatched() { [ -n "$record" ] && [ -f "$record" ]; }
 
 # "pending", "now" or "earlier": whether the current task still lacks its report, got it in this turn (since the last
 # prompt), or before.
@@ -60,31 +49,23 @@ stop() {
   [ -f "$transcript" ] || exit 0
   case "$(report_state "$transcript")" in
     pending)
-      if [ "$active" = true ]; then
-        ! in_herdr || forge_agent_mark "$record" waiting
-      else
-        jq -cn --arg to "$FORGE_REPORT_TO" --arg prefix "$FORGE_REPORT_PREFIX" '{decision: "block", reason: ("You were dispatched by another Claude session and have not sent it your report on your current task yet: a reply typed in this pane reaches nobody. If your task is done, send your complete final report now with SendMessage to \"" + $to + "\", beginning with the line \"" + $prefix + " <your agent name> (<your task>)\". If you are still waiting for agents of your own, end your turn again.")}'
+      if [ "$active" != true ]; then
+        jq -cn --arg to "$FORGE_REPORT_TO" --arg prefix "$FORGE_REPORT_PREFIX" '{decision: "block", reason: ("You were dispatched by another Claude session and have not sent it your report on your current task yet: a reply typed in this terminal reaches nobody. If your task is done, send your complete final report now with SendMessage to \"" + $to + "\", beginning with the line \"" + $prefix + " <your agent name> (<your task>)\". If you are still waiting for agents of your own, end your turn again.")}'
       fi ;;
     now)
-      ! in_herdr || forge_agent_mark "$record" "done"
-      jq -cn '{systemMessage: "✅ DONE: report delivered to the session that dispatched this agent. You can close this pane now; it stays open only in case you want to ask this agent something."}' ;;
-    earlier) ! in_herdr || forge_agent_mark "$record" "done" ;;
+      ! dispatched || forge_agent_mark "$record" "done"
+      jq -cn '{systemMessage: "✅ DONE: report delivered to the session that dispatched this agent. You can end it now; it stays only in case you want to ask it something."}' ;;
+    earlier) ! dispatched || forge_agent_mark "$record" "done" ;;
   esac
 }
 
 case "${1:-}" in
   session)
-    in_herdr || exit 0
+    dispatched || exit 0
     # shellcheck disable=SC2016 # a jq filter
     forge_json_update "$record" --arg session "$(jq -r '.session_id // empty')" --arg socket "${CLAUDE_CODE_MESSAGING_SOCKET:-}" \
-      --arg pane "${HERDR_PANE_ID:-}" '.claude_session = $session | .socket = $socket | .pane = $pane' ;;
-  prompt) in_herdr && forge_agent_mark "$record" working || exit 0 ;;
-  ask)
-    in_herdr || exit 0
-    forge_agent_mark "$record" waiting
-    # Detached, so the question is not held up; it outlives this hook.
-    perl -MPOSIX -e 'exit 0 if fork; POSIX::setsid(); exec @ARGV' "$0" watch </dev/null >/dev/null 2>&1 ;;
-  watch) watch ;;
+      --arg terminal "${HC_TERMINAL_ID:-}" '.claude_session = $session | .socket = $socket | .terminal = (if $terminal == "" then .terminal else $terminal end)' ;;
+  prompt) dispatched && forge_agent_mark "$record" working || exit 0 ;;
   stop) stop ;;
-  *) forge_die "usage: agent-state.sh session|prompt|ask|stop" ;;
+  *) forge_die "usage: agent-state.sh session|prompt|stop" ;;
 esac

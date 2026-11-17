@@ -11,7 +11,7 @@ Input: the approved plan, wherever the spec mode keeps it (conversation and todo
 
 ## Setup
 
-- Isolated branch, named as the standards say for the spec mode (Git, "Branch names"; in `chat`, `AskUserQuestion` with the proposals): `git switch -c <branch> --no-track origin/<base>`, upstream verified; a branch that already carries the work is reused. Inside a herdr worktree the branch already exists.
+- Isolated branch, named as the standards say for the spec mode (Git, "Branch names"; in `chat`, `AskUserQuestion` with the proposals): `git switch -c <branch> --no-track origin/<base>`, upstream verified; a branch that already carries the work is reused. Inside a worktree made by `/forgerdr:worktree` the branch already exists.
 - Ledger: the record that survives compaction. `chat` and `openspec`: `mem_save` per task (started, rulings, result); in `openspec`, when the work has a change (the change of the current work, `${CLAUDE_PLUGIN_ROOT}/references/items.md`), its tasks are the plan: tick the task's checkbox in its `tasks.md` when it is done, and never add anything else to that file. `azure`: a progress comment on the task's work item at each milestone (azdospec posts them itself inside `/azdo:apply`; without it, `az boards work-item update --discussion`). Harness todos are a live view, never the record.
 - Read the plan and the spec. Pre-flight: files the plan names exist where it says, the test command runs.
 
@@ -46,7 +46,7 @@ Per task:
 3. Dispatch `forgerdr:reviewer` on the task diff with the spec and the plan. Critical or Important: one fix pass by the task's implementer with the findings as its brief, then the same reviewer again on its own findings. Minor: ledger.
 4. Commit when the plan says so, after asking. Ledger the task.
 
-Inside herdr every dispatched agent runs in a herdr pane of its own (standards, "Agents"): the Agent call comes back as dispatched, and the report arrives later as a message. End the turn to wait for it before reading the diff; never dispatch the same task again while it runs. A fix pass or a second review of the same task goes to the agent that did the first one, with SendMessage to its herdr agent name, so it keeps what it already read; a new task gets a new agent. Outside herdr, a fix pass gets a fresh implementer.
+Inside the herdr app every dispatched agent runs in a herdr terminal of its own (standards, "Agents"): the Agent call comes back as dispatched, and the report arrives later as a message. End the turn to wait for it before reading the diff; never dispatch the same task again while it runs. A fix pass or a second review of the same task goes to the agent that did the first one, with SendMessage to its agent name, so it keeps what it already read; a new task gets a new agent. Outside the app, a fix pass gets a fresh implementer.
 
 ## Finish
 

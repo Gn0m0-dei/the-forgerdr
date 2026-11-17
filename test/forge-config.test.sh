@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smallest check that fails if forge-config.sh breaks. Run: bash test/forge-config.test.sh
 set -euo pipefail
-bin="$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh"
+bin="$(cd "$(dirname "$0")/.." && pwd)/bin/forge-config.sh"
 sandbox="$(mktemp -d)"
 trap 'rm -rf "$sandbox"' EXIT
 export FORGERDR_CONFIG="$sandbox/config.toml"
