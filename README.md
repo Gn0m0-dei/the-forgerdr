@@ -13,18 +13,20 @@
 <p align="center">
   <a href="./LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/License-MIT-blue?style=flat-square" /></a>
   <a href="#install"><img alt="Claude Code: plugin" src="https://img.shields.io/badge/Claude_Code-plugin-d97757?style=flat-square" /></a>
-  <a href="#install"><img alt="herdr: plugin" src="https://img.shields.io/badge/herdr-plugin-fc618d?style=flat-square" /></a>
+  <a href="#the-herdr-app"><img alt="herdr: app" src="https://img.shields.io/badge/herdr-app-fc618d?style=flat-square" /></a>
   <a href="./CHANGELOG.md"><img alt="Status" src="https://img.shields.io/badge/status-v0-orange?style=flat-square" /></a>
 </p>
 
-A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer, a backlog item workflow, and the two things that make a terminal full of agents worth it: fan out N pull requests into N panes, fan out N items (backlog items, OpenSpec changes or plain tasks) into N worktrees, each with its env files, its dev server and its own agent.
+A Claude Code plugin for the [herdr](https://herdr.dev) desktop app that carries a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer, a backlog item workflow, and the two things that make a window full of agents worth it: fan out N pull requests into N tabs, fan out N items (backlog items, OpenSpec changes or plain tasks) into N worktrees, each opened as its own space with its env files, its dev server and its own agent.
 
 | Layer | Pieces | What it gives |
 |---|---|---|
 | Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
 | Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
 | In this session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
-| One tab per item, on herdr | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, worktrees and dev servers when asked |
+| One tab per item, on the herdr app | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, worktrees and dev servers when asked |
+
+> **The herdr app, not the herdr TUI.** From 0.15.0 forgerdr drives the herdr desktop app (`herdr-app`) and herdr-core (`hc`), which runs its terminals and agents. The app and the TUI run separate servers and share no agents, workspaces or plugins, so forgerdr supports one of them: the TUI version is 0.14.x and lives on the [`tui`](https://github.com/Gn0m0-dei/the-forgerdr/tree/tui) branch (see [Install](#install)).
 
 ## Install
 
@@ -34,9 +36,9 @@ Fresh machine, macOS or openSUSE Tumbleweed:
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 ```
 
-That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, [herdr](https://herdr.dev), Claude Code, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary and the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI. Another distro: install those by hand.
+That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [herdr app](https://herdr.dev/download/) with herdr-core, Claude Code, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary and the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI. Another distro: install those by hand.
 
-Then, inside Claude Code:
+Then open the herdr app, start Claude Code in one of its terminals, and run:
 
 ```
 /plugin marketplace add Gn0m0-dei/the-forgerdr
@@ -44,9 +46,11 @@ Then, inside Claude Code:
 /forgerdr:setup
 ```
 
-`/forgerdr:setup` completes the rest and reports a table: engram server, the MCP servers reaching through the plugin, herdr plugins, keybindings and Claude integration, provider sign-ins (yours to run), Claude Code settings, and the leftovers the plugin now replaces.
+`/forgerdr:setup` completes the rest and reports a table: engram server, the MCP servers reaching through the plugin, the herdr app and its optional keys, provider sign-ins (yours to run), Claude Code settings, and the leftovers the plugin now replaces, the herdr TUI's forgerdr plugin among them.
 
-Local checkout instead of the marketplace: `claude --plugin-dir /path/to/the-forgerdr` and `herdr plugin link /path/to/the-forgerdr/herdr`.
+Local checkout instead of the marketplace: `claude --plugin-dir /path/to/the-forgerdr`.
+
+Still on the herdr TUI: install forgerdr 0.14.x from the `tui` branch instead, `/plugin marketplace add Gn0m0-dei/the-forgerdr#tui` and then `/plugin install forgerdr@the-forgerdr`. Both branches name the marketplace `the-forgerdr`, so remove the other one first (`/plugin marketplace remove the-forgerdr`); the README on that branch covers its herdr TUI plugin and keys.
 
 ### Memory and MCP servers travel with the plugin
 
@@ -60,9 +64,9 @@ Memory lives in `~/.engram/engram.db` and in Claude Code's own memory directory.
 
 Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, so the agent reads them when they apply, from the main checkout and from any worktree of it. The other way round, a session started at the workspace root gets the skills inside each repository listed by repository.
 
-Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`, the change name for an OpenSpec change without a work item, the branch slug for free text) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, herdr shows it on the tab, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`herdr/bin/forge-session.sh`) unless the session is already titled for the single item given; outside herdr, a session that gains a number is asked once to `/rename` itself.
+Sessions carry the number they were opened for. `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`, the change name for an OpenSpec change without a work item, the branch slug for free text) and the session start hook sets it as the session title, the same as `/rename`: `claude --resume` lists it, the herdr app shows it on the terminal, and memory saved in that session mentions the number. `workitem` opens one titled tab per item (`bin/forge-session.sh`) unless the session is already titled for the single item given; outside the app, a session that gains a number is asked once to `/rename` itself.
 
-`hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`, `git worktree remove` inside herdr (it would leave the worktree's herdr workspace open; `herdr worktree remove` closes it), and a commit or pull request that attributes the work to AI (a whole-line trailer or badge is stripped instead and the command runs clean). `hooks/scrub-unicode.sh` removes invisible Unicode (zero-width, bidi controls, tag characters, stray BOMs) from every file the agent writes and reports the exotic spaces it leaves alone. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output. `hooks/worktree.sh` takes over Claude Code's own worktrees (`EnterWorktree`, subagents with `isolation: "worktree"`, `claude --worktree`): inside herdr each one opens as a herdr workspace, nested ones included, under `.claude/worktrees/<name>` on branch `worktree-<name>`, from the base `worktree.baseRef` asks for, with the ignored `.env*` files and the `.worktreeinclude` files copied; outside herdr it is a plain git worktree. When the session ends, the ones it created with no change, no commit and no agent at work in them are removed from herdr and git, their branches with them; the rest stay. Inside herdr, when a session starts or ends, the workspaces of those worktrees removed where no hook sees it (`git worktree remove` or `rm` from Bash or a terminal) are closed, unless an agent is still at work there or the session stands in one. Nothing it does throws work away: a worktree with uncommitted changes is never removed, not even when Claude Code asks, and a branch goes only while it still points where it started or is merged. Claude Code runs a plugin's `WorktreeCreate` hook for `claude --worktree` from 2.1.300 on, and never with `--worktree --tmux`; it reads `worktree.baseRef` from the settings files, not from managed settings or `--settings`. Background sessions, workflows and `remote-control` worktrees go through the hook too; only the subagent case has been run for real.
+`hooks/guard-bash.sh` refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`, `git worktree remove` inside the herdr app (it would leave the worktree's space open on a folder that is gone; `bin/forge-worktree-remove.sh` closes the space first), and a commit or pull request that attributes the work to AI (a whole-line trailer or badge is stripped instead and the command runs clean). `hooks/scrub-unicode.sh` removes invisible Unicode (zero-width, bidi controls, tag characters, stray BOMs) from every file the agent writes and reports the exotic spaces it leaves alone. `hooks/graph-augment.sh` adds code-graph context to every Grep and Glob. `hooks/engram-session.sh` closes the engram session on stop and captures subagent output. `hooks/worktree.sh` takes over Claude Code's own worktrees (`EnterWorktree`, subagents with `isolation: "worktree"`, `claude --worktree`): each one is a git worktree under `.claude/worktrees/<name>` on branch `worktree-<name>`, nested ones included, from the base `worktree.baseRef` asks for, with the ignored `.env*` files and the `.worktreeinclude` files copied; inside the herdr app it also opens as a space of its own that does not take the focus, which the app nests under its repository. When the session ends, the ones it created with no change, no commit and no agent at work in them are removed, their spaces closed and their branches deleted; the rest stay. Inside the app, when a session starts or ends, the spaces forgerdr opened for worktrees removed where no hook sees it (`git worktree remove` or `rm` from Bash or a terminal) are closed, unless an agent is still at work there or the session stands in one. Nothing it does throws work away: a worktree with uncommitted changes is never removed, not even when Claude Code asks, and a branch goes only while it still points where it started or is merged. Claude Code runs a plugin's `WorktreeCreate` hook for `claude --worktree` from 2.1.300 on, and never with `--worktree --tmux`; it reads `worktree.baseRef` from the settings files, not from managed settings or `--settings`. Background sessions, workflows and `remote-control` worktrees go through the hook too; only the subagent case has been run for real.
 
 | Rule file | What it fixes |
 |---|---|
@@ -76,7 +80,7 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | Skill | What it does |
 |---|---|
 | `/forgerdr:setup` | Installs and verifies the environment. Idempotent. |
-| `/forgerdr:help` | Prints the cheat sheet: commands, flows, settings, herdr keys. Answered by a hook, without spending tokens. |
+| `/forgerdr:help` | Prints the cheat sheet: commands, flows, settings, the herdr app keys. Answered by a hook, without spending tokens. |
 | `/forgerdr:mode` | Shows or sets the spec mode, globally or per project. |
 | `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
 | `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
@@ -85,9 +89,9 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
 | `/forgerdr:security` | Runs the security auditor on the diff or a module, has a fresh verifier challenge every critical or high finding, triages confirmed and needs-validation findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
-| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled herdr tab per item, separated by `\|`: a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
-| `/forgerdr:worktree [--auto] <item> [\| <item>...]` | The same, each item in its own git worktree: its branch (named by the spec mode, reused when it exists) from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files and an uncommitted OpenSpec change copied over, the dev server on its own `PORT`, a titled Claude agent running `workitem`. |
-| `/forgerdr:review <url...>` | One titled herdr pane and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
+| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled herdr app tab per item, separated by `\|`: a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
+| `/forgerdr:worktree [--auto] <item> [\| <item>...]` | The same, each item in its own git worktree, opened as a herdr app space in the background: its branch (named by the spec mode, reused when it exists) from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files and an uncommitted OpenSpec change copied over, a titled Claude agent running `workitem` in its first tab, the dev server on its own `PORT` in a second one. |
+| `/forgerdr:review <url...>` | One titled herdr app tab and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
 | `/forgerdr:review-other <url>` | Reviews a colleague's pull request in this session: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
 | `/forgerdr:review-own <url>` | Handles the review comments on your own pull request in this session: fix, reply or question per thread, you pick, then pushes, replies and resolves. |
 
@@ -124,7 +128,7 @@ The gates do not move with the mode: no implementation before an approved design
 
 ## Agents
 
-Four subagents the skills dispatch for a fresh context, each limited to the tools its definition lists (inside herdr each one runs in its own pane, see below):
+Four subagents the skills dispatch for a fresh context, each limited to the tools its definition lists (inside the herdr app each one runs in a terminal of its own, see below):
 
 | Agent | Dispatched by | Returns |
 |---|---|---|
@@ -133,39 +137,47 @@ Four subagents the skills dispatch for a fresh context, each limited to the tool
 | `forgerdr:security-verifier` | `security`, per critical or high finding | an independent attempt to refute the finding: confirmed, downgraded or rejected |
 | `forgerdr:researcher` | `research`, one per sub-question | cited answer with confidence |
 
-Inside herdr no agent runs hidden inside the session. `hooks/agent-dispatch.sh` intercepts every Agent call and starts the agent as its own Claude session in a herdr pane: one with `isolation: "worktree"` in its herdr worktree's workspace, any other in a new pane of the current tab. Each new agent halves the largest agent pane along its longer side, so they form an even grid next to the session (which keeps its half); when no agent pane can be halved without going under 80 columns by 15 rows, the agent opens a new tab, `agents · <session>`, in the same workspace, without taking the focus, and the grid goes on there. It gets the agent's definition (its instructions, its model, no write tools when the agent has none), you can watch it and talk to it, and it sends its final report back with SendMessage, beginning with `Report from <agent>`. Its pane label shows its state and its task: `▶ working · <task>`, `⏸ waiting · <task>` while it waits for a permission, an answer or agents of its own, and `✓ done · <task>` once it has reported, when its pane also says `✅ DONE … You can close this pane now`; `hooks/agent-state.sh` keeps the label up to date and reminds an agent that ends a turn without reporting. Close a done agent whenever you like, or keep it to ask it something. The next pass of the same task (a fix pass, a second review of a reviewer's own findings) goes to the same agent: the session sends it with SendMessage to the agent's herdr name, and `hooks/agent-message.sh` delivers it as a new task, the label showing the new task's summary, or, when you closed the pane, reopens the agent in a new pane resuming its Claude session (`claude --resume`) with everything it already read. Nested agents work the same way. Each one is a whole session, so it costs more than an in-process subagent. A fork, and every agent outside herdr, runs in-process. When the session ends, the agent panes it opened that are done are closed. Tasks of one plan still run sequentially: one branch, one worktree, one editor at a time.
+Inside the herdr app no agent runs hidden inside the session. `hooks/agent-dispatch.sh` intercepts every Agent call and starts the agent as its own Claude session in a herdr-core terminal of its own, through your login shell so it gets your environment (a login `sh` with the session's `PATH` for a shell that is neither of the sh family nor fish, such as nushell), without taking the focus: a sub-agent of the session, which the app lists under the session in its Agents sidebar with its live status (click it to look at it and talk to it; keep it as a tab to give it a pane), or, with `isolation: "worktree"`, a pane of its worktree's space. It gets the agent's definition (its instructions, its model, no write tools when the agent has none) and accepts the folder trust prompt for it, and it sends its final report back with SendMessage, beginning with `Report from <agent>`. The app shows whether it is working, waiting for you or done, from what Claude Code reports; `hooks/agent-state.sh` keeps the agent's record and reminds an agent that ends a turn without reporting, and the turn that reports ends with `✅ DONE`. End a done agent whenever you like, or keep it to ask it something. The next pass of the same task (a fix pass, a second review of a reviewer's own findings) goes to the same agent: the session sends it with SendMessage to the agent's name, and `hooks/agent-message.sh` delivers it as a new task, or, when its terminal ended, reopens the agent under the same name resuming its Claude session (`claude --resume`) with everything it already read. Nested agents work the same way, under the agent that started them. Each one is a whole session, so it costs more than an in-process subagent. A fork, and every agent outside the app, runs in-process. When the session ends, the agents it started that are done are ended. Tasks of one plan still run sequentially: one branch, one worktree, one editor at a time.
 
-## herdr plugin
+## The herdr app
 
-`herdr/` is a herdr plugin (`gn0m0dei.forgerdr`) with the same two fan-outs as actions, so they also work without a Claude session open:
+forgerdr talks to the herdr app through its two command-line tools: `herdr-app do` for the window (spaces, tabs, the focus) and `hc` for the terminals and agents in it. The fan-outs and the agent dispatch work only inside a terminal of the app (`HC_TERMINAL_ID` set); outside it, the worktree hook and `forge-worktree-remove.sh` still make and remove plain git worktrees, and nothing else touches the app. New tabs and spaces open without taking the focus unless the command is about what you look at next (the first review tab, a `workitem` tab).
 
-| Action | Keybinding (after `setup-keys`) | What it does |
-|---|---|---|
-| `review` | `prefix+shift+p` | Opens a pane that asks for pull request URLs and runs `bin/forge-review.sh` |
-| `worktree` | `prefix+shift+t` | Opens a pane that asks for items separated by `\|` and starts a Claude session running `/forgerdr:worktree` on them, which reads the spec mode |
-| `setup-keys` | | Writes the two keybindings into `~/.config/herdr/config.toml` (managed block) and reloads |
-
-The scripts are plain bash over the herdr CLI and `jq`:
+The scripts are plain bash over `herdr-app`, `hc` and `jq`:
 
 ```bash
-herdr/bin/forge-worktree.sh   [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT] <item>...
-herdr/bin/forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
+bin/forge-worktree.sh  [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT] <item>...
+bin/forge-review.sh    [--cwd PATH] [--no-agent] <pr-url>...
+bin/forge-session.sh   [--cwd PATH] [--no-agent] [--no-focus] --title TITLE <prompt>
+bin/forge-worktree-remove.sh [--force] <path>
+bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
 ```
 
-`FORGE_CLAUDE_ARGS`, when set, adds its words to every `claude` the scripts and hooks start (for example `--settings <file>` to try a change of the plugin before installing it).
+`forge-worktree.sh` makes each worktree where the app keeps its own (`worktrees.directory` in the app's `settings.json`, `~/.herdr/worktrees` by default), so the app's Open and Remove worktree see them, and `forge-worktree-remove.sh` removes one the way the app does: its space closed first, its branch kept. What the scripts cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags: the repositories, the dev command, and the branch and title of every item the script cannot name from a work item (any item in `chat`, a change in `openspec`). They print one JSON line per worktree, tab or pull request.
 
-Both print one JSON line per worktree or pane. What they cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the Claude skills decide and pass as flags: the repositories, the dev command, and the branch and title of every item the script cannot name from a work item (any item in `chat`, a change in `openspec`). The herdr `review` action runs its script with the defaults; the `worktree` action starts a Claude session running `/forgerdr:worktree`, so the spec mode decides there too.
+`FORGE_CLAUDE_ARGS`, when set, adds its words to every `claude` the scripts and hooks start (for example `--plugin-dir <checkout>` or `--settings <file>` to try a change of the plugin before installing it).
+
+### Keys
+
+`bin/forge-setup-keys.sh` adds two keys to the app's `keys.json` (`/forgerdr:setup` offers it), so the fan-outs also work without a Claude session open:
+
+| Key (macOS; Ctrl+Alt on Linux) | What it does |
+|---|---|
+| `Cmd+Alt+P` | Opens a tab that asks for pull request URLs and runs `bin/forge-review.sh` |
+| `Cmd+Alt+T` | Opens a tab that asks for items separated by `\|` and starts a Claude session running `/forgerdr:worktree` on them, which reads the spec mode |
+
+It keeps every other key, refuses a key you already use (`--review` and `--worktree` pick others), finds the installed plugin when the key runs so an update keeps it working, and `--remove` takes its keys away. Once `keys.json` is edited, the app treats it as yours and stops adding its new default keys to it.
 
 ## Development
 
 ```bash
 pnpm install
-pnpm lint       # biome + shellcheck (install.sh, bin, hooks, herdr/bin, test)
-pnpm test       # bash test/forge-lib.test.sh: the pure functions of the scripts
+pnpm lint       # biome + shellcheck (install.sh, bin, hooks, test)
+pnpm test       # the pure functions, the hooks, and the scripts against fake hc and herdr-app (test/fakes.sh)
 pnpm validate   # claude plugin validate .
 ```
 
-The fan-out scripts are exercised by hand inside herdr (`--no-agent` creates the topology without starting agents). Say in the pull request what you ran.
+The fan-out scripts and the agent dispatch are also exercised by hand inside the herdr app (`--no-agent` creates the topology without starting agents; `FORGE_CLAUDE_ARGS="--plugin-dir $PWD"` makes the agents load the checkout). Say in the pull request what you ran.
 
 ## License
 

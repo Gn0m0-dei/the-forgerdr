@@ -4,7 +4,7 @@
 
 ## How it was tested
 
-- Harness: <!-- Claude Code version, herdr version -->
+- Harness: <!-- Claude Code version, herdr app and hc versions -->
 - Provider: <!-- Azure DevOps / GitHub / GitLab -->
 
 ## Checklist

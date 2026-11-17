@@ -15,9 +15,10 @@ the way of working itself are a conversation first: open an issue.
 ## Testing a change
 
 Skills and rules are Markdown an agent follows: test them in a real session and
-say in the pull request what you ran. The herdr scripts are tested by hand inside
-herdr (`--no-agent` builds the topology without starting agents) plus
-`test/forge-lib.test.sh` for the pure functions. Provider commands are verified
+say in the pull request what you ran. The scripts and hooks that drive the herdr
+app are tested against fake `hc` and `herdr-app` (`test/fakes.sh`, `pnpm test`)
+and by hand inside the app (`--no-agent` builds the topology without starting
+agents); `test/forge-lib.test.sh` covers the pure functions. Provider commands are verified
 against the real CLI: a flag that does not exist fails loudly, a field that does
 not exist fails quietly.
 
@@ -40,8 +41,8 @@ For each cell: where the design and the tasks live, which branch is used and who
 
 ## Releasing
 
-A release is a version bump in `.claude-plugin/plugin.json`, `package.json` and
-`herdr/herdr-plugin.toml`, a `## [x.y.z] - date` section in `CHANGELOG.md`, one
+A release is a version bump in `.claude-plugin/plugin.json` and `package.json`,
+a `## [x.y.z] - date` section in `CHANGELOG.md`, one
 commit, and a tag: `git tag vx.y.z && git push origin vx.y.z`. The tag creates
 the GitHub Release with that changelog section as notes. Installed copies pick
 the new version up with `claude plugin update forgerdr@the-forgerdr`; the
