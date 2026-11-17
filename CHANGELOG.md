@@ -6,6 +6,27 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking: forgerdr drives the herdr desktop app instead of the herdr TUI.** The app (`herdr-app`) and herdr-core (`hc`), which runs its terminals and agents, replace the `herdr` CLI everywhere; the TUI and the app run separate servers and share nothing, so forgerdr supports one of them. The TUI version stays on the `tui` branch as 0.14.x, installed with `/plugin marketplace add Gn0m0-dei/the-forgerdr#tui`. The fan-outs and the agent dispatch work inside a terminal of the app (`HC_TERMINAL_ID` set); outside it the worktree hook keeps making plain git worktrees.
+- A dispatched agent runs as a sub-agent of the session in a herdr-core terminal of its own, which the app lists under the session in its Agents sidebar with its live status, instead of a pane in a grid next to the session or a tab of agents: the app gives a tab its added terminals as ever-thinner splits, so no grid holds. One with `isolation: "worktree"` is a pane of its worktree's space. It starts through the user's login shell, as the app starts agents, so it gets the user's environment (a login `sh` with the session's `PATH` for a shell neither of the sh family nor fish, such as nushell); hc types no note about it into the session; the folder trust prompt is accepted once from its reported status, and an agent that reports nothing within a minute, or a terminal that cannot be ended, never also runs in-process. A reopened agent keeps its name and resumes its Claude session.
+- The agent's state lives only in its record: the app shows working, blocked and done from what Claude Code reports by itself, so the `▶ working` / `⏸ waiting` / `✓ done` pane labels and the `PermissionRequest` and `AskUserQuestion` hooks that set them are gone.
+- `/forgerdr:worktree` makes each worktree with git where the app keeps its own (`worktrees.directory` in the app's settings, `~/.herdr/worktrees` by default) and opens it as a space that does not take the focus, named after the item, with the titled agent in its first tab and the dev server in a second tab, `dev :<port>`. A worktree path already taken stops the run before anything is made.
+- `/forgerdr:review` opens one tab per pull request, the first one shown, instead of one tab split into a grid; `/forgerdr:workitem` opens its tabs with `herdr-app` and shows only the first of several (`forge-session.sh --no-focus`).
+- Claude Code's own worktrees (`hooks/worktree.sh`) are git worktrees opened as app spaces in the background; forgerdr records the spaces it opens and closes them with their worktrees, and as orphans once their folder is gone, when a session starts or ends. While the app does not answer, the record stays and the space is closed later.
+- The scripts moved from `herdr/bin/` to `bin/`.
+
+### Added
+
+- `bin/forge-worktree-remove.sh [--force] <path>`: removes a linked worktree and then closes its spaces, keeping its branch; it refuses a path that is not the top of a linked worktree, uncommitted work, the worktree the session stands in, the space it runs in, and a space where an agent is at work, and leaves the spaces open when git refuses. A space counts as at work whenever the app's answer does not say otherwise. The Bash guard points to it when it refuses `git worktree remove` inside the app, and `/forgerdr:ship` uses it.
+- `bin/forge-setup-keys.sh`: two keys in the app's `keys.json`, Cmd+Alt+P (review pull requests) and Cmd+Alt+T (items in worktrees), Ctrl+Alt on Linux, each opening a prompt tab that closes when done. It keeps every other key, refuses one already in use, finds the installed plugin when the key runs, and `--remove` takes its keys away. `/forgerdr:setup` offers it and says that the app then stops adding its new default keys to an edited `keys.json`.
+- `test/fakes.sh`, fake `hc` and `herdr-app` that log every call, and `test/herdr-app.test.sh` for the library functions over them and the scripts; the dispatch and worktree tests run against them.
+
+### Removed
+
+- The herdr TUI plugin (`herdr/herdr-plugin.toml`, its actions and panes) and its keys in `~/.config/herdr/config.toml`; `/forgerdr:setup` reports them as leftovers.
+- `herdr notification show` after a fan-out: the app already notifies when an agent finishes or needs you.
+
 ## [0.14.0] - 2026-11-16
 
 ### Added

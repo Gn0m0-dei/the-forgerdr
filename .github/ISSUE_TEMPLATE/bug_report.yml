@@ -22,10 +22,10 @@ body:
       label: Piece
       options:
         - a skill (say which)
-        - a hook (session-start, guard-bash, graph-augment, engram-session)
-        - forge-worktree.sh / forge-review.sh
+        - a hook (session-start, guard-bash, graph-augment, engram-session, agent-dispatch, worktree)
+        - forge-worktree.sh / forge-review.sh / forge-session.sh / forge-worktree-remove.sh
         - install.sh
-        - the herdr plugin (actions, panes, keybindings)
+        - the herdr app keys (forge-setup-keys.sh)
         - .mcp.json / an MCP server
     validations:
       required: true
@@ -33,6 +33,6 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: OS, Claude Code version, herdr version, provider (Azure DevOps, GitHub, GitLab).
+      description: OS, Claude Code version, herdr app and hc versions, provider (Azure DevOps, GitHub, GitLab).
     validations:
       required: true
