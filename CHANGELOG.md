@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.15.0] - 2026-11-17
+
 ### Changed
 
 - **Breaking: forgerdr drives the herdr desktop app instead of the herdr TUI.** The app (`herdr-app`) and herdr-core (`hc`), which runs its terminals and agents, replace the `herdr` CLI everywhere; the TUI and the app run separate servers and share nothing, so forgerdr supports one of them. The TUI version stays on the `tui` branch as 0.14.x, installed with `/plugin marketplace add Gn0m0-dei/the-forgerdr#tui`. The fan-outs and the agent dispatch work inside a terminal of the app (`HC_TERMINAL_ID` set); outside it the worktree hook keeps making plain git worktrees.
@@ -21,6 +23,10 @@ All notable changes to this project are documented here. The format follows
 - `bin/forge-worktree-remove.sh [--force] <path>`: removes a linked worktree and then closes its spaces, keeping its branch; it refuses a path that is not the top of a linked worktree, uncommitted work, the worktree the session stands in, the space it runs in, and a space where an agent is at work, and leaves the spaces open when git refuses. A space counts as at work whenever the app's answer does not say otherwise. The Bash guard points to it when it refuses `git worktree remove` inside the app, and `/forgerdr:ship` uses it.
 - `bin/forge-setup-keys.sh`: two keys in the app's `keys.json`, Cmd+Alt+P (review pull requests) and Cmd+Alt+T (items in worktrees), Ctrl+Alt on Linux, each opening a prompt tab that closes when done. It keeps every other key, refuses one already in use, finds the installed plugin when the key runs, and `--remove` takes its keys away. `/forgerdr:setup` offers it and says that the app then stops adding its new default keys to an edited `keys.json`.
 - `test/fakes.sh`, fake `hc` and `herdr-app` that log every call, and `test/herdr-app.test.sh` for the library functions over them and the scripts; the dispatch and worktree tests run against them.
+
+### Fixed
+
+- `/forgerdr:review` no longer stops on a pull request whose host is neither Azure DevOps, GitHub nor GitLab: `forge_pr_is_mine` compared variables it never set, which bash 5 refuses under `set -u`.
 
 ### Removed
 
