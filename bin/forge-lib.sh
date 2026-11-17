@@ -189,7 +189,7 @@ forge_pr_title() {
 
 # Whether the signed-in user authored a pull request: the fan-out then addresses its review instead of reviewing it.
 forge_pr_is_mine() {
-  local url="$1" id author me
+  local url="$1" id author="" me=""
   id="$(forge_url_id "$url")"
   case "$(forge_provider "$url")" in
     azure)
