@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Installing the herdr TUI version: the README, `install.sh` and `/forgerdr:setup` install everything from the `tui` branch (`/plugin marketplace add Gn0m0-dei/the-forgerdr#tui`, `herdr plugin install Gn0m0-dei/the-forgerdr/herdr --ref tui`), since `main` now holds the herdr app version.
+
 ## [0.14.0] - 2026-11-16
 
 ### Added

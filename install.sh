@@ -2,7 +2,7 @@
 # the forgerdr bootstrap: the tools a fresh machine needs before installing the plugin.
 # macOS (Homebrew) and openSUSE Tumbleweed (zypper). Idempotent: every step is skipped when its tool is already there.
 #
-#   curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/tui/install.sh | bash
 set -euo pipefail
 
 main() {
@@ -60,7 +60,7 @@ main() {
   cat <<'NEXT'
 Open Claude Code in any project and run:
 
-  /plugin marketplace add Gn0m0-dei/the-forgerdr
+  /plugin marketplace add Gn0m0-dei/the-forgerdr#tui
   /plugin install forgerdr@the-forgerdr
   /forgerdr:setup
 

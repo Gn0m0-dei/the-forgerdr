@@ -26,12 +26,14 @@ A Claude Code plugin and a [herdr](https://herdr.dev) plugin that carry a whole 
 | In this session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
 | One tab per item, on herdr | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, worktrees and dev servers when asked |
 
+> **This is the herdr TUI version, 0.14.x.** forgerdr drives the herdr desktop app from 0.15.0 on, on the [`main`](https://github.com/Gn0m0-dei/the-forgerdr) branch; the app and the TUI run separate servers and share nothing, so each branch supports one of them. Everything below installs from this `tui` branch. For the app, follow the README on `main` (`/plugin marketplace add Gn0m0-dei/the-forgerdr`), after removing this marketplace: both are named `the-forgerdr`.
+
 ## Install
 
 Fresh machine, macOS or openSUSE Tumbleweed:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/tui/install.sh | bash
 ```
 
 That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, [herdr](https://herdr.dev), Claude Code, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary and the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI. Another distro: install those by hand.
@@ -39,7 +41,7 @@ That puts the tools on the machine, each step skipped when the tool is already t
 Then, inside Claude Code:
 
 ```
-/plugin marketplace add Gn0m0-dei/the-forgerdr
+/plugin marketplace add Gn0m0-dei/the-forgerdr#tui
 /plugin install forgerdr@the-forgerdr
 /forgerdr:setup
 ```

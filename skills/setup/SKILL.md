@@ -5,7 +5,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 # Setup
 
-`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash`) puts the tools on the machine. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask before anything that needs credentials or a package manager. Run it again any time.
+`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/tui/install.sh | bash`) puts the tools on the machine. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask before anything that needs credentials or a package manager. Run it again any time.
 
 ## Tools (from install.sh)
 
@@ -27,7 +27,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 | Piece | Check | Missing |
 |---|---|---|
-| plugins | `herdr plugin list` shows `jhochenbaum.hunkdiff`, `herdr-agent-usage`, `gn0m0dei.forgerdr` | `herdr plugin install jhochenbaum/herdr-hunk-diff --yes`; `herdr plugin install <owner>/herdr-agent-usage --yes`; `herdr plugin install Gn0m0-dei/the-forgerdr/herdr --yes` (local checkout: `herdr plugin link "${CLAUDE_PLUGIN_ROOT}/herdr"`) |
+| plugins | `herdr plugin list` shows `jhochenbaum.hunkdiff`, `herdr-agent-usage`, `gn0m0dei.forgerdr` | `herdr plugin install jhochenbaum/herdr-hunk-diff --yes`; `herdr plugin install <owner>/herdr-agent-usage --yes`; `herdr plugin install Gn0m0-dei/the-forgerdr/herdr --ref tui --yes` (local checkout: `herdr plugin link "${CLAUDE_PLUGIN_ROOT}/herdr"`) |
 | keybindings | `grep -q 'BEGIN gn0m0dei.forgerdr' ~/.config/herdr/config.toml` | `herdr plugin action invoke gn0m0dei.forgerdr.setup-keys` |
 | claude integration | `test -f ~/.claude/hooks/herdr-agent-state.sh` | `herdr integration install claude` |
 
