@@ -2,9 +2,9 @@
 # Smallest check that fails if the pure functions of forge-lib.sh break. Run: bash test/forge-lib.test.sh
 set -euo pipefail
 
-# shellcheck source-path=SCRIPTDIR/../herdr/bin
+# shellcheck source-path=SCRIPTDIR/../bin
 # shellcheck source=forge-lib.sh
-. "$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-lib.sh"
+. "$(cd "$(dirname "$0")/.." && pwd)/bin/forge-lib.sh"
 
 failures=0
 expect() {
@@ -106,7 +106,7 @@ git -C "$sandbox/workspace/back" remote set-url origin git@ssh.dev.azure.com:v3/
 expect "agent name from an id" "item-1234-front" "$(forge_agent_name item 1234 front)"
 long_one="$(forge_agent_name item "feature/add-search-filters-to-results-page" "a-very-long-repository-name")"
 long_two="$(forge_agent_name item "feature/add-search-filters-to-results-api" "a-very-long-repository-name")"
-expect "agent names herdr accepts" "" "$(printf '%s\n' "$long_one" "$long_two" "$(forge_agent_name session '#12 Botón de acción no visible en la cabecera')" | grep -vE '^[a-z][a-z0-9_-]{0,31}$' || true)"
+expect "agent names hc accepts" "" "$(printf '%s\n' "$long_one" "$long_two" "$(forge_agent_name session '#12 Botón de acción no visible en la cabecera')" | grep -vE '^[a-z][a-z0-9_-]{0,31}$' || true)"
 expect "agent names differ on a shared prefix" yes "$([ "$long_one" != "$long_two" ] && echo yes)"
 expect "branch checked out in a worktree" "$sandbox/elsewhere/front-feature" "$(forge_checked_out_at "$sandbox/workspace/front" feature)"
 expect "branch free" "" "$(forge_checked_out_at "$sandbox/workspace/front" "fix/AB42-render-again")"
@@ -144,17 +144,9 @@ expect "frontmatter list absent" "" "$(forge_frontmatter_list "$sandbox/flow.md"
 expect "plugin agent definition" "$(cd "$(dirname "$0")/.." && pwd)/agents/reviewer.md" "$(forge_agent_definition forgerdr:reviewer "$sandbox")"
 expect "built-in type has no definition" "" "$(forge_agent_definition Explore "$sandbox")"
 
-pick() { printf '%s\n' "$@" | forge_pick_split 80 15 2; }
-expect "split a full-width pane to the right" "s right" "$(pick "s 391 74")"
-expect "split a half-width pane to the right" "a right" "$(pick "a 195 74")"
-expect "split a tall quarter down" "a down" "$(pick "a 97 74" "b 97 74")"
-expect "the largest pane is split first" "b right" "$(pick "a 97 74" "b 195 74")"
-expect "nothing halves under the minimum" "" "$(pick "a 97 37" "b 97 37" "c 97 37" "d 97 37")"
-expect "a small pane is never halved" "" "$(pick "s 120 30")"
-
 export FORGERDR_CONFIG="$sandbox/forgerdr.toml"
 expect "branch default" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button acme)"
-"$(cd "$(dirname "$0")/.." && pwd)/herdr/bin/forge-config.sh" set spec azure acme >/dev/null
+"$(cd "$(dirname "$0")/.." && pwd)/bin/forge-config.sh" set spec azure acme >/dev/null
 expect "branch azure" "fix/AB1234-login-button" "$(forge_branch_name fix 1234 login-button acme)"
 expect "branch other project" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button other)"
 expect "branch external in azure" "fix/EXT-1234-login-button" "$(forge_branch_name fix 1234 login-button acme external)"

@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
-# Interactive pane for the herdr actions. review: asks for pull request URLs and runs forge-review.sh.
-# worktree: asks for items and hands them to /forgerdr:worktree in a claude session, which reads the spec mode.
+# Interactive tab the forgerdr keys of the herdr app open (bin/forge-setup-keys.sh). review: asks for pull request URLs,
+# runs forge-review.sh and closes. worktree: asks for items and hands them to /forgerdr:worktree in a claude session,
+# which reads the spec mode. Given nothing, it closes.
 # Usage: forge-prompt.sh review|worktree
 set -euo pipefail
 
+# shellcheck source-path=SCRIPTDIR
+# shellcheck source=forge-lib.sh
+. "$(cd "$(dirname "$0")" && pwd)/forge-lib.sh"
+
 mode="${1:-}"
 case "$mode" in review|worktree) ;; *) printf 'usage: forge-prompt.sh review|worktree\n' >&2; exit 1 ;; esac
+
+# The herdr app keeps a shell in the tab once this script ends; ending its terminal closes the tab.
+close_tab() {
+  ! forge_in_herdr || forge_hc kill "$HC_TERMINAL_ID" >/dev/null 2>&1 || true
+  exit "${1:-0}"
+}
 
 if [ "$mode" = worktree ]; then
   printf 'forgerdr worktree\nItems separated by | (work item URLs, OpenSpec changes or text, as the spec mode says), then an empty line:\n'
@@ -13,7 +24,7 @@ if [ "$mode" = worktree ]; then
   # in the terminal for claude to submit.
   input=""
   while IFS= read -r line && [ -n "$line" ]; do input="${input:+$input }$line"; done
-  [ -n "${input// /}" ] || { printf 'nothing to do\n'; exit 0; }
+  [ -n "${input// /}" ] || { printf 'nothing to do\n'; close_tab; }
   exec claude "/forgerdr:worktree $input"
 fi
 
@@ -24,9 +35,9 @@ while IFS= read -r line; do
   [ -n "$line" ] || break
   for url in $line; do urls+=("$url"); done
 done
-[ ${#urls[@]} -gt 0 ] || { printf 'nothing to do\n'; exit 0; }
+[ ${#urls[@]} -gt 0 ] || { printf 'nothing to do\n'; close_tab; }
 
 "$bin/forge-review.sh" "${urls[@]}" || status=$?
-printf '\nPress Enter to close.\n'
+printf '\nPress Enter to close this tab.\n'
 read -r _ || true
-exit "${status:-0}"
+close_tab "${status:-0}"

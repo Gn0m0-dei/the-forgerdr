@@ -1,6 +1,6 @@
 ---
 name: setup
-description: "Verifies and completes the forgerdr environment on this machine after install.sh: tools on PATH, engram server, MCP servers reaching through the plugin, herdr plugins, keybindings and integration, provider sign-ins, Claude Code settings, and the leftovers the plugin now replaces. Idempotent. Use on /forgerdr:setup."
+description: "Verifies and completes the forgerdr environment on this machine after install.sh: tools on PATH, engram server, MCP servers reaching through the plugin, the herdr app and its keys, provider sign-ins, Claude Code settings, and the leftovers the plugin now replaces. Idempotent. Use on /forgerdr:setup."
 ---
 
 # Setup
@@ -11,7 +11,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 | Piece | Check | Missing |
 |---|---|---|
-| git, jq, node, pnpm, az, gh, glab, engram, herdr, claude | `command -v <tool>` | run `install.sh`; on another distro, install them by hand (README lists them) |
+| git, jq, node, pnpm, az, gh, glab, engram, herdr-app, hc, claude | `command -v <tool>` | run `install.sh`; on another distro, install them by hand (README lists them) |
 | azure-devops extension | `az extension show --name azure-devops` | `az extension add --name azure-devops` |
 | codebase-memory-mcp binary | `test -x ~/.local/bin/codebase-memory-mcp` | `curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \| bash -s -- --skip-config` |
 
@@ -23,19 +23,21 @@ description: "Verifies and completes the forgerdr environment on this machine af
 | MCP servers | `claude mcp list` shows `plugin:forgerdr:engram`, `plugin:forgerdr:codebase-memory`, `plugin:forgerdr:context7`, `plugin:forgerdr:chrome-devtools` connected | a server down: read its line, fix the binary or the network, never register it again by hand |
 | context7 key (optional) | `CONTEXT7_API_KEY` exported in the shell | tell the user where to export it; without it context7 works rate-limited |
 
-## herdr
+## herdr app
+
+The desktop app (`herdr-app`) shows spaces, tabs and panes; herdr-core (`hc`) runs every terminal and agent in them. The forgerdr fan-outs and agent dispatch work inside the app's terminals (`HC_TERMINAL_ID` set). Claude Code reports its status to the app by itself: no integration to install.
 
 | Piece | Check | Missing |
 |---|---|---|
-| plugins | `herdr plugin list` shows `jhochenbaum.hunkdiff`, `herdr-agent-usage`, `gn0m0dei.forgerdr` | `herdr plugin install jhochenbaum/herdr-hunk-diff --yes`; `herdr plugin install <owner>/herdr-agent-usage --yes`; `herdr plugin install Gn0m0-dei/the-forgerdr/herdr --yes` (local checkout: `herdr plugin link "${CLAUDE_PLUGIN_ROOT}/herdr"`) |
-| keybindings | `grep -q 'BEGIN gn0m0dei.forgerdr' ~/.config/herdr/config.toml` | `herdr plugin action invoke gn0m0dei.forgerdr.setup-keys` |
-| claude integration | `test -f ~/.claude/hooks/herdr-agent-state.sh` | `herdr integration install claude` |
+| app and core | `herdr-app --version`, `hc --version`, `hc server status` | `curl -fsSL https://releases.herdr.dev/app/install.sh \| sh` (installs herdr-core too), then open the app once; it updates itself |
+| inside the app | `test -n "${HC_TERMINAL_ID:-}"` and `herdr-app status` answers | say so: the fan-outs and the agent dispatch need a session started in a terminal of the app |
+| keys | `jq -e '[.global[]? \| objects \| select((.args.name? // "") \| startswith("forgerdr "))] \| length == 2' ~/.config/herdr-app/keys.json` | optional; ask first, saying that once `keys.json` is edited the app stops adding its new default keys to it: `"${CLAUDE_PLUGIN_ROOT}/bin/forge-setup-keys.sh"` (Cmd+Alt+P and Cmd+Alt+T on macOS, Ctrl+Alt on Linux; `--review` and `--worktree` pick others, `--remove` takes them away) |
 
 ## Spec mode
 
 | Piece | Check | Missing |
 |---|---|---|
-| mode | `"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-config.sh" get spec <project-key>` | `chat` by default; `/forgerdr:mode spec <value> [--project]` to change it |
+| mode | `"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get spec <project-key>` | `chat` by default; `/forgerdr:mode spec <value> [--project]` to change it |
 | `azure`: azdospec plugin | `claude plugin list` shows `azdo@azdospec` | recommend `claude plugin marketplace add Gn0m0-dei/azdospec && claude plugin install azdo@azdospec`, then `/azdo:init` in the project; without it forgerdr uses its own `az` commands |
 | `openspec`: CLI | `openspec --version` | required in the `openspec` modes: `npm install -g @fission-ai/openspec` |
 | `openspec:<store>`: store | `openspec store list --json` lists it | `openspec store register <path>` on the store's checkout |
@@ -59,6 +61,7 @@ Report each one found; remove only on request:
 - plugins `caveman`, `ponytail`, `engram` (`claude plugin uninstall <name>@<marketplace>`): the rules and the hooks replace them;
 - `~/.claude/skills/my-personal-skill` and its line in `~/.claude/CLAUDE.md`: `rules/standards.md` replaces them;
 - user-scope MCP servers `codebase-memory-mcp`, `context7`, `chrome-devtools` (`claude mcp remove -s user <name>`): the plugin declares them;
-- `~/.claude/hooks/cbm-*` and their entries in `~/.claude/settings.json`: `hooks/graph-augment.sh` and the rules replace them.
+- `~/.claude/hooks/cbm-*` and their entries in `~/.claude/settings.json`: `hooks/graph-augment.sh` and the rules replace them;
+- the herdr TUI's forgerdr plugin (`herdr plugin list` shows `gn0m0dei.forgerdr`; `herdr plugin uninstall gn0m0dei.forgerdr`, or `herdr plugin unlink` for a linked checkout) and its forgerdr block in `~/.config/herdr/config.toml`: forgerdr now works with the herdr app, and its TUI version stays on the repository's `tui` branch. The TUI's own Claude integration (`~/.claude/hooks/herdr-agent-state.sh`) is herdr's, not forgerdr's: mention it only.
 
 Final: the table, then `mem_save` what was installed on this machine and the date.

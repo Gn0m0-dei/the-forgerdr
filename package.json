@@ -1,7 +1,7 @@
 {
   "name": "the-forgerdr",
   "version": "0.14.0",
-  "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and herdr-driven parallel work on pull requests and backlog items.",
+  "description": "Forge once. Herd many. One way of working, installed once: standards, terse communication, lazy building, persistent memory, and parallel work on pull requests and backlog items across the herdr app.",
   "private": true,
   "packageManager": "pnpm@10.33.0",
   "license": "MIT",
@@ -12,10 +12,10 @@
     "url": "git+https://github.com/Gn0m0-dei/the-forgerdr.git"
   },
   "scripts": {
-    "lint": "biome check . && shellcheck -x hooks/*.sh herdr/bin/*.sh test/*.sh",
+    "lint": "biome check . && shellcheck -x install.sh hooks/*.sh bin/*.sh test/*.sh",
     "lint:fix": "biome check --write .",
     "prepare": "husky || true",
-    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh",
+    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh && bash test/herdr-app.test.sh",
     "validate": "claude plugin validate ."
   },
   "devDependencies": {

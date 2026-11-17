@@ -1,13 +1,13 @@
 ---
 name: worktree
-description: "Fans out items across herdr, one or many separated by |: a backlog item (bug, ticket, issue), an OpenSpec change or free text, as the spec mode says. For each it creates a git worktree on its branch, copies the ignored env files from the main clone, starts the dev server on its own port and launches a Claude agent running /forgerdr:workitem on it, all in parallel. Use on /forgerdr:worktree [--auto] <item> [| <item>...]."
+description: "Fans out items across the herdr app, one space each, one or many separated by |: a backlog item (bug, ticket, issue), an OpenSpec change or free text, as the spec mode says. For each it creates a git worktree on its branch, copies the ignored env files from the main clone, starts the dev server on its own port and launches a Claude agent running /forgerdr:workitem on it, all in parallel. Use on /forgerdr:worktree [--auto] <item> [| <item>...]."
 ---
 
 # Work
 
-Turn a list of items into one herdr workspace per item and repository, each with its branch, its env files, its dev server and its own agent. The topology is built by `${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-worktree.sh`; you decide the inputs it cannot guess.
+Turn a list of items into one git worktree per item and repository, each opened as a herdr app space with its branch, its env files, its dev server and its own agent. The topology is built by `${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree.sh`; you decide the inputs it cannot guess.
 
-Preconditions: `test "${HERDR_ENV:-}" = 1` (otherwise say you are not inside herdr and stop); at least one item (ask for them otherwise). Items are separated by `|`; what an item is in this project's spec mode, its title and its branch: `${CLAUDE_PLUGIN_ROOT}/references/items.md`.
+Preconditions: `test -n "${HC_TERMINAL_ID:-}"` (otherwise say you are not inside the herdr app and stop); at least one item (ask for them otherwise). Items are separated by `|`; what an item is in this project's spec mode, its title and its branch: `${CLAUDE_PLUGIN_ROOT}/references/items.md`.
 
 ## 1. Repositories
 
@@ -28,7 +28,7 @@ Every branch: a local one is reused as it is, one only on `origin` is started fr
 
 ## 3. Dev command
 
-The script starts a dev server only when it can tell which: a single `dev` script in `package.json`. A monorepo with `dev:<app>` scripts, a docker compose stack or anything else: pick the command from the item (the app or portal it names) and pass `--dev '<command>'`, or pass nothing and leave the shell pane for the user. Never guess a port: the script assigns `PORT` per worktree.
+The script starts a dev server only when it can tell which: a single `dev` script in `package.json`. A monorepo with `dev:<app>` scripts, a docker compose stack or anything else: pick the command from the item (the app or portal it names) and pass `--dev '<command>'`, or pass nothing and leave the dev server to the user. Never guess a port: the script assigns `PORT` per worktree.
 
 Services that cannot run twice (a database, a CMS container mounted on the main clone) stay on the main clone; mention it in the summary.
 
@@ -37,13 +37,13 @@ Services that cannot run twice (a database, a CMS container mounted on the main 
 `--auto` given to this skill is passed on, so every agent runs `/forgerdr:workitem --auto`; without it, every agent works in the manual flow.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/herdr/bin/forge-worktree.sh" [--auto] --repo <path> [--repo <path>] [--base <branch>] [--dev '<command>'] [--branch <branch> --title <title>] <item> [[--branch <branch> --title <title>] <item>...]
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree.sh" [--auto] --repo <path> [--repo <path>] [--base <branch>] [--dev '<command>'] [--branch <branch> --title <title>] <item> [[--branch <branch> --title <title>] <item>...]
 ```
 
-The script, per item and repository: names the branch when no `--branch` precedes the item (type → `fix/` or `feature/`, title → slug; `<kind>/AB<id>-<slug>` in spec mode `azure`; `<kind>/EXT-<id>-<slug>` for an item of an external backlog, another Azure DevOps organization than the repository's remote), creates the worktree with `herdr worktree create` from `origin/<branch>` when the remote has the branch and from `origin/<base>` otherwise (`develop` when it exists, the remote HEAD otherwise), removes the upstream the worktree inherits, copies every ignored `.env*` file of the main clone into the worktree at the same path, copies `openspec/changes/<item>` from the main clone when the spec mode is `openspec` and the item is a change the worktree does not have yet (it was not committed), splits a pane below for the dev server with `PORT` set, starts a titled `claude` agent in its own pane to the right of the worktree's shell and prompts it with `/forgerdr:workitem <item>`. It prints one JSON line per worktree.
+The script, per item and repository: names the branch when no `--branch` precedes the item (type → `fix/` or `feature/`, title → slug; `<kind>/AB<id>-<slug>` in spec mode `azure`; `<kind>/EXT-<id>-<slug>` for an item of an external backlog, another Azure DevOps organization than the repository's remote), makes the worktree where the herdr app keeps its own (`<worktrees.directory>/<repo>/<branch with dashes>`, `~/.herdr/worktrees` unless the app's settings say otherwise) from `origin/<branch>` when the remote has the branch and from `origin/<base>` otherwise (`develop` when it exists, the remote HEAD otherwise), removes the upstream the worktree inherits, copies every ignored `.env*` file of the main clone into the worktree at the same path, copies `openspec/changes/<item>` from the main clone when the spec mode is `openspec` and the item is a change the worktree does not have yet (it was not committed), opens the worktree as a space that does not take the focus, named after the item, whose first tab runs a `claude` session titled for it with `/forgerdr:workitem <item>`, and starts the dev server in a second tab, `dev :<port>`, with `PORT` set. The app nests the space under its repository in the sidebar. It prints one JSON line per worktree, `agent_started` false when its claude ended before it started. A worktree path already taken stops the run before anything is made.
 
 Spec mode `openspec`: an agent on a work item URL creates its change, `<id>-<slug>`, inside its worktree; an agent on a change continues it there. Either way the change travels with that branch. A change copied from the main clone (`change_copied: true`) is now owned by the worktree, and the main clone's copy is a stale duplicate: tell the user to delete it there, and never delete it yourself. A change committed on the base but edited in the main clone is not copied: the worktree gets the committed version; when `git status --porcelain -- openspec/changes/<name>` in the main clone is not empty, say which edits stayed behind. With `openspec:<store>`, all agents write to the same store repository, each only inside its own change folder; nothing is committed there without the user's permission.
 
 ## 5. Report
 
-One line per worktree: item, repository, branch, workspace id, port, agent name. Then what was left for the user (services on the main clone, repositories without a dev command, copied changes). `mem_save` the mapping item → branch → workspace with the memory project key.
+One line per worktree: item, repository, branch, path, space id, port. Then what was left for the user (services on the main clone, repositories without a dev command, copied changes). `mem_save` the mapping item → branch → worktree path with the memory project key. A worktree goes, when the user asks, with `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`.
