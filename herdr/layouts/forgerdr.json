@@ -60,7 +60,10 @@
           "children": [
             {
               "content": {
-                "mod": "tabs"
+                "mod": "forgerdr",
+                "props": {
+                  "role": "sessions"
+                }
               },
               "id": "tabs",
               "size": {
@@ -72,33 +75,53 @@
             {
               "children": [
                 {
-                  "content": {
-                    "pane": {
-                      "background": "background",
-                      "border": {
-                        "color": "border",
-                        "width": 1
-                      },
-                      "focus": {
-                        "color": "accent",
-                        "width": 1
-                      },
-                      "gap": 6,
-                      "header": {
-                        "content": {
-                          "mod": "pane"
+                  "active": "main",
+                  "children": [
+                    {
+                      "content": {
+                        "pane": {
+                          "background": "background",
+                          "border": {
+                            "color": "border",
+                            "width": 2
+                          },
+                          "focus": {
+                            "color": "accent",
+                            "width": 2
+                          },
+                          "gap": 6,
+                          "header": {
+                            "content": {
+                              "mod": "forgerdr",
+                              "props": {
+                                "role": "pane"
+                              }
+                            },
+                            "height": 30,
+                            "position": "top",
+                            "reveal": "always"
+                          },
+                          "lone": true,
+                          "radius": 0
                         },
-                        "height": 30,
-                        "position": "top",
-                        "reveal": "always"
+                        "tab": "active"
                       },
-                      "lone": true,
-                      "radius": 3
+                      "id": "main",
+                      "type": "block"
                     },
-                    "tab": "active"
-                  },
-                  "id": "main",
-                  "type": "block"
+                    {
+                      "content": {
+                        "mod": "forgerdr",
+                        "props": {
+                          "role": "empty"
+                        }
+                      },
+                      "id": "no-forge",
+                      "type": "block"
+                    }
+                  ],
+                  "id": "work-view",
+                  "type": "stack"
                 },
                 {
                   "children": [

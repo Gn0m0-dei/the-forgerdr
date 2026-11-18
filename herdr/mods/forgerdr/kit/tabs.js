@@ -3,7 +3,7 @@ import { div } from "gpui-kit";
 import { badge } from "./chips.js";
 import { gnome, ICON, icon } from "./sprites.js";
 import { text } from "./text.js";
-import { BRAND, NONE, TONE, tokens, toneColour } from "./tokens.js";
+import { BRAND, NONE, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./sprites.js").IconName} IconName */
@@ -65,15 +65,22 @@ export const addTab = () =>
  * @property {string} label
  * @property {IconName} icon the program's
  * @property {boolean} [active]
- * @property {Tone} [tone] the active tab's icon colour
+ * @property {Tone} [tone] what its golem does, which colours its icon
+ * @property {boolean} [zoomed] one of its panes fills it
+ * @property {NativeElement} [close] the control that closes it, last on the tab
  */
 
-/** @param {SessionTabProps} props */
+/**
+ * A session of the shown forge: the active one sits on its panes.
+ * @param {SessionTabProps} props
+ */
 export const sessionTab = ({
   label,
   icon: glyph,
   active = false,
-  tone = TONE.working,
+  tone,
+  zoomed = false,
+  close,
 }) => {
   const k = tokens();
   return h_flex()
@@ -87,8 +94,37 @@ export const sessionTab = ({
     .border_l(2)
     .border_r(2)
     .border_color(active ? k.line : NONE)
-    .child(icon(glyph, active ? toneColour(tone) : k.muted))
-    .child(text(label, "ui", 13, active ? k.fg : k.muted));
+    .child(
+      icon(
+        glyph,
+        tone === undefined ? (active ? k.fg : k.muted) : toneColour(tone),
+      ),
+    )
+    .child(
+      text(label, "ui", 13, active ? k.fg : k.muted)
+        .max_w(200)
+        .truncate(),
+    )
+    .when(zoomed, (el) => el.child(icon(ICON.zoom, k.muted)))
+    .when(close !== undefined, (el) => el.child(close));
+};
+
+/**
+ * The switch of a side panel on the session bar (Files, Changes): lit while it shows.
+ * @param {string} label
+ * @param {boolean} on
+ */
+export const panelToggle = (label, on) => {
+  const k = tokens();
+  return h_flex()
+    .flex_none()
+    .items_center()
+    .h(26)
+    .px(8)
+    .bg(on ? k.bg2 : NONE)
+    .border(2)
+    .border_color(on ? k.line : NONE)
+    .child(text(label.toUpperCase(), "display", 10, on ? k.fg : k.muted));
 };
 
 /**

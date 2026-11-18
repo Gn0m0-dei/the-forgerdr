@@ -13,6 +13,7 @@ import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
 import { hatColourOf } from "../identity.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
+import { control } from "../kit/control.js";
 import { ICON, icon } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
@@ -37,19 +38,6 @@ const SPACE_MENU = Object.freeze({
 });
 
 const ADD_TAB = "forge-add";
-
-/**
- * A control of the bar: clickable, and a press on it does not drag the window.
- * @param {NativeElement} element
- * @param {string} id
- * @param {() => void} action
- */
-const control = (element, id, action) =>
-  element
-    .id(id)
-    .cursor_pointer()
-    .on_mouse_down("left", (_event, cx) => cx.stop_propagation())
-    .on_click(() => action());
 
 /** @param {string} id */
 const closeSpace = (id) => run("space.close", { id });

@@ -1,32 +1,40 @@
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { agentChip } from "./chips.js";
+import { agentChip, tag } from "./chips.js";
 import { gnome, ICON, icon, MOOD, zz } from "./sprites.js";
 import { fill, text } from "./text.js";
 import { BRAND, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./tokens.js").Tone} Tone */
+/** @typedef {import("gpui-kit").NativeElement} NativeElement */
 
 /**
  * @typedef {object} PaneHeaderProps
  * @property {string} title
+ * @property {string} [folder] where it is, after its title
  * @property {Tone} [tone] its golem's, when an agent runs in it
+ * @property {boolean} [running] a program that is not a shell runs in it, such as a dev server
+ * @property {NativeElement} [close] the control that closes the pane, last on its header
  */
 
 /** @param {PaneHeaderProps} props */
-export const paneHeader = ({ title, tone }) => {
+export const paneHeader = ({ title, folder, tone, running = false, close }) => {
   const k = tokens();
   return h_flex()
+    .size_full()
+    .min_h(26)
     .items_center()
     .gap(8)
     .px(10)
-    .h(26)
     .bg(k.bg2)
     .border_b(2)
     .border_color(k.line)
-    .child(fill(title, "ui", 12, k.fg))
-    .when(tone !== undefined, (el) => el.child(agentChip(tone)));
+    .child(text(title, "ui", 12, k.fg).max_w(260).truncate())
+    .child(fill(folder ? `— ${folder}` : "", "ui", 12, k.muted))
+    .when(tone !== undefined, (el) => el.child(agentChip(tone)))
+    .when(tone === undefined && running, (el) => el.child(tag("RUNNING", k.ok)))
+    .when(close !== undefined, (el) => el.child(close));
 };
 
 export const splitControls = () => {
@@ -83,10 +91,11 @@ export const gnomeHeader = ({ forge, name, tone, mood, look = {} }) => {
  * @property {string} title
  * @property {string} sub what will wake the gnome
  * @property {GnomeLook} [look]
+ * @property {NativeElement} [action] the button that wakes it, under its words
  */
 
 /** @param {EmptyStateProps} props */
-export const emptyState = ({ caption, title, sub, look = {} }) => {
+export const emptyState = ({ caption, title, sub, look = {}, action }) => {
   const k = tokens();
   return v_flex()
     .size_full()
@@ -109,7 +118,8 @@ export const emptyState = ({ caption, title, sub, look = {} }) => {
             .child(zz(2)),
         )
         .child(text(title, "ui", 16, k.fg))
-        .child(text(sub, "ui", 12, k.muted)),
+        .child(text(sub, "ui", 12, k.muted))
+        .when(action !== undefined, (el) => el.child(action)),
     );
 };
 

@@ -13,6 +13,14 @@ import {
 } from "../herdr/mods/forgerdr/forges.js";
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
 import { brotherOf, hatColourOf } from "../herdr/mods/forgerdr/identity.js";
+import {
+  folderLabel,
+  newSwipe,
+  paneLabel,
+  programKind,
+  swipeTab,
+  tabLabel,
+} from "../herdr/mods/forgerdr/sessions.js";
 import { scrollTarget, stripState } from "../herdr/mods/forgerdr/strip.js";
 
 test("a key binding reads as its keycaps", () => {
@@ -205,5 +213,113 @@ test("a forge looks the same whichever of its spaces is open", () => {
   strictEqual(
     lookKeyOf({ key: "space:8", main: { folder: "", name: "scratch" } }),
     "scratch",
+  );
+});
+
+const CLAUDE = {
+  agent: true,
+  key: "claude",
+  name: "Claude Code",
+  shell: false,
+};
+const ZSH = { agent: false, key: "shell", name: "zsh", shell: true };
+const VITE = { agent: false, key: "program", name: "node", shell: false };
+
+test("a tab the app named follows its agent's live title; one the human named stays", () => {
+  const lead = { program: CLAUDE, terminal: "t5", title: "✳ herdr v2 ui" };
+  strictEqual(tabLabel({ name: "1", named: false }, lead), "herdr v2 ui");
+  strictEqual(
+    tabLabel({ name: "Claude Code", named: true }, lead),
+    "herdr v2 ui",
+  );
+  strictEqual(tabLabel({ name: "review", named: true }, lead), "review");
+  // A title that is only a path, an address or the program says nothing.
+  strictEqual(
+    tabLabel({ name: "1", named: false }, { ...lead, title: "~/projects/api" }),
+    "Claude Code",
+  );
+  strictEqual(
+    tabLabel({ name: "1", named: false }, { ...lead, title: "me@host" }),
+    "Claude Code",
+  );
+  strictEqual(
+    tabLabel(
+      { name: "1", named: false },
+      { program: ZSH, terminal: "t1", title: "vim" },
+    ),
+    "zsh",
+  );
+  strictEqual(tabLabel({ name: "1", named: false }, undefined), "Terminal");
+});
+
+test("a pane is named for its agent, its shell or its program", () => {
+  strictEqual(
+    paneLabel({ program: CLAUDE, terminal: "t5", title: "⠂ claude · main" }),
+    "claude · main",
+  );
+  strictEqual(
+    paneLabel({ program: CLAUDE, terminal: "t5", title: "t5" }),
+    "Claude Code",
+  );
+  strictEqual(
+    paneLabel({ program: ZSH, terminal: "t1", title: "~/api" }),
+    "zsh",
+  );
+  strictEqual(
+    paneLabel({ program: VITE, terminal: "t2", title: "pnpm dev" }),
+    "pnpm dev",
+  );
+  strictEqual(
+    [CLAUDE, ZSH, VITE, undefined].map(programKind).join(" "),
+    "agent shell program shell",
+  );
+});
+
+test("a folder under home reads with ~", () => {
+  strictEqual(
+    folderLabel("/Users/me/projects/api", "/Users/me"),
+    "~/projects/api",
+  );
+  strictEqual(folderLabel("/Users/me", "/Users/me"), "~");
+  strictEqual(folderLabel("/Users/meg", "/Users/me"), "/Users/meg");
+  strictEqual(folderLabel(null, "/Users/me"), "");
+});
+
+test("a wheel swipe moves one tab, then one per longer stretch, never faster than they show", () => {
+  const roll = (events) =>
+    events.reduce(
+      ({ swipe, went }, [dy, now, started = false]) => {
+        const step = swipeTab(swipe, { dy, started }, now);
+        return { swipe: step.swipe, went: step.go ? [...went, step.go] : went };
+      },
+      { swipe: newSwipe(), went: [] },
+    ).went;
+  deepStrictEqual(
+    roll([
+      [10, 1000, true],
+      [15, 1010],
+    ]),
+    ["prev"],
+  );
+  // Another 60 px is the next tab, but not within 100 ms of the last.
+  deepStrictEqual(
+    roll([
+      [25, 1000, true],
+      [70, 1050],
+      [10, 1120],
+    ]),
+    ["prev", "prev"],
+  );
+  // A pause starts a new gesture.
+  deepStrictEqual(
+    roll([
+      [-25, 1000, true],
+      [-25, 1400],
+    ]),
+    ["next", "next"],
+  );
+  strictEqual(
+    swipeTab(newSwipe(), { dy: 0, lines: -1, started: false }, 0).go,
+    "next",
   );
 });

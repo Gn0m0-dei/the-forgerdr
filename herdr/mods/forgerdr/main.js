@@ -3,7 +3,10 @@
 // know draws nothing, so a layout from a newer forgerdr never breaks an older mod.
 import { div, View } from "gpui-kit";
 import { props } from "herdr";
+import { empty } from "./roles/empty.js";
 import { gallery } from "./roles/gallery.js";
+import { pane } from "./roles/pane.js";
+import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
 import { topbar } from "./roles/topbar.js";
 
@@ -16,7 +19,7 @@ import { topbar } from "./roles/topbar.js";
 const readProps = props;
 
 /** @type {Record<string, (cx: AsyncContext) => Role>} */
-const ROLES = { gallery, sidebar, topbar };
+const ROLES = { empty, gallery, pane, sessions, sidebar, topbar };
 
 // herdr asks for a class extending View as the mod's default export. A copy makes its role once and hands it every
 // render and its close; the role keeps its own state.

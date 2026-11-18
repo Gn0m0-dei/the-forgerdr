@@ -30,7 +30,7 @@ import {
   icon,
   MOOD,
 } from "../kit/sprites.js";
-import { addTab, forgeTab, sessionTab } from "../kit/tabs.js";
+import { addTab, forgeTab, panelToggle, sessionTab } from "../kit/tabs.js";
 import { text } from "../kit/text.js";
 import { BRAND, TONE, tokens } from "../kit/tokens.js";
 import {
@@ -172,10 +172,17 @@ const navigation = () =>
       addTab(),
     ]),
     row([
-      sessionTab({ active: true, icon: ICON.golem, label: "claude · main" }),
+      sessionTab({
+        active: true,
+        icon: ICON.golem,
+        label: "claude · main",
+        tone: TONE.working,
+      }),
       sessionTab({ icon: ICON.server, label: "dev server" }),
       sessionTab({ icon: ICON.terminal, label: "shell" }),
       splitControls(),
+      panelToggle("Files", true),
+      panelToggle("Changes", false),
     ]),
     v_flex()
       .w(300)
@@ -212,8 +219,16 @@ const containers = () =>
       .w(640)
       .child(
         paneHeader({
-          title: "claude · main  —  ~/projects/forgerdr",
+          folder: "~/projects/forgerdr",
+          title: "claude · main",
           tone: TONE.working,
+        }),
+      )
+      .child(
+        paneHeader({
+          folder: "cargo xtask dev",
+          running: true,
+          title: "dev server",
         }),
       ),
     row([

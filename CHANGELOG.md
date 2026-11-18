@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forgerdr layout's session bar, in place of the app's tab bar: a tab per session of the open space with the icon of what runs in it, coloured by what its golem does, the tab that opens a session, the Files and Changes switches (each space keeps its panel) and the controls that split and zoom the focused pane. A session tab shows, renames (double click), closes (✕), reorders (drag) and opens the app's tab menu (right click); the wheel goes from tab to tab.
+- Pane headers in the forgerdr look: the pane's name, its folder and its golem's status, or `RUNNING` for a program that is not a shell; a ✕ under the pointer closes the pane.
+- The forge's empty state: with no space left, the work area shows the sleeping gnome and a button that opens a folder as a forge with the system's folder picker.
+
+### Changed
+
+- Pane frames follow the design: square, in the line colour, in the accent while the pane has the keyboard. The sidebar's tree scrolls with the theme's scrollbar.
+
 ## [0.20.0] - 2026-11-18
 
 ### Added

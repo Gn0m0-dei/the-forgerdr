@@ -307,7 +307,7 @@ export const sidebar = (cx) => {
           .flex_1()
           .min_h(0)
           .py(8)
-          .overflow_y_scroll()
+          .overflow_y_scrollbar()
           .child(
             spaceRow(repoRow(forge.main.name), "forge-repo", forge.main.id),
           )
