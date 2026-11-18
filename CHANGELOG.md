@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.23.0] - 2026-11-18
+
 ### Added
 
 - The forgerdr layout's status bar, in place of the app's: the account's profile, the subscription's forge heat (the 5-hour window and the week, each with its steps and its reset, coloured from 80 % and 95 % with a notification the first time each is crossed in a window), Herdr's update when one is ready and `? MANUAL`, which opens the forgerdr cheat sheet over the window. A window whose reset has passed is hidden rather than shown at 0 %.
