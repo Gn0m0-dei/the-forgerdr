@@ -1,0 +1,181 @@
+{
+  "background": "canvas",
+  "children": [
+    {
+      "background": "chrome",
+      "children": [
+        {
+          "content": {
+            "mod": "workspace-chrome"
+          },
+          "id": "brand",
+          "size": {
+            "px": 46
+          },
+          "type": "block",
+          "window_drag": true
+        },
+        {
+          "children": [
+            {
+              "content": {
+                "mod": "spaces"
+              },
+              "id": "spaces",
+              "min": 90,
+              "size": {
+                "weight": 1
+              },
+              "type": "block"
+            },
+            {
+              "content": {
+                "mod": "agents"
+              },
+              "id": "agents",
+              "min": 90,
+              "size": {
+                "weight": 1
+              },
+              "type": "block"
+            }
+          ],
+          "id": "sidebar-lists",
+          "type": "column"
+        },
+        {
+          "content": {
+            "mod": "workspace-chrome",
+            "props": {
+              "footer": true
+            }
+          },
+          "id": "sidebar-footer",
+          "size": {
+            "px": 69
+          },
+          "type": "block"
+        }
+      ],
+      "id": "sidebar",
+      "max": 480,
+      "min": 44,
+      "resizable": false,
+      "size": {
+        "px": 268
+      },
+      "type": "column"
+    },
+    {
+      "children": [
+        {
+          "content": {
+            "mod": "tabs"
+          },
+          "id": "tabs",
+          "size": {
+            "px": 42
+          },
+          "type": "block",
+          "window_drag": true
+        },
+        {
+          "children": [
+            {
+              "content": {
+                "pane": {
+                  "background": "background",
+                  "border": {
+                    "color": "border",
+                    "width": 1
+                  },
+                  "focus": {
+                    "color": "accent",
+                    "width": 1
+                  },
+                  "gap": 6,
+                  "header": {
+                    "content": {
+                      "mod": "pane"
+                    },
+                    "height": 30,
+                    "position": "top",
+                    "reveal": "always"
+                  },
+                  "lone": true,
+                  "radius": 3
+                },
+                "tab": "active"
+              },
+              "id": "main",
+              "type": "block"
+            },
+            {
+              "children": [
+                {
+                  "active": "files",
+                  "children": [
+                    {
+                      "content": {
+                        "mod": "files"
+                      },
+                      "id": "files",
+                      "type": "block"
+                    },
+                    {
+                      "content": {
+                        "mod": "changes"
+                      },
+                      "id": "changes",
+                      "type": "block"
+                    }
+                  ],
+                  "id": "panel-body",
+                  "type": "stack"
+                }
+              ],
+              "hidden": true,
+              "id": "panel",
+              "max": 900,
+              "min": 280,
+              "size": {
+                "px": 368
+              },
+              "type": "column"
+            }
+          ],
+          "gap": 6,
+          "id": "work-body",
+          "padding": 8,
+          "type": "row"
+        },
+        {
+          "content": {
+            "mod": "workspace-status"
+          },
+          "id": "status",
+          "size": {
+            "px": 28
+          },
+          "type": "block"
+        }
+      ],
+      "id": "work",
+      "resizable": false,
+      "type": "column"
+    }
+  ],
+  "divider": {
+    "color": "border",
+    "width": 1
+  },
+  "font": "Maple Mono NF",
+  "id": "root",
+  "preview": "layouts/forgerdr.svg",
+  "terminal_padding": [14, 12],
+  "theme": "forge-night",
+  "titlebar": "none",
+  "traffic_lights": [12, 16],
+  "type": "row",
+  "ui_font": "Pixelify Sans"
+}

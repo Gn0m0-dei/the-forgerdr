@@ -169,13 +169,24 @@ bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
 
 It keeps every other key, refuses a key you already use (`--review` and `--worktree` pick others), finds the installed plugin when the key runs so an update keeps it working, and `--remove` takes its keys away. Once `keys.json` is edited, the app treats it as yours and stops adding its new default keys to it.
 
+### The forgerdr layout
+
+forgerdr brings its own look for the app, drawn from the forgnome design: the `forgerdr` layout, the `forge-night` theme and the `forgerdr` mod, under `herdr/`. `bin/forge-herdr-install.sh` (`/forgerdr:setup` offers it) copies them into the app's home; `ctrl-shift-l` switches to the layout, and `ctrl-alt-shift-escape` always goes back to the app's own `main` layout. For now the layout is the app's own window in the forgerdr look: Pixelify Sans for the panels, Maple Mono NF for the terminals (the app's JetBrains Mono when it is not installed), the forge-night colours. The mods that redraw it piece by piece come next, each one in a role of the `forgerdr` mod: a herdr app mod cannot read another mod's files, so they share one folder.
+
+```bash
+bin/forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
+```
+
+Run again, it updates what it installed and leaves what you changed, naming it (`--force` replaces it, keeping a copy beside it); `--remove` takes it away, except the theme, which any layout may use. `--dev` installs the checkout beside it as `forgerdr-dev`, a copy of the mod and a layout that uses it, and `--watch` keeps that copy in step with the checkout until Ctrl-C, so the app reloads the mod as you edit it: the app does not see edits through a link.
+
 ## Development
 
 ```bash
 pnpm install
-pnpm lint       # biome + shellcheck (install.sh, bin, hooks, test)
+pnpm lint       # biome + shellcheck (install.sh, bin, hooks, test, herdr/tools)
 pnpm test       # the pure functions, the hooks, and the scripts against fake hc and herdr-app (test/fakes.sh)
 pnpm validate   # claude plugin validate .
+pnpm typecheck:herdr  # the forgerdr mod against the type files the herdr app writes (skipped where it is not installed)
 ```
 
 The fan-out scripts and the agent dispatch are also exercised by hand inside the herdr app (`--no-agent` creates the topology without starting agents; `FORGE_CLAUDE_ARGS="--plugin-dir $PWD"` makes the agents load the checkout). Say in the pull request what you ran.

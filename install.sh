@@ -29,6 +29,8 @@ main() {
     brew_install gh gh
     brew_install glab glab
     command -v engram >/dev/null 2>&1 || { brew tap gentleman-programming/tap; brew trust gentleman-programming/tap >/dev/null 2>&1 || true; brew install gentleman-programming/tap/engram; }
+    # The terminal font of the forgerdr layout for the herdr app.
+    brew list --cask font-maple-mono-nf >/dev/null 2>&1 || brew install --cask font-maple-mono-nf
   else
     zypper_install git git
     zypper_install jq jq

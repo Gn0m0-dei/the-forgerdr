@@ -12,14 +12,16 @@
     "url": "git+https://github.com/Gn0m0-dei/the-forgerdr.git"
   },
   "scripts": {
-    "lint": "biome check . && shellcheck -x install.sh hooks/*.sh bin/*.sh test/*.sh",
+    "lint": "biome check . && shellcheck -x install.sh hooks/*.sh bin/*.sh test/*.sh herdr/tools/*.sh",
     "lint:fix": "biome check --write .",
     "prepare": "husky || true",
-    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh && bash test/herdr-app.test.sh",
-    "validate": "claude plugin validate ."
+    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh && bash test/herdr-app.test.sh && bash test/herdr-install.test.sh",
+    "validate": "claude plugin validate .",
+    "typecheck:herdr": "bash herdr/tools/typecheck.sh"
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.7",
-    "husky": "9.1.7"
+    "husky": "9.1.7",
+    "typescript": "7.0.2"
   }
 }

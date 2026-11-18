@@ -31,6 +31,7 @@ The desktop app (`herdr-app`) shows spaces, tabs and panes; herdr-core (`hc`) ru
 |---|---|---|
 | app and core | `herdr-app --version`, `hc --version`, `hc server status` | `curl -fsSL https://releases.herdr.dev/app/install.sh \| sh` (installs herdr-core too), then open the app once; it updates itself |
 | inside the app | `test -n "${HC_TERMINAL_ID:-}"` and `herdr-app status` answers | say so: the fan-outs and the agent dispatch need a session started in a terminal of the app |
+| layout | `test -f ~/.local/state/forgerdr/herdr-installed.json` | optional; ask first: `"${CLAUDE_PLUGIN_ROOT}/bin/forge-herdr-install.sh"` installs the forgerdr layout, the forge-night theme and the forgerdr mod (`ctrl-shift-l` switches to it). Once installed, run it on every setup without asking: it updates what it installed and names what the user changed, which it leaves; say those names |
 | keys | `jq -e '[.global[]? \| objects \| select((.args.name? // "") \| startswith("forgerdr "))] \| length == 2' ~/.config/herdr-app/keys.json` | optional; ask first, saying that once `keys.json` is edited the app stops adding its new default keys to it: `"${CLAUDE_PLUGIN_ROOT}/bin/forge-setup-keys.sh"` (Cmd+Alt+P and Cmd+Alt+T on macOS, Ctrl+Alt on Linux; `--review` and `--worktree` pick others, `--remove` takes them away) |
 
 ## Spec mode
