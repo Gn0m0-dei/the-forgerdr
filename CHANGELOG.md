@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.22.0] - 2026-11-18
+
 ### Added
 
 - Motion, after the design's motion table, in steps and never eased: a flame beside the gnome of a forge at work, a blinking `!` beside it and on its tab while a golem waits on the human, a spark when one is done, and a rising zZ over a forge with no golem and over the empty state. The signs are the frames of a font of forgerdr's own, `ForgerdrGlyphs.ttf`, which `herdr/tools/glyphs.mts` writes from `herdr/tools/design/motion-frames.txt` with no dependency; the app steps them natively, so they stop while the window is not drawn. `forgerdr.motion` (a key in `keys.json`, or `herdr-app do forgerdr.motion`) turns motion off and on.
