@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.20.0] - 2026-11-18
+
 ### Added
 
 - The forgerdr layout's sidebar, in place of the app's spaces and agents lists: the forge's gnome and brother with what its golems do, the tree of the forge on show (the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, the agents in each and their sub-agents, each with its status) and the forge's heat at its foot. Its rows show, rename and open the app's space menu for a space, and go to an agent's pane; a chevron folds it to a rail of the gnome and its golems. The app's Settings and Add machine stay at its foot.
