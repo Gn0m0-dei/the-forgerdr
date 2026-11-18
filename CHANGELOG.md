@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.17.0] - 2026-11-18
+
 ### Added
 
 - The `forgerdr` layout for the herdr app, drawn from the forgnome design: the `forge-night` theme, Pixelify Sans and Silkscreen for the panels (SIL OFL, in `herdr/mods/forgerdr/fonts/`) and Maple Mono NF for the terminals, over the app's own window for now. `bin/forge-herdr-install.sh` installs it into the app's home, updates what it installed and leaves what the user changed; `--dev [--watch]` installs a checkout beside it as `forgerdr-dev` and keeps it in step; `/forgerdr:setup` offers it. The look's mods come as roles of one `forgerdr` mod, since a herdr app mod cannot read another mod's files.
