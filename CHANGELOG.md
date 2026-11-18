@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.24.0] - 2026-11-19
+
 ### Added
 
 - The golem lanes under the panes, an accordion that stays whatever tab shows: the golems every session of the active space spawned (agents in terminals of their own and subagents inside a session), the most urgent first, each with what it is doing now, its context, how long its current task has taken and its status. Folded, one line with how many there are and the most urgent; unfolded, every lane. A lane goes to its terminal on a click; `forgerdr.lanes` folds and unfolds them from a key.
