@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.19.0] - 2026-11-18
+
 ### Added
 
 - The forgerdr layout's top bar: a forge tab per space with its gnome and a badge of what its golems do, the tab that opens a space, the inbox of agents waiting on the human, which goes to the first, and the command palette with the key it has in `keys.json`. A forge tab shows, renames (double click), closes (✕ or middle click) and reorders (drag) its space, and opens the app's own space menu on a right click; when the tabs do not fit, the strip scrolls with the trackpad and with arrows that appear on its sides. The bar drags the window and leaves room for macOS's window buttons; the app's own panels stay under it.
