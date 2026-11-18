@@ -1,0 +1,354 @@
+GOLEM PARTS · 12x12 and 8x8 grids read from design/forgnome.pen (03 Sprites, GOLEMS section)
+==========================================================================================
+
+How the sprites are built in the file
+-------------------------------------
+Every golem is a `frame` named "Golem" (layout none) holding one `path` child per
+colour layer, named "px <letter>". Each path has viewBox [0,0,12,12] (Iron, Stone) or
+[0,0,8,8] (Clay) and a geometry made of 1-pixel-high run rectangles
+(`M x y h w v1 h-w z`), so the frame is scaled by whole numbers with no filtering.
+The paths stack in child order and a later layer covers an earlier one:
+
+  Iron   px K, px G, px e, px g, px r
+  Clay   px K, px e, px G, px r
+  Stone  px K, px v, px G, px e, px g, px r   (CRACKED has no px v: the moss fell off)
+
+Sizes on the canvas: 03 Sprites draws Iron and Stone at 72x72 and Clay at 48x48
+(6x; Clay sits 24 px lower so the feet line up). Tree rows draw Iron at 24x24 and Clay
+at 16x16 (2x); the golem lanes draw Clay at 16x16 inside a 24x24 box aligned to the
+bottom centre, and Stone at 24x24 (2x).
+
+Roles: IRON = main Claude session, CLAY = subagent, STONE = agent-team teammate.
+
+Moods and the agent states that use them (Task 29's `golem_mood`):
+  FORGING  Working
+  WAITING  NeedsPermission, NeedsInput
+  DONE     Done
+  CRACKED  Failed
+  IDLE     Ready, Ended, Unknown   (new: eyes and core unlit, $fg-muted)
+
+Only the eye layer (px e) and the core layer (px r) change colour between moods; the
+CRACKED mood also changes the shape (crack pixels in the outline colour).
+
+Grid letters (left column), the layer they come from (middle) and the colour (right).
+Every letter is exactly one colour, so two moods that differ only in colour still give
+different grids. Lower-case letters are the shade of the upper-case body letter.
+
+  .  transparent
+  O  outline                  px K           #0d0d12   ($ink)
+  I  iron body                px G (Iron)    #8a94a3
+  i  iron shade               px g (Iron)    #5f6875
+  C  clay body                px G (Clay)    #c0703f
+  S  stone body               px G (Stone)   #9b9484
+  s  stone shade              px g (Stone)   #6e695c
+  V  moss (stone)             px v           #6f8f4a
+  R  lit core (FORGING)       px r           #ffb347   ($ember-hot)
+  U  dead core (CRACKED)      px r           #3a3a44
+  W  working tone             px e, px r     token sem-working
+  N  needs-you tone           px e, px r     token sem-needs
+  D  done tone                px e, px r     token sem-done
+  F  failed tone              px e           token sem-failed
+  Q  quiet tone (IDLE)        px e, px r     token fg-muted
+
+W, N, D, F and Q are theme tokens (WidgetTheme), not fixed art colours: they follow the
+terminal theme like the chips do. The other letters are fixed art colours.
+
+Rows are y = 0..11 (or 0..7) top to bottom, columns x = 0..11 (or 0..7) left to right.
+
+
+IRON · 12x12
+============
+
+IRON FORGING
+------------
+...OOOOOO...
+...OIIIIO...
+...OWIIWO...
+...OIIIIO...
+.OOOOOOOOOO.
+OIIOIIIIOIIO
+OIiOIRRIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+IRON WAITING
+------------
+...OOOOOO...
+...OIIIIO...
+...ONIINO...
+...OIIIIO...
+.OOOOOOOOOO.
+OIIOIIIIOIIO
+OIiOINNIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+IRON DONE
+---------
+...OOOOOO...
+...OIIIIO...
+...ODIIDO...
+...OIIIIO...
+.OOOOOOOOOO.
+OIIOIIIIOIIO
+OIiOIDDIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+IRON CRACKED (cracks at (6,1), (5,5), (6,6), (4,7))
+---------------------------------------------------
+...OOOOOO...
+...OIIOIO...
+...OFIIFO...
+...OIIIIO...
+.OOOOOOOOOO.
+OIIOIOIIOIIO
+OIiOIUOIOiIO
+OIiOOIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+IRON IDLE
+---------
+...OOOOOO...
+...OIIIIO...
+...OQIIQO...
+...OIIIIO...
+.OOOOOOOOOO.
+OIIOIIIIOIIO
+OIiOIQQIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+
+CLAY · 8x8
+==========
+
+CLAY FORGING
+------------
+..OOOO..
+..OWWO..
+OOOOOOOO
+OCOCCOCO
+OCORROCO
+OOOCCOOO
+..OCCO..
+..OOOO..
+
+CLAY WAITING
+------------
+..OOOO..
+..ONNO..
+OOOOOOOO
+OCOCCOCO
+OCONNOCO
+OOOCCOOO
+..OCCO..
+..OOOO..
+
+CLAY DONE
+---------
+..OOOO..
+..ODDO..
+OOOOOOOO
+OCOCCOCO
+OCODDOCO
+OOOCCOOO
+..OCCO..
+..OOOO..
+
+CLAY CRACKED (cracks at (3,3), (4,4); the core keeps one dead pixel at (3,4))
+-----------------------------------------------------------------------------
+..OOOO..
+..OFFO..
+OOOOOOOO
+OCOOCOCO
+OCOUOOCO
+OOOCCOOO
+..OCCO..
+..OOOO..
+
+CLAY IDLE
+---------
+..OOOO..
+..OQQO..
+OOOOOOOO
+OCOCCOCO
+OCOQQOCO
+OOOCCOOO
+..OCCO..
+..OOOO..
+
+
+STONE · 12x12
+=============
+
+STONE FORGING
+-------------
+...OOOOOO...
+...OVVSSO...
+...OWSSWO...
+...OSSSSO...
+.OOOOOOOOOO.
+OSSOSSSSOSSO
+OSsOSRRSOsSO
+OSsOSSVSOsSO
+OOOOSssSOOOO
+..OSSOOSSO..
+..OSSOOSSO..
+.OOOO..OOOO.
+
+STONE WAITING
+-------------
+...OOOOOO...
+...OVVSSO...
+...ONSSNO...
+...OSSSSO...
+.OOOOOOOOOO.
+OSSOSSSSOSSO
+OSsOSNNSOsSO
+OSsOSSVSOsSO
+OOOOSssSOOOO
+..OSSOOSSO..
+..OSSOOSSO..
+.OOOO..OOOO.
+
+STONE DONE
+----------
+...OOOOOO...
+...OVVSSO...
+...ODSSDO...
+...OSSSSO...
+.OOOOOOOOOO.
+OSSOSSSSOSSO
+OSsOSDDSOsSO
+OSsOSSVSOsSO
+OOOOSssSOOOO
+..OSSOOSSO..
+..OSSOOSSO..
+.OOOO..OOOO.
+
+STONE CRACKED (same cracks as Iron; no moss)
+--------------------------------------------
+...OOOOOO...
+...OSSOSO...
+...OFSSFO...
+...OSSSSO...
+.OOOOOOOOOO.
+OSSOSOSSOSSO
+OSsOSUOSOsSO
+OSsOOSSSOsSO
+OOOOSssSOOOO
+..OSSOOSSO..
+..OSSOOSSO..
+.OOOO..OOOO.
+
+STONE IDLE
+----------
+...OOOOOO...
+...OVVSSO...
+...OQSSQO...
+...OSSSSO...
+.OOOOOOOOOO.
+OSSOSSSSOSSO
+OSsOSQQSOsSO
+OSsOSSVSOsSO
+OOOOSssSOOOO
+..OSSOOSSO..
+..OSSOOSSO..
+.OOOO..OOOO.
+
+
+STATE GLYPHS (8x8, drawn at 32x32 beside the golem on 03 Sprites only; tree rows and
+lanes do not draw them). Same for every golem kind. Letters are local to each glyph.
+-------------------------------------------------------------------------------------
+FORGING · flame        R $ember #ff6b1a · Y $ember-hot #ffb347 · O #fff3d6 · D $ember-deep #b8380c
+....R...
+...RR...
+...RRR..
+..RRYR..
+..RYYRR.
+.RYYOYR.
+.RYOOYR.
+..DRRD..
+
+WAITING · exclamation  A token sem-needs
+..AAA...
+..AAA...
+..AAA...
+..AAA...
+...A....
+........
+..AAA...
+..AAA...
+
+DONE · spark           D token sem-done · O #fff3d6
+...D....
+...D....
+..DDD...
+DDDODDD.
+..DDD...
+...D....
+...D....
+........
+
+CRACKED · smoke        m #5d5a66 · M #9a96a0
+..mm....
+.mMMm...
+..mMMm..
+...mm.m.
+.m..mMm.
+mMm..m..
+.m......
+........
+
+IDLE · zZ              Z token fg-muted (the gnome ASLEEP glyph from gnome-parts.txt)
+....ZZZZ
+......Z.
+.....Z..
+....ZZZZ
+ZZZ.....
+..Z.....
+.Z......
+ZZZ.....
+
+
+PALETTE
+-------
+Fixed art colours (hex, as found on the sprite paths):
+
+  O  outline        #0d0d12   ($ink)
+  I  iron body      #8a94a3
+  i  iron shade     #5f6875
+  C  clay body      #c0703f
+  S  stone body     #9b9484
+  s  stone shade    #6e695c
+  V  moss           #6f8f4a
+  R  lit core       #ffb347   (same value as $ember-hot)
+  U  dead core      #3a3a44   (same value as the gnome sheet's metal)
+
+Theme tokens (values per terminal theme in forgnome.pen: forge / gruvbox / dracula):
+
+  W  sem-working    #5fd7d7 / #8ec07c / #8be9fd
+  N  sem-needs      #f5b43c / #d79921 / #f1fa8c
+  D  sem-done       #f2de6e / #fabd2f / #e5a93b
+  F  sem-failed     #f0607a / #ff6952 / #ff6e6e
+  Q  fg-muted       #99948e / #a39981 / #a5a6a7
+
+Note on IDLE: fg-muted sits close to the iron and stone body greys, so on Iron and
+Stone the unlit eyes and core nearly merge into the body (the golem reads as a still,
+faceless statue); on Clay they show as grey eyes on the outline row and a grey core.

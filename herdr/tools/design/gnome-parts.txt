@@ -1,0 +1,360 @@
+GNOME PARTS · 16x16 grids read from design/forgnome.pen (03 Sprites, PARTS section)
+=====================================================================================
+
+How the sprites are built in the file
+-------------------------------------
+Every gnome head is a `frame` (layout none, 80x80 on the sheet, 32x32 in tabs,
+48x48 in the sidebar, 128x128 in the setup) holding one `path` child per palette
+colour, named "px <letter>". Each path has viewBox [0,0,16,16] and a geometry made
+of 1-pixel-high run rectangles (`M x y h w v1 h-w z`), so the frame is scaled by
+whole numbers with no filtering. The paths stack in child order: K (outline) first,
+then hat, band, skin, skin shade, eyes, nose, beard, beard shade. A later layer
+covers an earlier one, which is why eye and brow pixels live in the E layer and the
+skin layer leaves holes under the default brows. Parts are NOT separate nodes: each
+head on the sheet is a full composite, so the grids below are composites too, and a
+part is the difference against the default head (HAT POINTED / BEARD FULL /
+EYES PLAIN / no accessory, which are all the same head).
+
+Grid letters (left column) and the layer name they come from (right column):
+
+  .  transparent
+  O  outline              px K   #0d0d12
+  S  skin                 px S   #f3c7a3
+  s  skin shade (extra)   px s   #d9a27e
+  C  cheek / nose         px N   #e8a48a
+  W  beard white          px W   #f2f2f2
+  w  beard shade (extra)  px w   #c9c9d1
+  E  eye (and brows)      px E   #0d0d12
+  H  hat colour           px H   per hat colour, see palette
+  h  hat shade (extra)    px h   per hat colour, see palette
+  B  band                 px B   #8b5a2b
+  M  metal (headphones)   px p   #3a3a44
+  L  lens (goggles)       px L   #7fd1e0
+  G  gold (monocle rim)   px Q   #e5a93b
+
+Rows are y = 0..15 top to bottom, columns x = 0..15 left to right.
+
+
+BASE FACE (derived: default head without hat, band and beard layers)
+--------------------------------------------------------------------
+Rows 8-11 of the default head. The outline at x=3 and x=14 is the head outline.
+
+................
+................
+................
+................
+................
+................
+................
+................
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+................
+................
+................
+................
+
+
+HAT POINTED (the default head: pointed hat, full beard, plain eyes)
+-------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+HAT FLOPPY (tip droops to the right)
+------------------------------------
+................
+................
+........OOO.....
+.......OHHHOO...
+......OHHHHHhO..
+.....OHHHHHHhhO.
+....OHHHHHHHHhhO
+...OBBBBBBBBBBOh
+...OSSSSSSSSSsOO
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+HAT CAP (short and round)
+-------------------------
+................
+................
+................
+................
+.......OOOO.....
+.....OOHHHHOO...
+....OHHHHHHHhO..
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+
+BEARD FULL (default; identical to HAT POINTED above)
+----------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+BEARD FORKED (split at the bottom, rows 14-15 differ)
+-----------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWOOWWWwO.
+....OOOO..OOOO..
+
+BEARD STUBBLE (no W layer; dots of beard shade on the chin, rows 12-14 differ)
+------------------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+...OSwSwCCwSwsO.
+....OSSSSSSSSO..
+.....OOOOOOOO...
+................
+
+
+EYES PLAIN (default; brows are the O pixels at (5,9) (6,9) (11,9) (12,9), eyes at (6,10) (11,10))
+------------------------------------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+EYES SQUINT (new on the sheet; eyes become 2-wide lines under the brows, row 10 differs)
+---------------------------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSEESSSSEEsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+EYES BROWS (new on the sheet; thick brows with the inner ends raised, rows 8-9 differ)
+--------------------------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSESSESSsO.
+...OSOOESSEOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+
+ACCESSORY GOGGLES (on the band, row 7 differs)
+----------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBOLOBBOLOBO.
+...OSSSSSSSSSsO.
+...OSOOSSSSOOsO.
+...OSSESSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+ACCESSORY EYEPATCH (left eye covered, rows 9-10 differ)
+-------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OOOOSSSSOOsO.
+...OOOOSSSSESsO.
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+ACCESSORY HEADPHONES (metal cups at x=2 and x=15, rows 7-10 differ)
+-------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+..MOBBBBBBBBBBOM
+..MOSSSSSSSSSsOM
+..MOSOOSSSSOOsOM
+..MOSSESSSSESsOM
+...OSSSSCCSSSsO.
+..OWWWWSCCSWWWwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+ACCESSORY MONOCLE (gold rim around the right eye with a chain, rows 9-12 differ)
+--------------------------------------------------------------------------------
+..........OO....
+.........OHHO...
+........OHHhO...
+.......OHHHhO...
+......OHHHHhO...
+.....OHHHHHHhO..
+....OHHHHHHHHhO.
+...OBBBBBBBBBBO.
+...OSSSSSSSSSsO.
+...OSOOSSSGGGsO.
+...OSSESSSGEGsO.
+...OSSSSCCGGGsO.
+..OWWWWSCCSWWGwO
+..OWWWWWWWWWWWwO
+...OWWWWWWWWWwO.
+....OOOOOOOOOO..
+
+
+MOOD EYES (from the GNOME MOODS row, rows 9-11 only; the rest equals the default head)
+---------------------------------------------------------------------------------------
+IDLE       row 9  ...OSOOSSSSOOsO.   row 10 ...OSSESSSSESsO.   row 11 ...OSSSSCCSSSsO.
+WORKING    row 9  ...OSSOOSSOOSsO.   row 10 ...OSSESSSSESsO.   row 11 ...OSSSSCCSSSsO.
+NEEDS YOU  row 9  ...OSSESSSSESsO.   row 10 ...OSSESSSSESsO.   row 11 ...OSSSSCCSSSsO.
+DONE       row 9  ...OSSESSSSESsO.   row 10 ...OSESESSESEsO.   row 11 ...OSSSSCCSSSsO.
+ERROR      row 9  ...OSESESSESEsO.   row 10 ...OSSESSSSESsO.   row 11 ...OSESECCESEsO.
+ASLEEP     row 9  ...OSSSSSSSSSsO.   row 10 ...OSOOSSSSOOsO.   row 11 ...OSSSSCCSSSsO.
+
+zZ GLYPH (EmptyState / ASLEEP, 16x16 box, only the top 8 rows are used, colour $fg-muted)
+-----------------------------------------------------------------------------------------
+....ZZZZ........
+......Z.........
+.....Z..........
+....ZZZZ........
+ZZZ.............
+..Z.............
+.Z..............
+ZZZ.............
+
+
+PALETTE
+-------
+Fixed colours (hex, as found on the sprite paths; the file's variables also define
+$ink #0d0d12, $skin #f3c7a3 and $beard #f2f2f2 with the same values):
+
+  O  outline        #0d0d12   ($ink)
+  E  eye / brows    #0d0d12   ($ink)
+  S  skin           #f3c7a3   ($skin)
+  s  skin shade     #d9a27e
+  C  cheek / nose   #e8a48a
+  W  beard white    #f2f2f2   ($beard)
+  w  beard shade    #c9c9d1
+  B  band           #8b5a2b
+  M  metal          #3a3a44
+  L  lens           #7fd1e0
+  G  gold (monocle) #e5a93b   (same value as $forge-gold)
+
+Hat colours (H = hat, h = hat shade). These are NOT variables in forgnome.pen: each
+sprite carries the hex directly on its "px H" / "px h" paths. Values read from the
+HAT AND APRON COLOURS row of 03 Sprites:
+
+  crimson  H #d1394b   h #9e2638   (the default on every other sprite)
+  forest   H #3f8f4f   h #2b6337
+  indigo   H #5b6be0   h #3b47a8
+  ochre    H #d19a39   h #9e7026
+  teal     H #2f9e9a   h #1f6e6b
+  plum     H #9b4bc4   h #6e3390
+
+The apron is not drawn on the 16x16 head; the sheet says it takes the hat colour.

@@ -6,4 +6,4 @@ node_modules
 
 # Written by bin/forge-herdr-install.sh and by the herdr app into the mods it loads
 herdr/mods/*/name.js
-herdr/mods/*/*.d.ts
+herdr/mods/**/*.d.ts

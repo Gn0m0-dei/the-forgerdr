@@ -1,0 +1,210 @@
+// Pixel art from the layers herdr/tools/sprites.mts generates under img/: fixed colours drawn with image(), and one
+// colour that changes (a hat, a theme tone) drawn with svg(), which the app tints with the text colour. Sprites only
+// scale by whole numbers.
+import { div, image, svg } from "gpui-kit";
+import { asset } from "../assets.js";
+import { TONE, toneColour } from "./tokens.js";
+
+/** @typedef {import("gpui-kit").Color} Color */
+/** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("./tokens.js").Tone} Tone */
+
+export const ICON = Object.freeze({
+  add: "add",
+  branch: "branch",
+  close: "close",
+  coal: "coal",
+  gnomemark: "gnomemark",
+  golem: "golem",
+  heat: "heat",
+  inbox: "inbox",
+  lock: "lock",
+  manual: "manual",
+  notify: "notify",
+  ok: "ok",
+  repo: "repo",
+  search: "search",
+  server: "server",
+  settings: "settings",
+  splitDown: "split-down",
+  splitRight: "split-right",
+  terminal: "terminal",
+  warn: "warn",
+  zoom: "zoom",
+});
+
+/** @typedef {typeof ICON[keyof typeof ICON]} IconName */
+
+export const HAT = Object.freeze({
+  cap: "cap",
+  floppy: "floppy",
+  pointed: "pointed",
+});
+export const BEARD = Object.freeze({
+  forked: "forked",
+  full: "full",
+  stubble: "stubble",
+});
+export const EYES = Object.freeze({
+  brows: "brows",
+  plain: "plain",
+  squint: "squint",
+});
+export const ACCESSORY = Object.freeze({
+  eyepatch: "eyepatch",
+  goggles: "goggles",
+  headphones: "headphones",
+  monocle: "monocle",
+  none: "none",
+});
+export const MOOD = Object.freeze({
+  asleep: "asleep",
+  done: "done",
+  error: "error",
+  idle: "idle",
+  needs: "needs",
+  working: "working",
+});
+
+/** @typedef {typeof HAT[keyof typeof HAT]} Hat */
+/** @typedef {typeof BEARD[keyof typeof BEARD]} Beard */
+/** @typedef {typeof EYES[keyof typeof EYES]} Eyes */
+/** @typedef {typeof ACCESSORY[keyof typeof ACCESSORY]} Accessory */
+/** @typedef {typeof MOOD[keyof typeof MOOD]} Mood */
+
+// A forge's gnome gets one from its project key.
+/** @satisfies {Record<string, { hat: Color, shade: Color }>} */
+export const HAT_COLOURS = Object.freeze({
+  crimson: Object.freeze({ hat: "#d1394b", shade: "#9e2638" }),
+  forest: Object.freeze({ hat: "#3f8f4f", shade: "#2b6337" }),
+  indigo: Object.freeze({ hat: "#5b6be0", shade: "#3b47a8" }),
+  ochre: Object.freeze({ hat: "#d19a39", shade: "#9e7026" }),
+  plum: Object.freeze({ hat: "#9b4bc4", shade: "#6e3390" }),
+  teal: Object.freeze({ hat: "#2f9e9a", shade: "#1f6e6b" }),
+});
+
+/** @typedef {keyof typeof HAT_COLOURS} HatColour */
+
+/**
+ * @typedef {object} GnomeLook
+ * @property {Hat} [hat]
+ * @property {Beard} [beard]
+ * @property {Eyes} [eyes]
+ * @property {Accessory} [accessory]
+ * @property {Mood} [mood]
+ * @property {HatColour} [colour]
+ * @property {number} [scale]
+ */
+
+// The side of each golem's grid: iron is a main session, clay a subagent, stone a teammate.
+export const GOLEM = Object.freeze({ clay: 8, iron: 12, stone: 12 });
+
+/** @typedef {keyof typeof GOLEM} GolemRole */
+
+/** @type {Record<Tone, string>} */
+const GOLEM_MOOD = {
+  done: "done",
+  failed: "cracked",
+  needs: "waiting",
+  quiet: "idle",
+  working: "forging",
+};
+
+// The 8x8 sign beside a gnome or a golem, and the tone its tinted layer takes.
+/** @satisfies {Record<string, Tone | null>} */
+export const GLYPH = Object.freeze({
+  asleep: TONE.quiet,
+  flame: null,
+  needs: TONE.needs,
+  smoke: null,
+  spark: TONE.done,
+});
+
+/** @typedef {keyof typeof GLYPH} GlyphName */
+
+/**
+ * @param {number} width
+ * @param {number} height
+ * @param {NativeElement[]} layers
+ */
+const stack = (width, height, layers) =>
+  div()
+    .flex_none()
+    .relative()
+    .w(width)
+    .h(height)
+    .children(
+      layers.map((layer) => layer.absolute().top(0).left(0).w(width).h(height)),
+    );
+
+/**
+ * @param {IconName} name
+ * @param {Color} colour
+ * @param {number} [scale]
+ */
+export const icon = (name, colour, scale = 1) =>
+  svg(asset(`img/icon/${name}.svg`))
+    .flex_none()
+    .w(12 * scale)
+    .h(12 * scale)
+    .text_color(colour);
+
+/** @param {GnomeLook} [look] */
+export const gnome = ({
+  accessory = ACCESSORY.none,
+  beard = BEARD.full,
+  colour = "crimson",
+  eyes = EYES.plain,
+  hat = HAT.pointed,
+  mood = MOOD.idle,
+  scale = 2,
+} = {}) => {
+  const colours = HAT_COLOURS[colour];
+  /** @param {string} file */
+  const part = (file) => asset(`img/gnome/${file}.svg`);
+  return stack(16 * scale, 16 * scale, [
+    image(part(`hat-${hat}`)),
+    svg(part(`hat-${hat}-tint`)).text_color(colours.hat),
+    svg(part(`hat-${hat}-shade`)).text_color(colours.shade),
+    image(part(`face-${eyes}-${mood}`)),
+    image(part(`beard-${beard}`)),
+    ...(accessory === ACCESSORY.none
+      ? []
+      : [image(part(`accessory-${accessory}`))]),
+  ]);
+};
+
+/**
+ * @param {GolemRole} role
+ * @param {Tone} tone
+ * @param {number} [scale]
+ */
+export const golem = (role, tone, scale = 2) => {
+  const side = GOLEM[role] * scale;
+  const file = asset(`img/golem/${role}-${GOLEM_MOOD[tone]}`);
+  return stack(side, side, [
+    image(`${file}.svg`),
+    svg(`${file}-tone.svg`).text_color(toneColour(tone)),
+  ]);
+};
+
+/**
+ * @param {GlyphName} name
+ * @param {number} [scale]
+ */
+export const glyph = (name, scale = 2) => {
+  const file = asset(`img/glyph/${name}`);
+  const tone = GLYPH[name];
+  return stack(8 * scale, 8 * scale, [
+    image(`${file}.svg`),
+    ...(tone === null
+      ? []
+      : [svg(`${file}-tone.svg`).text_color(toneColour(tone))]),
+  ]);
+};
+
+/** @param {number} [scale] */
+export const zz = (scale = 2) =>
+  stack(16 * scale, 8 * scale, [
+    svg(asset("img/glyph/zz-tone.svg")).text_color(toneColour(TONE.quiet)),
+  ]);

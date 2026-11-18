@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forgerdr mod's kit and pixel art, from the forgnome design: chips, key buttons, forge and session tabs, tree rows, pane headers, the gnome's header, the empty state, the toast and the meters, drawn in the design's faces and the theme's colours; 21 pixel icons, gnome heads in parts and the iron, clay and stone golems, generated as SVG layers by `herdr/tools/sprites.mts` from the design's exports, so hat colours and theme tones tint them. A `gallery` role shows them all.
+
 ## [0.17.0] - 2026-11-18
 
 ### Added

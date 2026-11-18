@@ -179,6 +179,8 @@ bin/forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
 
 Run again, it updates what it installed and leaves what you changed, naming it (`--force` replaces it, keeping a copy beside it); `--remove` takes it away, except the theme, which any layout may use. `--dev` installs the checkout beside it as `forgerdr-dev`, a copy of the mod and a layout that uses it, and `--watch` keeps that copy in step with the checkout until Ctrl-C, so the app reloads the mod as you edit it: the app does not see edits through a link.
 
+The mod draws with a kit of the design's pieces (`herdr/mods/forgerdr/kit/`: chips, key buttons, tabs, tree rows, pane headers, meters, the empty state, the toast) and the design's pixel art: 12×12 icons in one ink, gnome heads in parts (hat, face by eyes and mood, beard, accessory) and golems, as SVG layers under `img/`. `node herdr/tools/sprites.mts` generates them from the design's exports in `herdr/tools/design/`; a layer of fixed colours is drawn with `image()`, and one colour that changes (a hat, a theme tone) with `svg()`, which the app tints, so the art follows the theme. `test/herdr-sprites.test.sh` fails when `img/` drifts from the generator. The `gallery` role shows every piece and sprite on one page, to compare with the design: `herdr-app do tab.new --name gallery --mod forgerdr-dev --props '{"role":"gallery"}'`.
+
 ## Development
 
 ```bash
