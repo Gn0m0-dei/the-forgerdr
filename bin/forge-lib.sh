@@ -660,6 +660,28 @@ forge_launch() {
   printf '%s' "$out" | jq -er '.address' 2>/dev/null || return 2
 }
 
+# The argv, as JSON, that runs a command in a folder through the user's login interactive shell, as forge_launch runs
+# one: for a pane the herdr app splits off (pane.split), which runs its argv as it is, without a shell, in no folder of
+# its own. Arguments: the folder, then the command.
+forge_login_argv() {
+  local folder="$1" shell="${SHELL:-/bin/sh}"
+  shift
+  # shellcheck disable=SC2016 # expanded by that shell
+  case "$(basename "$shell")" in
+    sh|bash|zsh|dash|ksh|mksh) set -- "$shell" -lic 'cd "$1" && shift && exec "$@"' "$shell" "$folder" "$@" ;;
+    fish) set -- "$shell" -lic 'cd $argv[1]; and exec $argv[2..-1]' "$folder" "$@" ;;
+    *) set -- /bin/sh -lc 'cd "$1" && shift && exec "$@"' sh "$folder" env "PATH=$PATH" "$@" ;;
+  esac
+  jq -cn '$ARGS.positional' --args -- "$@"
+}
+
+# The herdr app pane a terminal shows in; empty when the app lists none.
+forge_pane_of() {
+  forge_app ls 2>/dev/null \
+    | jq -r --arg terminal "$1" 'first(.spaces[]?.tabs[]?.terminals[]? | select(.terminal == $terminal) | .pane) // empty' 2>/dev/null \
+    || true
+}
+
 # The argv the herdr app runs for a titled Claude session, as JSON for space.new and tab.new (the app runs it in the
 # user's login interactive shell): FORGE_SESSION_TITLE in its environment (hooks/session-start.sh makes it the session
 # title), the words of FORGE_CLAUDE_ARGS, then the prompt.

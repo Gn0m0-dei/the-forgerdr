@@ -27,15 +27,33 @@ call() {
     | bash "$hook"
 }
 decision() { call "$@" | jq -r '.hookSpecificOutput.permissionDecision // empty'; }
+# A session in a pane of the herdr app (t5, in tab tb-own, 310x66), and one with no pane of its own (t6, a sub-agent).
 in_herdr() { HC_TERMINAL_ID=t5 CLAUDE_CODE_MESSAGING_SOCKET=/tmp/cc-socks/42.sock "$@"; }
+in_sub() { HC_TERMINAL_ID=t6 CLAUDE_CODE_MESSAGING_SOCKET=/tmp/cc-socks/42.sock "$@"; }
 logged() { grep -q -- "$1" "$state/dispatch.log" && echo yes || echo no; }
-# The hc run call that started the agent, as JSON.
-started() { call_of hc run; }
+# How the agent was started, as JSON: the argv of the pane the app split off for it, else the hc run call.
+started() {
+  local split
+  split="$(call_of herdr-app "do" pane.split)"
+  if [ -n "$split" ]; then printf '%s' "$split" | option_of --argv; else call_of hc run; fi
+}
 # The claude command line it ran, after the shell and env words.
 claude_line() { started | jq -r '(index("claude")) as $i | .[$i:] | join(" ")'; }
+# Each pane.split call as "pane direction".
+splits() { grep '"pane.split"' "$FAKE_CALLS" | while IFS= read -r c; do printf '%s %s\n' "$(printf '%s' "$c" | option_of --pane)" "$(printf '%s' "$c" | option_of --direction)"; done | paste -sd '|' -; }
+# A fresh session: no agent panes yet, its own pane back at 310x66.
+fresh() {
+  fakes_reset
+  rm -f "$state/s1.grid" "$state/s1.area"
+  fake_terminal t5 live working "" herdr.space=sp-own herdr.tab=tb-own
+  jq '.cols = 310 | .rows = 66' "$FAKE_DIR/terminals/t5.json" > "$FAKE_DIR/t5.tmp" && mv "$FAKE_DIR/t5.tmp" "$FAKE_DIR/terminals/t5.json"
+}
+export FAKE_LS_PANES=1
 
-fake_terminal t5 live working "" herdr.space=sp-own herdr.tab=tb-own
+fresh
+fake_terminal t6 live working
 fake_terminal t9 live working
+fake_terminal t21 live
 
 expect "outside the herdr app the subagent stays in-process" "" "$(decision general-purpose)"
 expect "and nothing is asked of hc" no "$(called hc run)"
@@ -47,15 +65,16 @@ expect "a type that is a path is refused" "" "$(in_herdr decision ../../notes)"
 expect "and says why" yes "$(logged "unexpected agent type: ../../notes")"
 expect "no messaging socket, in-process" "" "$(HC_TERMINAL_ID=t5 decision general-purpose)"
 
-fakes_reset
+fresh
 printf '%s\n' '{"type":"assistant","message":{"model":"claude-haiku-5-5"}}' '{"type":"assistant","message":{"model":"<synthetic>"}}' > "$sandbox/transcript.jsonl"
 expect "general-purpose is dispatched to the herdr app" deny "$(TRANSCRIPT="$sandbox/transcript.jsonl" in_herdr decision general-purpose "" plan)"
 run="$(started)"
-expect "in a terminal of its own, with no note about it typed into this one" yes "$(printf '%s' "$run" | has_arg --no-notify)"
-expect "as a sub-agent of this session: no space or tab" no "$(printf '%s' "$run" | jq -e 'any(.[]; startswith("herdr."))' >/dev/null && echo yes || echo no)"
-expect "where this session works" "$sandbox" "$(printf '%s' "$run" | option_of --cwd)"
-expect "through the user's login interactive shell" '/bin/zsh -lic exec "$@" /bin/zsh env' "$(printf '%s' "$run" | jq -r '(index("--")) as $i | .[$i + 1:$i + 6] | join(" ")')"
-agent="$(printf '%s' "$run" | option_of --name)"
+expect "in a new pane split off this session's, to the right" "p-t5 right" "$(splits)"
+expect "the user keeps the pane they were in" '["herdr-app","do","pane.focus","--pane","p-t5"]' "$(call_of herdr-app "do" pane.focus)"
+expect "where this session works" "$sandbox" "$(printf '%s' "$run" | jq -r '.[4]')"
+# shellcheck disable=SC2016 # literal arguments
+expect "through the user's login interactive shell" '/bin/zsh -lic cd "$1" && shift && exec "$@" /bin/zsh' "$(printf '%s' "$run" | jq -r '.[0:4] | join(" ")')"
+agent="$(cut -f2 "$state/s1.terminals")"
 expect "named as an agent" yes "$([[ "$agent" =~ ^agent-[0-9]+-probe-task$ ]] && echo yes || echo "no: $agent")"
 line="$(claude_line)"
 expect "plain general-purpose session" no "$(contains "$line" "--tools ")"
@@ -65,39 +84,78 @@ expect "the message opens with a fixed header" yes "$(contains "$line" "Task fro
 expect "the message carries the report address" yes "$(contains "$line" "uds:/tmp/cc-socks/42.sock")"
 expect "the agent knows where to report" yes "$(printf '%s' "$run" | has_arg "FORGE_REPORT_TO=uds:/tmp/cc-socks/42.sock")"
 expect "and carries its task as the session title" yes "$(printf '%s' "$run" | has_arg "FORGE_SESSION_TITLE=Probe task")"
-expect "terminal recorded for the session" "t9	$agent" "$(cat "$state/s1.terminals")"
+expect "terminal recorded for the session" "t40	$agent" "$(cat "$state/s1.terminals")"
 record="$state/s1.agents/$agent.json"
 expect "the agent knows its record" yes "$(printf '%s' "$run" | has_arg "FORGE_AGENT_RECORD=$record")"
-expect "the record keeps what reopening it needs" "general-purpose|Probe task|working|t9|$sandbox|--model claude-haiku-5-5 --permission-mode plan" \
+expect "the record keeps what reopening it needs" "general-purpose|Probe task|working|t40|$sandbox|--model claude-haiku-5-5 --permission-mode plan" \
   "$(jq -r '[.type, .title, .state, .terminal, .workdir, (.args | join(" "))] | join("|")' "$record")"
 reason="$(TRANSCRIPT="$sandbox/transcript.jsonl" in_herdr call general-purpose | jq -r '.hookSpecificOutput.permissionDecisionReason')"
 expect "the reason says it is not an error" yes "$(contains "$reason" "Not an error:")"
 expect "the reason says how to give it another task" yes "$(contains "$reason" "SendMessage to \"agent-")"
-expect "and where the user finds it" yes "$(contains "$reason" "Agents sidebar")"
+expect "and where the user finds it" yes "$(contains "$reason" "a new pane next to this session")"
 
-fakes_reset
+# The grid, as in the herdr TUI: the first agent halves this session's pane, the next ones the largest agent pane that
+# keeps 80x15, and a tab of agents opens in the background once none does; the agents after it fill that tab.
+fresh
+for _ in 1 2 3 4; do in_herdr decision general-purpose >/dev/null; done
+expect "this session's pane, then the agent panes, then a tab of agents and the agent pane in it" "p-t5 right|p-t40 down|p-t21 right|p-t42 right" "$(splits)"
+expect "leaving the agent panes next to this session even" "152x31 152x31" \
+  "$(for t in t40 t41; do jq -r '"\(.cols)x\(.rows)"' "$FAKE_DIR/terminals/$t.json"; done | paste -sd ' ' -)"
+made="$(call_of herdr-app "do" tab.new)"
+expect "the tab of agents opens in this session's space, in the background" "sp-own false" \
+  "$(printf '%s %s' "$(printf '%s' "$made" | option_of --space)" "$(printf '%s' "$made" | option_of --focus)")"
+expect "named after this session" yes "$(contains "$(printf '%s' "$made" | option_of --name)" "agents · ")"
+expect "its first shell gives its place to the agent" yes "$(called hc kill t21)"
+expect "the user's pane is given back after splits in the shown tab only" 2 "$(grep -c '"pane.focus"' "$FAKE_CALLS")"
+expect "the grid keeps the agent panes" "t40 t41 t42 t43" "$(cut -f1 "$state/s1.grid" | paste -sd ' ' -)"
+fake_terminal t21 live
+
+fresh
+fake_terminal t39 finished
+printf 't39\tp-t39\ttb-own\t152\t66\n' > "$state/s1.grid"
+in_herdr decision general-purpose >/dev/null
+expect "once its agent panes are gone, this session's pane is split again" "p-t5 right" "$(splits)"
+
+fresh
+expect "a pane the app cannot split leaves the agent in-process" "" "$(FAKE_SPLIT_FAILS=1 in_herdr decision general-purpose)"
+expect "and says why" yes "$(logged "could not split pane p-t5")"
+
+# A session with no pane of its own starts its agents as sub-agents of its terminal.
+fresh
+expect "a session with no pane dispatches too" deny "$(in_sub decision general-purpose)"
+run="$(call_of hc run)"
+expect "in a terminal of its own, with no note about it typed into this one" yes "$(printf '%s' "$run" | has_arg --no-notify)"
+expect "as a sub-agent of this session: no space or tab" no "$(printf '%s' "$run" | jq -e 'any(.[]; startswith("herdr."))' >/dev/null && echo yes || echo no)"
+expect "where this session works" "$sandbox" "$(printf '%s' "$run" | option_of --cwd)"
+# shellcheck disable=SC2016 # literal arguments
+expect "through the user's login interactive shell" '/bin/zsh -lic exec "$@" /bin/zsh env' "$(printf '%s' "$run" | jq -r '(index("--")) as $i | .[$i + 1:$i + 6] | join(" ")')"
+expect "named as an agent" yes "$([[ "$(printf '%s' "$run" | option_of --name)" =~ ^agent-[0-9]+-probe-task$ ]] && echo yes || echo no)"
+expect "and the user finds it in the Agents sidebar" yes "$(contains "$(in_sub call general-purpose | jq -r '.hookSpecificOutput.permissionDecisionReason')" "Agents sidebar")"
+
+fresh
 in_herdr decision forgerdr:reviewer >/dev/null
 line="$(claude_line)"
 expect "reviewer gets its definition in a file" yes "$(grep -q "You review a diff" "$(printf '%s' "$line" | sed -nE 's/.*--append-system-prompt-file ([^ ]+).*/\1/p')" && echo yes)"
 expect "reviewer keeps its tool list" yes "$(contains "$line" "--tools Read,Grep,Glob,Bash,SendMessage,ToolSearch")"
 expect "reviewer gets no MCP servers" yes "$(contains "$line" "--strict-mcp-config")"
 
-fakes_reset
+fresh
 in_herdr decision forgerdr:researcher >/dev/null
 expect "researcher gets no Bash" yes "$(contains "$(claude_line)" "--tools WebSearch,WebFetch,Read,Grep,Glob,SendMessage,ToolSearch")"
 
-fakes_reset
+fresh
 in_herdr decision Explore >/dev/null
 expect "Explore is read-only" yes "$(contains "$(claude_line)" "--disallowedTools Edit,Write,NotebookEdit,MultiEdit")"
 
-fakes_reset
+fresh
 FORGE_CLAUDE_ARGS="--settings /tmp/try.json" in_herdr decision general-purpose >/dev/null
 expect "FORGE_CLAUDE_ARGS reaches claude" yes "$(contains "$(claude_line)" "claude --settings /tmp/try.json")"
 
 # The folder trust prompt is accepted once, and the agent is up after it.
 fake_terminal t9 live blocked "trust this folder"
 jq -n '{address:"t9",state:"live",labels:{},status:{app:"claude-code",state:"working"}}' > "$FAKE_DIR/terminals/t9.after-keys.json"
-fakes_reset
+fresh
+export FAKE_SPLIT_ADDRESS=t9
 expect "a trust prompt does not stop the dispatch" deny "$(in_herdr decision general-purpose)"
 expect "it is accepted" yes "$(called hc keys t9 down enter)"
 expect "once" 1 "$(grep -c '"keys"' "$FAKE_CALLS")"
@@ -105,15 +163,15 @@ expect "once" 1 "$(grep -c '"keys"' "$FAKE_CALLS")"
 # A terminal that ends before the agent is up: in-process, and the terminal is removed.
 fake_terminal t9 finished
 rm -f "$state/s1.terminals"
-fakes_reset
+fresh
 expect "an agent that ends before it starts stays in-process" "" "$(in_herdr decision general-purpose)"
 expect "and says why" yes "$(logged "ended in terminal t9 before it started")"
 expect "and its terminal is removed" yes "$(called hc rm t9)"
 expect "and forgotten" "" "$(cat "$state/s1.terminals")"
 fake_terminal t9 live working
 
-fakes_reset
-expect "hc failing to start it stays in-process" "" "$(FAKE_RUN_FAILS=1 in_herdr decision general-purpose)"
+fresh
+expect "hc failing to start it stays in-process" "" "$(FAKE_RUN_FAILS=1 in_sub decision general-purpose)"
 expect "and says why" yes "$(logged "hc could not start a terminal")"
 
 # isolation "worktree": a git worktree under .claude/worktrees, opened as a space; the agent is a pane of it.
@@ -140,17 +198,18 @@ fake_terminal t9 live working
 
 # A terminal that cannot be ended is not run a second time in-process.
 fake_terminal t9 live
-fakes_reset
+fresh
 reason="$(FAKE_KILL_IGNORED=1 in_herdr call general-purpose | jq -r '.hookSpecificOutput | "\(.permissionDecision) \(.permissionDecisionReason)"')"
 expect "an agent that reports nothing and cannot be ended is refused, not run twice" yes "$(contains "$reason" "deny The general-purpose agent may still be running in herdr terminal t9")"
 expect "and says why" yes "$(logged "reported nothing while it was awaited")"
 fake_terminal t9 live working
+unset FAKE_SPLIT_ADDRESS
 
 # hc starts a terminal but prints no address: it is ended by the agent's name.
-fakes_reset
+fresh
 printf '#!/usr/bin/env bash\nprintf "not json\\n"\n' > "$sandbox/hc-mute"
 chmod +x "$sandbox/hc-mute"
-expect "a terminal hc did not name is ended by the agent's name" "" "$(FORGE_HC="$sandbox/hc-mute" in_herdr decision general-purpose)"
+expect "a terminal hc did not name is ended by the agent's name" "" "$(FORGE_HC="$sandbox/hc-mute" in_sub decision general-purpose)"
 expect "and says why" yes "$(logged "without printing its terminal")"
 rm -f "$FAKE_DIR/ls.json"
 
@@ -233,15 +292,15 @@ jq -n --arg dir "$sandbox" '{name:"agent-gone",type:"general-purpose",title:"Fix
   worktree:"",note:"",claude_session:"sess-9",socket:"/tmp/cc-socks/78.sock",args:["--model","m1"]}' > "$closed"
 fake_terminal t-gone finished
 rm -f "$state/s1.terminals"
-fakes_reset
+fresh
 reopened="$(send agent-gone "Second fix pass")"
 expect "an agent whose terminal ended is reopened instead" deny "$(printf '%s' "$reopened" | jq -r .hookSpecificOutput.permissionDecision)"
 expect "and the reason says so" yes "$(contains "$(printf '%s' "$reopened" | jq -r .hookSpecificOutput.permissionDecisionReason)" "reopened")"
 expect "its ended terminal gives its name back first" yes "$(called hc rm t-gone)"
-expect "under its own name" agent-gone "$(started | option_of --name)"
+expect "in a new pane next to this session" "p-t5 right" "$(splits)"
 expect "resuming its Claude session with its own arguments" yes "$(contains "$(claude_line)" "claude --model m1 --resume sess-9")"
 expect "with the message as its task" yes "$(contains "$(claude_line)" 'Task from the Claude session that dispatched you (general-purpose agent agent-gone, "Second fix pass")')"
-expect "and the sweep knows its terminal" yes "$(grep -q "^t9	agent-gone$" "$state/s1.terminals" && echo yes)"
+expect "and the sweep knows its terminal" yes "$(grep -q "^t40	agent-gone$" "$state/s1.terminals" && echo yes)"
 jq '.claude_session = "" | .terminal = "t-gone"' "$closed" > "$closed.tmp" && mv "$closed.tmp" "$closed"
 expect "an agent with no session to resume is not reopened" yes \
   "$(contains "$(send agent-gone "Third pass" | jq -r .hookSpecificOutput.permissionDecisionReason)" "could not be reopened")"

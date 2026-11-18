@@ -217,7 +217,7 @@ sweep_session() {
       fi
     done < "$file"
   fi
-  rm -f "$file" "$state_dir/$session".prompt.*
+  rm -f "$file" "$state_dir/$session".prompt.* "$state_dir/$session.grid" "$state_dir/$session.area"
   rm -rf "$state_dir/$session.agents"
   ! forge_in_herdr || close_orphans
 }

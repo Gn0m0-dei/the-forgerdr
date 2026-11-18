@@ -9,6 +9,7 @@ All notable changes to this project are documented here. The format follows
 ### Changed
 
 - `/forgerdr:review` and `/forgerdr:workitem` with several items open their sessions in new tabs of their own, named `Reviews` and `Work items` (`Reviews 2` and on when the name is taken in the space), never in the tab they are launched from: the first session fills a tab, each next one splits the largest pane that leaves both halves at least 80×15, and the group goes on in a new tab when none does. The tabs are shown while they fill, because the app sizes the panes of the shown tab only, and the first session is shown at the end. `forge-session.sh` takes `--group NAME` and several `--title TITLE <prompt>` pairs for it.
+- A dispatched agent gets a pane next to the session again, as in the herdr TUI: the first one halves the session's pane, each next one the largest agent pane that keeps both halves at least 80×15, so they form an even grid, and once none can be halved the agent opens a tab of agents (`agents · <session>`) in the background, which the next ones fill the same way. The panes are split with `pane.split`, which runs the agent as it is, so its terminal ends with it, and the user keeps the pane they were in. The app sizes the panes of the shown tab only: a pane in another tab is taken at the size the dispatch gave it. A session with no pane of its own still starts its agents as sub-agents, listed under it in the Agents sidebar; one with `isolation: "worktree"` is still a pane of its worktree's space.
 
 ## [0.15.0] - 2026-11-17
 

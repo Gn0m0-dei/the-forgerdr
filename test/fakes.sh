@@ -33,7 +33,10 @@ SH
   # they made; FAKE_APP_DOWN makes every call fail. With FAKE_TAB_SIZE ("cols rows"), tab.new makes a tab of its own
   # (tb-made-1, tb-made-2...) whose terminal (t40, t41...) has that size and a working agent; terminal.open splits the
   # terminal pane.focus focused as the app's main layout does, in two halves less 6 columns or 4 rows (the split one
-  # keeps its size with FAKE_LAYOUT_STUCK), and its new terminal takes the next address.
+  # keeps its size with FAKE_LAYOUT_STUCK), and its new terminal takes the next address; pane.split does the same to the
+  # terminal of the pane it names (p-<address>), its new terminal FAKE_SPLIT_ADDRESS when set, and fails with
+  # FAKE_SPLIT_FAILS. With FAKE_LS_PANES, ls also lists every live terminal the fakes know, in pane p-<address>. status
+  # answers status.json, else tab tb-own shown with pane p-t5 focused.
   cat > "$FORGE_HERDR_APP" <<'SH'
 #!/usr/bin/env bash
 jq -cn '["herdr-app"] + $ARGS.positional' --args -- "$@" >> "$FAKE_CALLS"
@@ -65,6 +68,11 @@ case "$1 ${2:-}" in
     if [ -n "${FAKE_LS_MADE:-}" ] && [ -f "$FAKE_DIR/made.jsonl" ]; then
       listed="$(jq -cs '.[0].spaces += .[1:] | .[0]' <(printf '%s\n' "$listed") "$FAKE_DIR/made.jsonl")"
     fi
+    if [ -n "${FAKE_LS_PANES:-}" ]; then
+      panes="$(for f in "$FAKE_DIR"/terminals/*.json; do jq -c 'select(.state == "live") | {terminal: .address, pane: ("p-" + .address)}' "$f"; done | jq -cs .)"
+      listed="$(jq -c --argjson panes "$panes" \
+        '.spaces += [{id: "sp-fake", name: "fake", tabs: [{id: "tb-fake", name: "fake", terminals: $panes}]}]' <<<"$listed")"
+    fi
     printf '%s\n' "$listed" ;;
   "do space.new")
     folder="$(jq -rn '$ARGS.positional as $a | ($a | index("--folder")) as $i | if $i == null then "" else $a[$i + 1] end' --args -- "$@")"
@@ -90,6 +98,13 @@ case "$1 ${2:-}" in
   "do terminal.open")
     address="$(split_off "$(cat "$FAKE_DIR/focused")" "$(option --place "$@")" "$(next_address)")"
     printf '{"pane":"p-%s","terminal":"%s"}\n' "$address" "$address" ;;
+  "do pane.split")
+    [ -z "${FAKE_SPLIT_FAILS:-}" ] || exit 1
+    pane="$(option --pane "$@")"
+    address="$(split_off "${pane#p-}" "$(option --direction "$@")" "${FAKE_SPLIT_ADDRESS:-$(next_address)}")"
+    printf '{"pane":"p-%s","terminal":"%s"}\n' "$address" "$address" ;;
+  "status ")
+    if [ -f "$FAKE_DIR/status.json" ]; then cat "$FAKE_DIR/status.json"; else printf '{"tab":"tb-own","focused_pane":"p-t5"}\n'; fi ;;
   "do "*) printf '{"ok":true}\n' ;;
 esac
 exit 0
@@ -105,7 +120,7 @@ fakes_reset() {
     while IFS= read -r address; do rm -f "$FAKE_DIR/terminals/$address.json"; done < "$FAKE_DIR/generated"
     rm -f "$FAKE_DIR/generated"
   fi
-  rm -f "$FAKE_DIR/next" "$FAKE_DIR/tabs" "$FAKE_DIR/focused"
+  rm -f "$FAKE_DIR/next" "$FAKE_DIR/tabs" "$FAKE_DIR/focused" "$FAKE_DIR/status.json"
 }
 
 # Writes what hc get answers for a terminal: its state, its agent status and message (none when empty), its labels as
