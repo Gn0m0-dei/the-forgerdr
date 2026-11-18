@@ -186,7 +186,7 @@ pnpm install
 pnpm lint       # biome + shellcheck (install.sh, bin, hooks, test, herdr/tools)
 pnpm test       # the pure functions, the hooks, and the scripts against fake hc and herdr-app (test/fakes.sh)
 pnpm validate   # claude plugin validate .
-pnpm typecheck:herdr  # the forgerdr mod against the type files the herdr app writes (skipped where it is not installed)
+pnpm typecheck:herdr  # the forgerdr mod against the type files the herdr app writes (skipped where it is not installed; runs on commit when herdr/mods changes)
 ```
 
 The fan-out scripts and the agent dispatch are also exercised by hand inside the herdr app (`--no-agent` creates the topology without starting agents; `FORGE_CLAUDE_ARGS="--plugin-dir $PWD"` makes the agents load the checkout). Say in the pull request what you ran.

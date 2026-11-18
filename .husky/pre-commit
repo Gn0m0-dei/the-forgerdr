@@ -1,2 +1,6 @@
 pnpm exec biome check --write --no-errors-on-unmatched --files-ignore-unknown=true --staged
 git update-index --again
+# The type check reads the working tree, not the index, and skips itself where the herdr app is not installed.
+if git diff --cached --name-only | grep -q -E '^herdr/(mods/|tools/typecheck\.sh$)'; then
+  pnpm typecheck:herdr
+fi
