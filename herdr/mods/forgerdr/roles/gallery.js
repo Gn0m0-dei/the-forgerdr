@@ -41,7 +41,7 @@ import {
   worktreeRow,
 } from "../kit/tree.js";
 
-/** @typedef {import("gpui-kit").Context} Context */
+/** @typedef {import("./role.js").Role} Role */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 /** @typedef {import("../kit/sprites.js").GlyphName} GlyphName */
 /** @typedef {import("../kit/sprites.js").GolemRole} GolemRole */
@@ -295,8 +295,7 @@ const icons = () =>
     ),
   ]);
 
-/** @param {Context} _cx */
-export const gallery = (_cx) =>
+const page = () =>
   v_flex()
     .id("gallery")
     .size_full()
@@ -311,3 +310,6 @@ export const gallery = (_cx) =>
     .child(containers())
     .child(sprites())
     .child(icons());
+
+/** @returns {Role} */
+export const gallery = () => ({ render: page });

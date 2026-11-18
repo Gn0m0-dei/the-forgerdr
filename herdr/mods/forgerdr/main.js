@@ -4,22 +4,38 @@
 import { div, View } from "gpui-kit";
 import { props } from "herdr";
 import { gallery } from "./roles/gallery.js";
+import { topbar } from "./roles/topbar.js";
 
+/** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
-/** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("./roles/role.js").Role} Role */
 /** @typedef {{ role?: string }} ForgerdrProps */
 
 /** @type {() => ForgerdrProps} */
 const readProps = props;
 
-/** @type {Record<string, (cx: Context) => NativeElement>} */
-const roles = { gallery };
+/** @type {Record<string, (cx: AsyncContext) => Role>} */
+const ROLES = { gallery, topbar };
 
-// herdr asks for a class extending View as the mod's default export.
+// herdr asks for a class extending View as the mod's default export. A copy makes its role once and hands it every
+// render and its close; the role keeps its own state.
 export default class Forgerdr extends View {
+  /**
+   * @param {unknown} _props
+   * @param {AsyncContext} cx
+   */
+  init(_props, cx) {
+    /** @type {Role | undefined} */
+    this.role = ROLES[readProps()?.role ?? ""]?.(cx);
+  }
+
   /** @param {Context} cx */
   render(cx) {
-    const draw = roles[readProps()?.role ?? ""];
-    return draw ? draw(cx) : div();
+    return this.role?.render(cx) ?? div();
+  }
+
+  /** @param {AsyncContext} cx */
+  async close(cx) {
+    await this.role?.close?.(cx);
   }
 }

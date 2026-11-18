@@ -15,7 +15,7 @@
     "lint": "biome check . && shellcheck -x install.sh hooks/*.sh bin/*.sh test/*.sh herdr/tools/*.sh",
     "lint:fix": "biome check --write .",
     "prepare": "husky || true",
-    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh && bash test/herdr-app.test.sh && bash test/herdr-install.test.sh && bash test/herdr-sprites.test.sh",
+    "test": "bash test/forge-lib.test.sh && bash test/forge-config.test.sh && bash test/openspec.test.sh && bash test/guard-bash.test.sh && bash test/scrub-unicode.test.sh && bash test/worktree-hook.test.sh && bash test/agent-dispatch.test.sh && bash test/herdr-app.test.sh && bash test/herdr-install.test.sh && bash test/herdr-sprites.test.sh && node --test test/herdr-mod.test.mjs",
     "validate": "claude plugin validate .",
     "typecheck:herdr": "bash herdr/tools/typecheck.sh"
   },
