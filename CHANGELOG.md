@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.16.0] - 2026-11-18
+
 ### Changed
 
 - `/forgerdr:review` and `/forgerdr:workitem` with several items open their sessions in new tabs of their own, named `Reviews` and `Work items` (`Reviews 2` and on when the name is taken in the space), never in the tab they are launched from: the first session fills a tab, each next one splits the largest pane that leaves both halves at least 80×15, and the group goes on in a new tab when none does. The tabs are shown while they fill, because the app sizes the panes of the shown tab only, and the first session is shown at the end. `forge-session.sh` takes `--group NAME` and several `--title TITLE <prompt>` pairs for it.
