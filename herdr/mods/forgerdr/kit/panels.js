@@ -3,7 +3,7 @@ import { div } from "gpui-kit";
 import { agentChip } from "./chips.js";
 import { gnome, ICON, icon, MOOD, zz } from "./sprites.js";
 import { fill, text } from "./text.js";
-import { tokens, toneColour } from "./tokens.js";
+import { BRAND, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./tokens.js").Tone} Tone */
@@ -140,3 +140,17 @@ export const toast = ({ from, message, look = {} }) => {
         .child(fill(message, "ui", 13, k.fg)),
     );
 };
+
+/**
+ * The foot of a forge's sidebar: the forge's heat, what its golems do in a line ("3 forging · 1 waiting").
+ * @param {string} summary
+ */
+export const forgeHeat = (summary) =>
+  v_flex()
+    .flex_none()
+    .gap(4)
+    .px(14)
+    .py(12)
+    .bg(BRAND.glow)
+    .child(text("FORGE HEAT RISES WITH EACH GOLEM", "display", 9, BRAND.ember))
+    .child(text(summary, "ui", 12, tokens().muted));

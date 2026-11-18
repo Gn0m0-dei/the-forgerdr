@@ -3,9 +3,16 @@
 // Run: node --test test/herdr-mod.test.mjs
 import { deepStrictEqual, strictEqual } from "node:assert";
 import { test } from "node:test";
-import { forgeState } from "../herdr/mods/forgerdr/forges.js";
+import {
+  forgeMood,
+  forgeMoves,
+  forgeState,
+  forgeSummary,
+  groupForges,
+  lookKeyOf,
+} from "../herdr/mods/forgerdr/forges.js";
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
-import { hatColourOf } from "../herdr/mods/forgerdr/identity.js";
+import { brotherOf, hatColourOf } from "../herdr/mods/forgerdr/identity.js";
 import { scrollTarget, stripState } from "../herdr/mods/forgerdr/strip.js";
 
 test("a key binding reads as its keycaps", () => {
@@ -92,4 +99,111 @@ test("the scroll never leaves the row's bounds", () => {
   strictEqual(state.position, 150);
   strictEqual(state.clamp(-40), 0);
   strictEqual(scrollTarget(state, "right"), null);
+});
+
+test("a forge keeps its brother, and brothers spread", () => {
+  strictEqual(brotherOf("/work/acme-shop"), brotherOf("/work/acme-shop"));
+  strictEqual(brotherOf("/work/acme-shop").startsWith("Brother "), true);
+  strictEqual(
+    new Set(["/a", "/b", "/c", "/d", "/e", "/f"].map(brotherOf)).size > 1,
+    true,
+  );
+});
+
+test("spaces of one repository make one forge, its main checkout first", () => {
+  const space = (id) => ({ id, name: id });
+  const git = {
+    api: {
+      ahead: 0,
+      behind: 0,
+      branch: "main",
+      linked: false,
+      repo: "/w/api/.git",
+    },
+    login: {
+      ahead: 1,
+      behind: 0,
+      branch: "feature/#42-login",
+      linked: true,
+      repo: "/w/api/.git",
+    },
+    notes: null,
+  };
+  const forges = groupForges(
+    [space("login"), space("notes"), space("api")],
+    git,
+  );
+  deepStrictEqual(
+    forges.map((forge) => [
+      forge.key,
+      forge.main.id,
+      forge.spaces.map((s) => s.id),
+    ]),
+    [
+      ["/w/api/.git", "api", ["api", "login"]],
+      ["space:notes", "notes", ["notes"]],
+    ],
+  );
+});
+
+test("a forge's golems in a line, and its gnome's mood", () => {
+  const agents = [
+    { status: "working" },
+    { status: "working" },
+    { status: "blocked" },
+    { status: "idle" },
+  ];
+  strictEqual(forgeSummary(agents), "2 forging · 1 waiting");
+  strictEqual(forgeSummary([]), "no golems at work");
+  strictEqual(forgeMood(agents), "needs you · 4 golems");
+  strictEqual(forgeMood([{ status: "idle" }]), "idle · 1 golem");
+});
+
+test("a forge dragged onto another moves as one block, each move counting the ones before it", () => {
+  // Spaces in the app's order: a's worktree sits apart from its main checkout.
+  const order = ["a", "b", "a2", "c"];
+  const forge = (key, ...ids) => ({
+    key,
+    main: { id: ids[0] },
+    spaces: ids.map((id) => ({ id })),
+  });
+  const forges = [forge("A", "a", "a2"), forge("B", "b"), forge("C", "c")];
+  const apply = (moves) =>
+    moves.reduce((ids, { id, index }) => {
+      const rest = ids.filter((other) => other !== id);
+      return rest.toSpliced(index - 1, 0, id);
+    }, order);
+  deepStrictEqual(apply(forgeMoves(order, forges, "A", "C")), [
+    "b",
+    "c",
+    "a",
+    "a2",
+  ]);
+  deepStrictEqual(apply(forgeMoves(order, forges, "C", "A")), [
+    "c",
+    "a",
+    "a2",
+    "b",
+  ]);
+  deepStrictEqual(apply(forgeMoves(order, forges, "B", "B")), order);
+  deepStrictEqual(forgeMoves(order, forges, "A", "missing"), []);
+});
+
+test("a forge looks the same whichever of its spaces is open", () => {
+  // Its main checkout's folder, so it does not change once git answers.
+  strictEqual(
+    lookKeyOf({
+      key: "/w/api/.git",
+      main: { folder: "/w/api-login", name: "login" },
+    }),
+    "/w/api",
+  );
+  strictEqual(
+    lookKeyOf({ key: "space:7", main: { folder: "/w/notes", name: "notes" } }),
+    "/w/notes",
+  );
+  strictEqual(
+    lookKeyOf({ key: "space:8", main: { folder: "", name: "scratch" } }),
+    "scratch",
+  );
 });

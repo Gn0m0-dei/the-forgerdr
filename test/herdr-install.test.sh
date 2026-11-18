@@ -84,17 +84,19 @@ expect "with its record gone" no "$(exists "$manifest")"
 rm -rf "$app"
 
 # --dev: a copy of this checkout's mod beside it, as forgerdr-dev.
-jq '.children[0].children[0].content = {"mod": "forgerdr", "props": {"role": "topbar"}} | .toast = "forgerdr"' \
-  "$sandbox/src/layouts/forgerdr.json" > "$sandbox/l.json" && mv "$sandbox/l.json" "$sandbox/src/layouts/forgerdr.json"
+jq '.toast = "forgerdr"' "$sandbox/src/layouts/forgerdr.json" > "$sandbox/l.json" &&
+  mv "$sandbox/l.json" "$sandbox/src/layouts/forgerdr.json"
 fakes_reset
 bash "$install" --dev --switch >/dev/null
 dev="$app/mods/forgerdr-dev"
 expect "the dev mod is a folder of its own, not a link" "yes no" "$(exists "$dev/main.js") $([ -L "$dev" ] && echo yes || echo no)"
 expect "which knows it runs as forgerdr-dev" 'export const MOD = "forgerdr-dev";' "$(tail -n 1 "$dev/name.js")"
 expect "nothing is written into the checkout" no "$(exists "$sandbox/src/mods/forgerdr/name.js")"
-expect "the dev layout's blocks and toasts use it" "forgerdr-dev forgerdr-dev" \
-  "$(jq -r '"\(.children[0].children[0].content.mod) \(.toast)"' "$app/layouts/forgerdr-dev.json")"
-expect "the app's own mods keep their names" "spaces" "$(jq -r '.. | objects | select(.id? == "spaces") | .content.mod' "$app/layouts/forgerdr-dev.json")"
+expect "the dev layout's blocks and toasts use it" "forgerdr-dev forgerdr-dev forgerdr-dev" \
+  "$(jq -r '[(.. | objects | select(.id? == "topbar" or .id? == "forge") | .content.mod), .toast] | join(" ")' \
+    "$app/layouts/forgerdr-dev.json")"
+expect "the app's own mods keep their names" "workspace-chrome" \
+  "$(jq -r '.. | objects | select(.id? == "sidebar-footer") | .content.mod' "$app/layouts/forgerdr-dev.json")"
 expect "with the shared theme and picture" "yes yes" "$(exists "$app/themes/forge-night.json") $(exists "$app/layouts/forgerdr.svg")"
 expect "and the dev layout shown with --switch" yes "$(called herdr-app "do" layout.switch --name forgerdr-dev)"
 expect "the stable mod is not installed by --dev" no "$(exists "$app/mods/forgerdr")"

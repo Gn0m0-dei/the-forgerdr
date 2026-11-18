@@ -1,12 +1,15 @@
-// The window's top bar (design 04): a forge tab per space with its gnome and what its golems do, the tab that opens a
-// space, the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
-// A forge tab does what the app's own space list does: a click shows the space, a double click renames it, a right
-// click opens the app's own space menu (rename, worktrees, close), its ✕ or a middle click closes it (the app asks for
-// the name and confirms the close), and dragging it onto another reorders the spaces. When the tabs do not fit, the
+// The window's top bar (design 04): a forge tab per repository (its main checkout and its worktrees, which the sidebar
+// lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
+// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
+// A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
+// else its main checkout's): a click shows it, a right click opens the app's own space menu (rename, worktrees, close),
+// its ✕ or a middle click closes it (the app confirms). A double click renames the forge, which bears its main
+// checkout's name, and dragging a forge onto another moves its spaces there together. When the tabs do not fit, the
 // strip scrolls under the trackpad and with the arrows beside it.
 import { h_flex, ScrollHandle } from "gpui-base";
 import { agents, keys, openOverlay, run, spaces } from "herdr";
-import { forgeState } from "../forges.js";
+import { readSpacesGit } from "../bridges/git.js";
+import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
 import { hatColourOf } from "../identity.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
@@ -19,6 +22,7 @@ import { scrollTarget, stripState } from "../strip.js";
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("../forges.js").Forge} Forge */
 /** @typedef {import("./role.js").Role} Role */
 
 // Room for macOS's window buttons, which the layout draws over at traffic_lights.
@@ -63,14 +67,16 @@ const openInbox = (waiting) => {
 export const topbar = () => {
   const strip = ScrollHandle.new();
   // What a copy knows of its strip: each tab's width, the strip's width and how far it is scrolled, kept in step with
-  // the trackpad, the arrows and the active space, since the app's scroll handle tells neither.
-  /** @type {Map<string, number>} */
+  // the trackpad, the arrows and the active forge, since the app's scroll handle tells neither.
+  /** @type {Map<string, number>} by forge key */
   const widths = new Map();
   let visible = 0;
   let scrolled = 0;
   let shownActive = "";
-  /** @type {{ from: string | null, over: string | null }} */
+  /** @type {{ from: string | null, over: string | null }} forge keys */
   const drag = { from: null, over: null };
+  /** @type {Map<string, string>} the space each forge showed last, by forge key */
+  const lastShown = new Map();
 
   /**
    * @param {string} id
@@ -102,97 +108,115 @@ export const topbar = () => {
   };
 
   /**
-   * @param {SpaceInfo} space
-   * @param {SpaceInfo[]} all
-   * @param {AgentInfo[]} everyone
+   * The space a forge's tab acts on: the open one, else the last one shown, else its main checkout's.
+   * @param {Forge} forge
    */
-  const forgeOf = (space, all, everyone) => {
-    const state = forgeState(
-      everyone.filter((agent) => agent.space === space.id),
-    );
+  const shownIn = (forge) =>
+    forge.spaces.find((space) => space.active) ??
+    forge.spaces.find((space) => space.id === lastShown.get(forge.key)) ??
+    forge.main;
+
+  /**
+   * @param {Forge} forge
+   * @param {Forge[]} forges
+   * @param {AgentInfo[]} everyone
+   * @param {string[]} order the spaces' ids, in the app's order
+   */
+  const forgeOf = (forge, forges, everyone, order) => {
+    const ids = new Set(forge.spaces.map((space) => space.id));
+    const state = forgeState(everyone.filter((agent) => ids.has(agent.space)));
+    const shown = shownIn(forge);
+    const active = shown.active;
     const close = control(
       icon(ICON.close, tokens().muted),
-      `forge-close-${space.id}`,
-      () => closeSpace(space.id),
+      `forge-close-${forge.key}`,
+      () => closeSpace(shown.id),
     );
-    const from = all.findIndex((other) => other.id === drag.from);
-    const here = all.findIndex((other) => other.id === space.id);
+    const from = forges.findIndex((other) => other.key === drag.from);
+    const here = forges.indexOf(forge);
     const dragging =
-      drag.from !== null && drag.from !== space.id && drag.over === space.id;
+      drag.from !== null && drag.from !== forge.key && drag.over === forge.key;
     return forgeTab({
-      active: space.active,
+      active,
       badge: state.badge,
-      close: space.active ? close : undefined,
-      look: {
-        colour: hatColourOf(space.folder || space.name),
-        mood: state.mood,
-      },
-      name: space.name,
+      close: active ? close : undefined,
+      look: { colour: hatColourOf(lookKeyOf(forge)), mood: state.mood },
+      name: forge.main.name,
     })
-      .id(`forge-${space.id}`)
+      .id(`forge-${forge.key}`)
       .cursor_pointer()
-      .when(drag.from === space.id && drag.over !== space.id, (el) =>
+      .when(drag.from === forge.key && drag.over !== forge.key, (el) =>
         el.opacity(0.5),
       )
       .when(dragging, (el) =>
         el.child(dropMark(from < here ? "right" : "left")),
       )
-      .on_size_change((size, cx) => measure(space.id, size.width, cx))
+      .on_size_change((size, cx) => measure(forge.key, size.width, cx))
       .on_mouse_down("left", (_event, cx) => {
         cx.stop_propagation();
-        drag.from = space.id;
-        drag.over = space.id;
+        drag.from = forge.key;
+        drag.over = forge.key;
       })
       .on_mouse_move((_event, cx) => {
-        // A space moves among the spaces of its own machine only.
-        const source = all.find((other) => other.id === drag.from);
+        // A space moves among the spaces of its own machine only, so a forge does too.
+        const source = forges.find((other) => other.key === drag.from);
         const over =
-          source !== undefined && source.machine === space.machine
-            ? space.id
+          source !== undefined && source.main.machine === forge.main.machine
+            ? forge.key
             : null;
         if (drag.from === null || drag.over === over) return;
         drag.over = over;
         cx.notify();
       })
       .on_mouse_up("left", (_event, cx) => {
-        const moved =
+        if (
           drag.from !== null &&
-          drag.from !== space.id &&
-          drag.over === space.id;
-        if (moved) run("space.move", { id: drag.from, index: here + 1 });
+          drag.from !== forge.key &&
+          drag.over === forge.key
+        ) {
+          for (const move of forgeMoves(order, forges, drag.from, forge.key))
+            run("space.move", move);
+        }
         drag.from = null;
         drag.over = null;
         cx.notify();
       })
       .on_mouse_down("middle", (_event, cx) => {
         cx.stop_propagation();
-        closeSpace(space.id);
+        closeSpace(shown.id);
       })
       .on_mouse_down("right", (_event, cx) => {
         cx.stop_propagation();
         openOverlay({
           ...SPACE_MENU,
-          props: { tab: "space", target: { id: space.id } },
+          props: { tab: "space", target: { id: shown.id } },
         });
       })
       .on_click((event) =>
         event.click_count === 2
-          ? run("space.rename", { id: space.id })
-          : run("space.select", { id: space.id }),
+          ? run("space.rename", { id: forge.main.id })
+          : run("space.select", { id: shown.id }),
       );
   };
 
   /** @param {Context} _cx */
   const render = (_cx) => {
     const all = spaces();
+    const forges = groupForges(all, readSpacesGit());
     const everyone = agents();
     const waiting = everyone.filter((agent) => agent.status === "blocked");
     const palette = keys().find((binding) => binding.action === "app.palette");
-    const order = [...all.map((space) => space.id), ADD_TAB];
-    const active = all.find((space) => space.active);
-    if (active !== undefined && active.id !== shownActive) {
-      shownActive = active.id;
-      reveal(order, all.indexOf(active));
+    const order = [...forges.map((forge) => forge.key), ADD_TAB];
+    const activeAt = forges.findIndex((forge) =>
+      forge.spaces.some((space) => space.active),
+    );
+    const activeForge = forges[activeAt];
+    if (activeForge !== undefined) {
+      lastShown.set(activeForge.key, shownIn(activeForge).id);
+      if (activeForge.key !== shownActive) {
+        shownActive = activeForge.key;
+        reveal(order, activeAt);
+      }
     }
     const at = geometry(order);
     /**
@@ -241,13 +265,22 @@ export const topbar = () => {
             if (visible === size.width) return;
             visible = size.width;
             // A narrower strip may hide the active forge: bring it back.
-            if (active !== undefined) reveal(order, all.indexOf(active));
+            if (activeAt !== -1) reveal(order, activeAt);
             cx.notify();
           })
           .on_scroll_wheel((event) => {
             scrolled = geometry(order).clamp(scrolled - event.delta.x);
           })
-          .children(all.map((space) => forgeOf(space, all, everyone)))
+          .children(
+            forges.map((forge) =>
+              forgeOf(
+                forge,
+                forges,
+                everyone,
+                all.map((space) => space.id),
+              ),
+            ),
+          )
           .child(
             control(addTab(), ADD_TAB, () => run("space.new")).on_size_change(
               (size, cx) => measure(ADD_TAB, size.width, cx),

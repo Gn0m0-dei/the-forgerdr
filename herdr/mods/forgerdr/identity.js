@@ -22,3 +22,45 @@ const hash = (key) =>
  * @returns {HatColour}
  */
 export const hatColourOf = (key) => HAT_ORDER[hash(key) % HAT_ORDER.length];
+
+// The gnome brothers who run the forges (design 11, GNOME BROTHERS).
+const BROTHERS = Object.freeze([
+  "Anvilbeard",
+  "Bellows",
+  "Tongs",
+  "Quench",
+  "Slag",
+  "Flux",
+  "Rivet",
+  "Ingot",
+  "Clinker",
+  "Swage",
+  "Fuller",
+  "Hardy",
+  "Temper",
+  "Gillet",
+  "Cinder",
+  "Soot",
+  "Pritchel",
+  "Mandrel",
+  "Drift",
+  "Bloom",
+  "Tuyère",
+  "Crucible",
+  "Smelt",
+  "Tinder",
+  "Hammerhand",
+  "Ironside",
+  "Scale",
+  "Forgewright",
+  "Coalbrook",
+  "Firestoke",
+]);
+
+/**
+ * The gnome who runs a forge, as "Brother Anvilbeard". Hashed apart from the hat colour, so two forges with one hat
+ * still have two brothers.
+ * @param {string} key a project's
+ */
+export const brotherOf = (key) =>
+  `Brother ${BROTHERS[hash(`brother:${key}`) % BROTHERS.length]}`;

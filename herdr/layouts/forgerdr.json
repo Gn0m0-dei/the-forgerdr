@@ -22,42 +22,16 @@
           "children": [
             {
               "content": {
-                "mod": "workspace-chrome"
-              },
-              "id": "brand",
-              "size": {
-                "px": 46
-              },
-              "type": "block",
-              "window_drag": true
-            },
-            {
-              "children": [
-                {
-                  "content": {
-                    "mod": "spaces"
-                  },
-                  "id": "spaces",
-                  "min": 90,
-                  "size": {
-                    "weight": 1
-                  },
-                  "type": "block"
-                },
-                {
-                  "content": {
-                    "mod": "agents"
-                  },
-                  "id": "agents",
-                  "min": 90,
-                  "size": {
-                    "weight": 1
-                  },
-                  "type": "block"
+                "mod": "forgerdr",
+                "props": {
+                  "role": "sidebar"
                 }
-              ],
-              "id": "sidebar-lists",
-              "type": "column"
+              },
+              "id": "forge",
+              "size": {
+                "weight": 1
+              },
+              "type": "block"
             },
             {
               "content": {

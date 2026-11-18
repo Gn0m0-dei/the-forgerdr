@@ -20,6 +20,7 @@ export const BRAND = Object.freeze({
   emberDeep: "#b8380c",
   emberHot: "#ffb347",
   forgeGold: "#e5a93b",
+  glow: "#40251d",
   ink: "#0d0d12",
   inkSoft: "#0d0d1266",
 });
