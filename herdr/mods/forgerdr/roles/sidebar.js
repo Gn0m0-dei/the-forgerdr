@@ -23,6 +23,7 @@ import {
   lookKeyOf,
 } from "../forges.js";
 import { brotherOf, hatColourOf } from "../identity.js";
+import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeHeat, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon } from "../kit/sprites.js";
 import { tokens, toneOf } from "../kit/tokens.js";
@@ -47,6 +48,14 @@ const SPACE_MENU = Object.freeze({
   kind: "popup",
   mod: "menu",
   width: 200,
+});
+
+// The sign beside the forge's gnome, by its mood; a forge with no golem sleeps.
+/** @type {Partial<Record<import("../kit/sprites.js").Mood, import("../kit/motion.js").SignName>>} */
+const MOOD_SIGN = Object.freeze({
+  done: SIGN.spark,
+  needs: SIGN.needs,
+  working: SIGN.flame,
 });
 
 /**
@@ -287,6 +296,7 @@ export const sidebar = (cx) => {
           look,
           mood: forgeMood(forgeAgents),
           name: brotherOf(key),
+          sign: forgeAgents.length === 0 ? SIGN.zz : MOOD_SIGN[state.mood],
           tone: state.badge?.tone ?? "quiet",
         })
           .relative()

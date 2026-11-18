@@ -1,9 +1,10 @@
 import { h_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { badge } from "./chips.js";
+import { badge, signBadge } from "./chips.js";
+import { SIGN } from "./motion.js";
 import { gnome, ICON, icon } from "./sprites.js";
 import { text } from "./text.js";
-import { BRAND, NONE, tokens, toneColour } from "./tokens.js";
+import { BRAND, NONE, TONE, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./sprites.js").IconName} IconName */
@@ -45,7 +46,13 @@ export const forgeTab = ({
     .border_color(active ? k.line : NONE)
     .child(gnome({ ...look, scale: 2 }))
     .child(text(name, "ui", 14, active ? k.fg : k.muted))
-    .when(mark !== undefined, (el) => el.child(badge(mark.content, mark.tone)))
+    .when(mark !== undefined, (el) =>
+      el.child(
+        mark.tone === TONE.needs
+          ? signBadge(SIGN.needs, mark.tone)
+          : badge(mark.content, mark.tone),
+      ),
+    )
     .when(close !== undefined, (el) => el.child(close))
     .when(active, (el) =>
       el.child(div().absolute().top(0).left(0).w_full().h(2).bg(BRAND.ember)),

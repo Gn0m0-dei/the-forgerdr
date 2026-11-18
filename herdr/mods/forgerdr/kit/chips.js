@@ -1,9 +1,11 @@
 import { h_flex } from "gpui-base";
 import { div } from "gpui-kit";
+import { sign } from "./motion.js";
 import { text } from "./text.js";
 import { AGENT_LABEL, CHIP_LABEL, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("gpui-kit").Color} Color */
+/** @typedef {import("./motion.js").SignName} SignName */
 /** @typedef {import("./tokens.js").Tone} Tone */
 
 /**
@@ -55,6 +57,21 @@ export const badge = (content, tone) => {
     .border_color(colour)
     .child(text(content, "display", 10, colour));
 };
+
+/**
+ * A badge that shows a moving sign instead of text: the needs-you "!" that blinks on a forge's tab.
+ * @param {SignName} name
+ * @param {Tone} tone
+ */
+export const signBadge = (name, tone) =>
+  div()
+    .flex_none()
+    .px(3)
+    .py(3)
+    .bg(tokens().bg2)
+    .border(1)
+    .border_color(toneColour(tone))
+    .child(sign(name, 1));
 
 /**
  * Quiet unless given a colour: #42 beside a worktree, DEV :3001 in the working colour.

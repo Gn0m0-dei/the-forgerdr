@@ -1,6 +1,6 @@
 // The design's tokens read from the herdr app's theme, so the look follows the user's theme; the brand's colours
-// never do.
-import { theme } from "herdr";
+// never do. Whether the look moves is part of it too: the human can turn motion off (bridges/motion.js).
+import { shared, theme } from "herdr";
 
 /** @typedef {import("gpui-kit").Color} Color */
 /** @typedef {import("herdr").Status} Status */
@@ -15,6 +15,7 @@ export const FONT = Object.freeze({
 
 /** @satisfies {Record<string, Color>} */
 export const BRAND = Object.freeze({
+  ash: "#9a96a0",
   coin: "#f4d35e",
   ember: "#ff6b1a",
   emberDeep: "#b8380c",
@@ -23,7 +24,15 @@ export const BRAND = Object.freeze({
   glow: "#40251d",
   ink: "#0d0d12",
   inkSoft: "#0d0d1266",
+  smoke: "#5d5a66",
+  whiteHot: "#fff3d6",
 });
+
+// The shared key that turns the look's motion off when false; only bridges/motion.js writes it.
+export const MOTION_KEY = "forgerdr.motion";
+
+/** Whether the look moves: yes, unless the human turned motion off. */
+export const motionOn = () => shared(MOTION_KEY) !== false;
 
 /** @type {Color} */
 export const NONE = "#00000000";

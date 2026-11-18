@@ -1,11 +1,13 @@
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { agentChip, tag } from "./chips.js";
-import { gnome, ICON, icon, MOOD, zz } from "./sprites.js";
+import { SIGN, sign } from "./motion.js";
+import { gnome, ICON, icon, MOOD } from "./sprites.js";
 import { fill, text } from "./text.js";
 import { BRAND, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
+/** @typedef {import("./motion.js").SignName} SignName */
 /** @typedef {import("./tokens.js").Tone} Tone */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 
@@ -55,10 +57,18 @@ export const splitControls = () => {
  * @property {Tone} tone
  * @property {string} mood what its golems do, as "working · 3 golems"
  * @property {GnomeLook} [look]
+ * @property {SignName} [sign] what its golems do, moving beside the gnome: the flame, the "!", the spark, the zZ
  */
 
 /** @param {GnomeHeaderProps} props */
-export const gnomeHeader = ({ forge, name, tone, mood, look = {} }) => {
+export const gnomeHeader = ({
+  forge,
+  name,
+  tone,
+  mood,
+  look = {},
+  sign: mark,
+}) => {
   const k = tokens();
   const colour = toneColour(tone);
   return h_flex()
@@ -67,7 +77,15 @@ export const gnomeHeader = ({ forge, name, tone, mood, look = {} }) => {
     .p(16)
     .border_b(2)
     .border_color(k.line)
-    .child(gnome({ ...look, scale: 3 }))
+    .child(
+      div()
+        .relative()
+        .flex_none()
+        .child(gnome({ ...look, scale: 3 }))
+        .when(mark !== undefined, (el) =>
+          el.child(sign(mark, 2).absolute().top(-4).right(-12)),
+        ),
+    )
     .child(
       v_flex()
         .flex_1()
@@ -115,7 +133,7 @@ export const emptyState = ({ caption, title, sub, look = {}, action }) => {
           h_flex()
             .items_start()
             .child(gnome({ ...look, mood: MOOD.asleep, scale: 5 }))
-            .child(zz(2)),
+            .child(sign(SIGN.zz, 2)),
         )
         .child(text(title, "ui", 16, k.fg))
         .child(text(sub, "ui", 12, k.muted))

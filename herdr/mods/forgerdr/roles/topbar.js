@@ -7,8 +7,17 @@
 // checkout's name, and dragging a forge onto another moves its spaces there together. When the tabs do not fit, the
 // strip scrolls under the trackpad and with the arrows beside it.
 import { h_flex, ScrollHandle } from "gpui-base";
-import { agents, keys, openOverlay, run, spaces } from "herdr";
+import {
+  agents,
+  checking,
+  keys,
+  nextCommand,
+  openOverlay,
+  run,
+  spaces,
+} from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
+import { toggleMotion } from "../bridges/motion.js";
 import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
 import { hatColourOf } from "../identity.js";
@@ -21,6 +30,7 @@ import { scrollTarget, stripState } from "../strip.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
+/** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 /** @typedef {import("../forges.js").Forge} Forge */
@@ -51,9 +61,22 @@ const openInbox = (waiting) => {
   else run("terminal.peek", { terminal: first.address });
 };
 
-/** @returns {Role} */
-export const topbar = () => {
+/**
+ * @param {AsyncContext} cx
+ * @returns {Role}
+ */
+export const topbar = (cx) => {
   const strip = ScrollHandle.new();
+  // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on.
+  const commands = checking()
+    ? null
+    : cx.spawn(async (cx) => {
+        for (;;) {
+          const command = await nextCommand();
+          if (command === "motion") toggleMotion();
+          cx.notify();
+        }
+      });
   // What a copy knows of its strip: each tab's width, the strip's width and how far it is scrolled, kept in step with
   // the trackpad, the arrows and the active forge, since the app's scroll handle tells neither.
   /** @type {Map<string, number>} by forge key */
@@ -299,5 +322,11 @@ export const topbar = () => {
       );
   };
 
-  return { close: () => void strip.release(), render };
+  return {
+    close: () => {
+      commands?.cancel();
+      strip.release();
+    },
+    render,
+  };
 };

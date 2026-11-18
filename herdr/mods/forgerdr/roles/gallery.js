@@ -11,6 +11,7 @@ import {
 } from "../kit/buttons.js";
 import { agentChip, statusChip } from "../kit/chips.js";
 import { heatMeter, steppedBar } from "../kit/meters.js";
+import { SIGN, sign } from "../kit/motion.js";
 import {
   emptyState,
   gnomeHeader,
@@ -292,6 +293,9 @@ const sprites = () =>
       ),
     ),
     row(GLYPHS.map((name) => named(name, glyph(name, 4)))),
+    row(
+      Object.values(SIGN).map((name) => named(`${name} moving`, sign(name, 4))),
+    ),
   ]);
 
 const icons = () =>

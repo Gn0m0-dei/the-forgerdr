@@ -1,0 +1,2 @@
+Forgerdr Glyphs (ForgerdrGlyphs.ttf) is forgerdr's own: herdr/tools/glyphs.mts makes it from the frames in
+herdr/tools/design/motion-frames.txt. It is part of this repository and under its licence.
