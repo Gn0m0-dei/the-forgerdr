@@ -30,11 +30,34 @@ exit 0
 SH
   # herdr-app: ls answers ls.json, in the shape the real herdr-app ls has (spaces > tabs > terminals, a status string or
   # null, sub_agents as addresses), plus with FAKE_LS_MADE the spaces space.new made; space.new and tab.new answer what
-  # they made; FAKE_APP_DOWN makes every call fail.
+  # they made; FAKE_APP_DOWN makes every call fail. With FAKE_TAB_SIZE ("cols rows"), tab.new makes a tab of its own
+  # (tb-made-1, tb-made-2...) whose terminal (t40, t41...) has that size and a working agent; terminal.open splits the
+  # terminal pane.focus focused as the app's main layout does, in two halves less 6 columns or 4 rows (the split one
+  # keeps its size with FAKE_LAYOUT_STUCK), and its new terminal takes the next address.
   cat > "$FORGE_HERDR_APP" <<'SH'
 #!/usr/bin/env bash
 jq -cn '["herdr-app"] + $ARGS.positional' --args -- "$@" >> "$FAKE_CALLS"
 [ -z "${FAKE_APP_DOWN:-}" ] || exit 1
+option() { jq -rn --arg o "$1" '$ARGS.positional as $a | ($a | index($o)) as $i | if $i == null then "" else $a[$i + 1] end' --args -- "${@:2}"; }
+next_address() { local n; n="$(cat "$FAKE_DIR/next" 2>/dev/null || echo 40)"; printf '%s\n' $((n + 1)) > "$FAKE_DIR/next"; printf 't%s\n' "$n"; }
+# Splits a terminal's pane right or down, as the app's main layout does, into a new terminal at an address; prints it.
+# A terminal the test wrote beforehand keeps what it says, and one that says no size is split as 120x40.
+split_off() {
+  local split="$FAKE_DIR/terminals/$1.json" cols rows
+  cols="$(jq -r '.cols // 120' "$split" 2>/dev/null || echo 120)" rows="$(jq -r '.rows // 40' "$split" 2>/dev/null || echo 40)"
+  if [ "$2" = right ]; then cols=$(((cols - 6) / 2)); else rows=$(((rows - 4) / 2)); fi
+  if [ -z "${FAKE_LAYOUT_STUCK:-}" ] && [ -f "$split" ]; then
+    jq --argjson c "$cols" --argjson r "$rows" '.cols = $c | .rows = $r' "$split" > "$split.tmp" && mv "$split.tmp" "$split"
+  fi
+  [ -f "$FAKE_DIR/terminals/$3.json" ] || sized "$3" "$cols" "$rows"
+  printf '%s\n' "$3"
+}
+sized() {
+  jq -n --arg address "$1" --argjson cols "$2" --argjson rows "$3" \
+    '{address: $address, state: "live", labels: {}, status: {app: "claude-code", state: "working", msg: null}, cols: $cols, rows: $rows}' \
+    > "$FAKE_DIR/terminals/$1.json"
+  printf '%s\n' "$1" >> "$FAKE_DIR/generated"
+}
 case "$1 ${2:-}" in
   "ls "*)
     listed='{"spaces":[]}'
@@ -50,7 +73,23 @@ case "$1 ${2:-}" in
         tabs: [{id: "tb-new", name: "1", active: true, settled: false,
                 terminals: [{terminal: $t, pane: "p-new", status: null, app: null, name: null, sub_agents: []}]}]}' >> "$FAKE_DIR/made.jsonl"
     printf '{"space":"sp-new","tab":"tb-new","terminal":"%s"}\n' "${FAKE_NEW_TERMINAL:-t20}" ;;
-  "do tab.new") printf '{"space":"sp-own","tab":"tb-made","terminal":"%s"}\n' "${FAKE_NEW_TERMINAL:-t21}" ;;
+  "do tab.new")
+    if [ -z "${FAKE_TAB_SIZE:-}" ]; then
+      printf '{"space":"sp-own","tab":"tb-made","terminal":"%s"}\n' "${FAKE_NEW_TERMINAL:-t21}"
+      exit 0
+    fi
+    tabs=$(( $(cat "$FAKE_DIR/tabs" 2>/dev/null || echo 0) + 1 ))
+    printf '%s\n' "$tabs" > "$FAKE_DIR/tabs"
+    address="$(next_address)"
+    sized "$address" "${FAKE_TAB_SIZE% *}" "${FAKE_TAB_SIZE#* }"
+    printf '{"space":"sp-own","tab":"tb-made-%s","terminal":"%s"}\n' "$tabs" "$address" ;;
+  "do pane.focus")
+    focused="$(option --terminal "$@")"
+    [ -z "$focused" ] || printf '%s\n' "$focused" > "$FAKE_DIR/focused"
+    printf '{"ok":true}\n' ;;
+  "do terminal.open")
+    address="$(split_off "$(cat "$FAKE_DIR/focused")" "$(option --place "$@")" "$(next_address)")"
+    printf '{"pane":"p-%s","terminal":"%s"}\n' "$address" "$address" ;;
   "do "*) printf '{"ok":true}\n' ;;
 esac
 exit 0
@@ -58,8 +97,15 @@ SH
   chmod +x "$FORGE_HC" "$FORGE_HERDR_APP"
 }
 
+# Forgets the calls, and what the fakes made: the terminals they sized, their address and tab counters, the focus.
 fakes_reset() {
+  local address
   : > "$FAKE_CALLS"
+  if [ -f "$FAKE_DIR/generated" ]; then
+    while IFS= read -r address; do rm -f "$FAKE_DIR/terminals/$address.json"; done < "$FAKE_DIR/generated"
+    rm -f "$FAKE_DIR/generated"
+  fi
+  rm -f "$FAKE_DIR/next" "$FAKE_DIR/tabs" "$FAKE_DIR/focused"
 }
 
 # Writes what hc get answers for a terminal: its state, its agent status and message (none when empty), its labels as

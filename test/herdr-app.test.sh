@@ -140,14 +140,52 @@ in_herdr bash "$bin/forge-session.sh" --no-agent --no-focus --title t go >/dev/n
 made="$(call_of herdr-app "do" tab.new)"
 expect "--no-agent opens a shell, --no-focus keeps the view" "no false" "$(printf '%s' "$made" | has_arg --argv) $(printf '%s' "$made" | option_of --focus)"
 
-# forge-review.sh: one tab per pull request, the first one shown.
+# Tab groups: which pane of a tab the next session splits, and which way.
+expect "a wide pane splits to the right" "t1 right" "$(printf 't1 310 66\n' | forge_pick_split)"
+expect "one too narrow for two halves side by side splits down" "t1 down" "$(printf 't1 152 66\n' | forge_pick_split)"
+expect "a tall pane splits down" "t1 down" "$(printf 't1 100 80\n' | forge_pick_split)"
+expect "the largest pane that halves is split" "t2 down" "$(printf 't1 152 31\nt2 152 66\n' | forge_pick_split)"
+expect "none when no half would keep 80x15" "" "$(printf 't1 152 31\nt2 152 31\n' | forge_pick_split)"
+
+# forge-review.sh: the pull requests in new tabs named Reviews, as many panes to a tab as fit, the first one shown.
 fakes_reset
-out="$(in_herdr bash "$bin/forge-review.sh" --cwd "$repo" https://example.com/o/r/pull/7 https://example.com/o/r/pull/8)"
-expect "one tab per pull request" 2 "$(grep -c '"tab.new"' "$FAKE_CALLS")"
-expect "the first one shown, the rest not" "true false" "$(grep '"tab.new"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s' "$line" | option_of --focus; done | paste -sd ' ' -)"
-expect "each running its review" '/forgerdr:review-other https://example.com/o/r/pull/8' "$(grep '"tab.new"' "$FAKE_CALLS" | tail -n 1 | option_of --argv | jq -r '.[-1]')"
-expect "named by the pull request" "PR 7" "$(call_of herdr-app "do" tab.new | option_of --name)"
-expect "one line each" "7 8" "$(printf '%s\n' "$out" | jq -r .pr | paste -sd ' ' -)"
+printf '{"spaces":[{"id":"sp-own","tabs":[{"name":"1"},{"name":"Reviews"}]},{"id":"sp-other","tabs":[{"name":"Reviews 2"}]}]}\n' \
+  > "$FAKE_DIR/ls.json"
+urls=(https://example.com/o/r/pull/1 https://example.com/o/r/pull/2 https://example.com/o/r/pull/3 https://example.com/o/r/pull/4
+  https://example.com/o/r/pull/5)
+out="$(FAKE_TAB_SIZE="310 66" in_herdr bash "$bin/forge-review.sh" --cwd "$repo" "${urls[@]}")"
+expect "new tabs in this terminal's space, named after the group with the first names free there" "sp-own Reviews 2|sp-own Reviews 3" \
+  "$(grep '"tab.new"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s %s\n' "$(printf '%s' "$line" | option_of --space)" "$(printf '%s' "$line" | option_of --name)"; done | paste -sd '|' -)"
+expect "four to a 310x66 tab, the fifth in the next tab" "tb-made-1 tb-made-1 tb-made-1 tb-made-1 tb-made-2" "$(printf '%s\n' "$out" | jq -r .tab | paste -sd ' ' -)"
+expect "split right, then down, then down" "right down down" \
+  "$(grep '"terminal.open"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s' "$line" | option_of --place; done | paste -sd ' ' -)"
+expect "each split from the pane it halves" "t40 t40 t41" \
+  "$(grep '"pane.focus"' "$FAKE_CALLS" | head -n 3 | while IFS= read -r line; do printf '%s' "$line" | option_of --terminal; done | paste -sd ' ' -)"
+expect "leaving four even panes" "152x31 152x31 152x31 152x31" \
+  "$(for t in t40 t41 t42 t43; do jq -r '"\(.cols)x\(.rows)"' "$FAKE_DIR/terminals/$t.json"; done | paste -sd ' ' -)"
+expect "each pane in the clone, running its review" "$repo /forgerdr:review-other https://example.com/o/r/pull/2" \
+  "$(call_of herdr-app "do" terminal.open | jq -r '[((index("--folder")) as $i | .[$i + 1] | rtrimstr("/")), ((index("--argv")) as $j | .[$j + 1] | fromjson | .[-1])] | join(" ")')"
+expect "the first one shown at the end" '["herdr-app","do","tab.select","--id","tb-made-1"] ["herdr-app","do","pane.focus","--terminal","t40"]' \
+  "$(tail -n 2 "$FAKE_CALLS" | paste -sd ' ' -)"
+expect "one line each" "1 2 3 4 5" "$(printf '%s\n' "$out" | jq -r .pr | paste -sd ' ' -)"
+rm -f "$FAKE_DIR/ls.json"
+fakes_reset
+out="$(FAKE_TAB_SIZE="310 66" FAKE_LAYOUT_STUCK=1 FORGE_LAYOUT_TRIES=2 in_herdr bash "$bin/forge-review.sh" --no-agent --cwd "$repo" "${urls[@]:0:3}")"
+expect "a split the app does not lay out closes its tab to the next one" "tb-made-1 tb-made-1 tb-made-2" "$(printf '%s\n' "$out" | jq -r .tab | paste -sd ' ' -)"
+
+# forge-session.sh --group: several sessions in tabs of the group.
+fakes_reset
+out="$(FAKE_TAB_SIZE="160 40" in_herdr bash "$bin/forge-session.sh" --cwd "$repo" --group "Work items" \
+  --title "#1 A" "/forgerdr:workitem #1" --title "#2 B" "/forgerdr:workitem #2" --title "#3 C" "/forgerdr:workitem #3")"
+expect "a pane too narrow for two side by side takes one below, then the group goes on in a new tab" "tb-made-1 tb-made-1 tb-made-2" \
+  "$(printf '%s\n' "$out" | jq -r .tab | paste -sd ' ' -)"
+expect "the tabs named after the group" "Work items|Work items 2" \
+  "$(grep '"tab.new"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s' "$line" | option_of --name; done | paste -sd '|' -)"
+expect "each pane running its own titled session" '["env","FORGE_SESSION_TITLE=#2 B","claude","/forgerdr:workitem #2"]' \
+  "$(call_of herdr-app "do" terminal.open | option_of --argv)"
+expect "several sessions take --group" 1 "$(status_of in_herdr bash "$bin/forge-session.sh" --title a x --title b y)"
+expect "each title takes one prompt" 1 "$(status_of in_herdr bash "$bin/forge-session.sh" --group g --title a x --title b)"
+expect "a group's tabs are shown while they fill" 1 "$(status_of in_herdr bash "$bin/forge-session.sh" --no-focus --group g --title a x)"
 
 # forge-worktree.sh: the worktree where the app puts its own, opened as a space, the dev server in a second tab.
 printf 'A=1\n' > "$repo/.env.local"

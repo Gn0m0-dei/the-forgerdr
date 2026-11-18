@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# One herdr app tab and one claude agent per pull request, in the space this terminal shows in; the first tab is shown.
-# A pull request authored by the signed-in user gets /forgerdr:review-own; any other gets /forgerdr:review-other.
+# One claude agent per pull request, in new herdr app tabs named Reviews in the space this terminal shows in, as many
+# panes to a tab as fit (forge_group_open); the first agent is shown. A pull request authored by the signed-in user gets
+# /forgerdr:review-own; any other gets /forgerdr:review-other.
 # Usage: forge-review.sh [--cwd PATH] [--no-agent] <pr-url>...
 set -euo pipefail
 
@@ -15,7 +16,7 @@ while [ $# -gt 0 ]; do
   case "$1" in
     --cwd) base="$(cd "$2" && pwd -P)"; shift 2 ;;
     --no-agent) start_agent=0; shift ;;
-    -h|--help) sed -n '2,4p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,5p' "$0"; exit 0 ;;
     *) urls+=("$1"); shift ;;
   esac
 done
@@ -23,24 +24,22 @@ done
 forge_in_herdr || forge_die "not inside the herdr app"
 [ ${#urls[@]} -gt 0 ] || forge_die "no pull request URL given"
 
-space="$(forge_terminal_label herdr.space)"
-focus=true
+forge_group_start Reviews "$(forge_terminal_label herdr.space)"
 for url in "${urls[@]}"; do
   clone="$(forge_find_clone "$base" "$(forge_url_repo "$url")")"
   title="$(forge_pr_title "$url")"
   skill="review-other"
   forge_pr_is_mine "$url" && skill="review-own"
-  argv=()
-  [ "$start_agent" = 1 ] && argv=(--argv "$(forge_claude_argv "$title" "/forgerdr:$skill $url")")
-  made="$(forge_do tab.new ${space:+--space "$space"} --name "$title" --folder "$clone" ${argv[@]+"${argv[@]}"} --focus "$focus")" \
-    || forge_die "the herdr app could not open a tab for $url"
-  focus=false
-  terminal="$(printf '%s' "$made" | jq -r '.terminal // empty')"
+  argv=""
+  [ "$start_agent" = 1 ] && argv="$(forge_claude_argv "$title" "/forgerdr:$skill $url")"
+  forge_group_open "$clone" "$argv" || forge_die "the herdr app could not open a pane for $url"
+  terminal="$FORGE_GROUP_MADE"
   started=false
   if [ "$start_agent" = 1 ]; then
-    if forge_claude_ready "$terminal"; then started=true; else printf 'forgerdr: claude did not come up for %s; look at its tab\n' "$url" >&2; fi
+    if forge_claude_ready "$terminal"; then started=true; else printf 'forgerdr: claude did not come up for %s; look at its pane\n' "$url" >&2; fi
   fi
   jq -cn --arg id "$(forge_url_id "$url")" --arg title "$title" --arg skill "$skill" --arg repo "$clone" \
-    --arg tab "$(printf '%s' "$made" | jq -r '.tab // empty')" --arg terminal "$terminal" --argjson started "$started" \
+    --arg tab "$FORGE_GROUP_TAB" --arg terminal "$terminal" --argjson started "$started" \
     '{pr:$id,title:$title,skill:$skill,repo:$repo,tab:$tab,terminal:$terminal,agent_started:$started}'
 done
+forge_group_show

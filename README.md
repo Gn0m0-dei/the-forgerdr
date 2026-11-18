@@ -24,7 +24,7 @@ A Claude Code plugin for the [herdr](https://herdr.dev) desktop app that carries
 | Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
 | Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
 | In this session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
-| One tab per item, on the herdr app | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, worktrees and dev servers when asked |
+| A session per item, on the herdr app | `workitem` · `worktree` · `review` | one item or many (separated by `\|`; pull requests by spaces); a titled session each, several grouped in new tabs as many panes to a tab as fit, worktrees and dev servers when asked |
 
 > **The herdr app, not the herdr TUI.** From 0.15.0 forgerdr drives the herdr desktop app (`herdr-app`) and herdr-core (`hc`), which runs its terminals and agents. The app and the TUI run separate servers and share no agents, workspaces or plugins, so forgerdr supports one of them: the TUI version is 0.14.x and lives on the [`tui`](https://github.com/Gn0m0-dei/the-forgerdr/tree/tui) branch (see [Install](#install)).
 
@@ -89,9 +89,9 @@ Sessions carry the number they were opened for. `review` and `worktree` start ev
 | `/forgerdr:debug` | Root cause before any fix: investigate, pattern, one hypothesis at a time, regression test proven red then green. |
 | `/forgerdr:security` | Runs the security auditor on the diff or a module, has a fresh verifier challenge every critical or high finding, triages confirmed and needs-validation findings with you, fixes only what you pick. |
 | `/forgerdr:research` | Cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
-| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled herdr app tab per item, separated by `\|`: a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
+| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled herdr app session per item, separated by `\|` (several in new `Work items` tabs, as many panes to a tab as fit): a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, branch without tracking, pull request, client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
 | `/forgerdr:worktree [--auto] <item> [\| <item>...]` | The same, each item in its own git worktree, opened as a herdr app space in the background: its branch (named by the spec mode, reused when it exists) from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files and an uncommitted OpenSpec change copied over, a titled Claude agent running `workitem` in its first tab, the dev server on its own `PORT` in a second one. |
-| `/forgerdr:review <url...>` | One titled herdr app tab and Claude agent per pull request, one or many; a colleague's pull request runs `review-other`, your own runs `review-own`. |
+| `/forgerdr:review <url...>` | One titled Claude agent per pull request, one or many, in new herdr app tabs named `Reviews`, as many panes to a tab as fit (each at least 80×15), never in the tab you launch it from; a colleague's pull request runs `review-other`, your own runs `review-own`. |
 | `/forgerdr:review-other <url>` | Reviews a colleague's pull request in this session: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
 | `/forgerdr:review-own <url>` | Handles the review comments on your own pull request in this session: fix, reply or question per thread, you pick, then pushes, replies and resolves. |
 
@@ -149,6 +149,7 @@ The scripts are plain bash over `herdr-app`, `hc` and `jq`:
 bin/forge-worktree.sh  [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT] <item>...
 bin/forge-review.sh    [--cwd PATH] [--no-agent] <pr-url>...
 bin/forge-session.sh   [--cwd PATH] [--no-agent] [--no-focus] --title TITLE <prompt>
+bin/forge-session.sh   [--cwd PATH] [--no-agent] --group NAME --title TITLE <prompt> [--title TITLE <prompt>...]
 bin/forge-worktree-remove.sh [--force] <path>
 bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
 ```

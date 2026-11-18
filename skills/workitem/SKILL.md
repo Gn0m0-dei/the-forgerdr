@@ -1,6 +1,6 @@
 ---
 name: workitem
-description: "Works items end to end in the current clone, one titled herdr app tab per item, one or many separated by |: a backlog item (bug, ticket, product backlog item, issue), an OpenSpec change or free text, as the spec mode says. Reads it, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment; an OpenSpec change continues from its stage. Stops at every gate. Use on /forgerdr:workitem [--auto] <item> [| <item>...]."
+description: "Works items end to end in the current clone, one titled herdr app session per item, one or many separated by |: a backlog item (bug, ticket, product backlog item, issue), an OpenSpec change or free text, as the spec mode says. Reads it, triages, reproduces in the browser, finds the root cause, proposes the minimal fix, branches without tracking, implements only after approval, opens the pull request and drafts the client-facing comment; an OpenSpec change continues from its stage. Stops at every gate. Use on /forgerdr:workitem [--auto] <item> [| <item>...]."
 ---
 
 # Ticket
@@ -13,15 +13,16 @@ What an item is in each spec mode, its key, its title and its branch: `${CLAUDE_
 
 The arguments are one item or several, separated by `|`. Inside the herdr app (`test -n "${HC_TERMINAL_ID:-}"`):
 
-- Several items: read each one's title (items reference) and open one titled tab per item in this same directory, each running this skill on its item, the first one shown and the others with `--no-focus`; say in one line which tabs it opened, and stop here.
+- Several items: read each one's title (items reference) and open them all with one call, `--group "Work items"`, in this same directory, each running this skill on its item: they go into new tabs named `Work items`, as many panes to a tab as fit (each at least 80×15), never this session's tab; say in one line which tabs it opened, and stop here.
 - One item and `FORGE_SESSION_TITLE` is unset, or it lacks the item's key (`#<id>` or the change name): the same, for that one.
 - One item and the session is already titled for it (opened by `/forgerdr:worktree` or by this step): go on here. Free text has no key: any `FORGE_SESSION_TITLE` means its tab is already open, go on.
 
 ```bash
-"${CLAUDE_PLUGIN_ROOT}/bin/forge-session.sh" [--no-focus] --title "<session title>" "/forgerdr:workitem [--auto] <item>"
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-session.sh" --title "<session title>" "/forgerdr:workitem [--auto] <item>"
+"${CLAUDE_PLUGIN_ROOT}/bin/forge-session.sh" --group "Work items" --title "<title 1>" "/forgerdr:workitem [--auto] <item 1>" --title "<title 2>" "/forgerdr:workitem [--auto] <item 2>"
 ```
 
-The tab opens in the space this session shows in, runs a Claude session titled for the item, and accepts the folder trust prompt when it shows. Outside the app: several items are worked one after the other in this session, in the order of step 1; tell the user once to `/rename <session title>` for the first.
+The tabs open in the space this session shows in; each pane runs a Claude session titled for its item, and the script accepts the folder trust prompt when it shows. Outside the app: several items are worked one after the other in this session, in the order of step 1; tell the user once to `/rename <session title>` for the first.
 
 ## Flow
 

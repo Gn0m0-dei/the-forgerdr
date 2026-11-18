@@ -698,6 +698,137 @@ forge_claude_ready() {
   return 2
 }
 
+# The least a pane opened for a session measures, in columns and rows: a split that would leave less is not made.
+FORGE_MIN_COLS=80
+FORGE_MIN_ROWS=15
+# What a split takes from a pane in the herdr app's main layout (the gap between the panes, their borders, the new
+# pane's header), as measured on the app, and how many columns are as long as one row is tall.
+FORGE_SPLIT_COLS=6
+FORGE_SPLIT_ROWS=4
+FORGE_CELL_ASPECT=2
+# How many checks forgerdr gives the herdr app to size the panes of a split, FORGE_WAIT_PAUSE apart.
+FORGE_LAYOUT_TRIES="${FORGE_LAYOUT_TRIES:-20}"
+
+# "cols rows" of a terminal as the herdr app last sized it; nothing when hc cannot tell. The app sizes the panes of the
+# tab it shows: a split in another tab keeps the size herdr-core gave its terminals.
+forge_terminal_size() {
+  forge_hc get "$1" --json 2>/dev/null \
+    | jq -r 'select((.cols | type) == "number" and (.rows | type) == "number") | "\(.cols) \(.rows)"' || true
+}
+
+# Of "terminal cols rows" lines on stdin, the largest terminal whose split leaves both halves at least FORGE_MIN_COLS x
+# FORGE_MIN_ROWS, as "terminal right|down": along its longer side (a row counts as FORGE_CELL_ASPECT columns) when that
+# fits, across it otherwise; nothing when none can be split. The app splits a pane in two halves.
+forge_pick_split() {
+  awk -v cols="$FORGE_MIN_COLS" -v rows="$FORGE_MIN_ROWS" -v aspect="$FORGE_CELL_ASPECT" \
+    -v cost_cols="$FORGE_SPLIT_COLS" -v cost_rows="$FORGE_SPLIT_ROWS" '
+    NF == 3 {
+      right = int(($2 - cost_cols) / 2) >= cols && $3 >= rows
+      down = int(($3 - cost_rows) / 2) >= rows && $2 >= cols
+      dir = ""
+      if ($2 >= $3 * aspect) { if (right) dir = "right"; else if (down) dir = "down" }
+      else { if (down) dir = "down"; else if (right) dir = "right" }
+      if (dir != "" && $2 * $3 > best) { best = $2 * $3; pick = $1 " " dir }
+    }
+    END { if (pick != "") print pick }'
+}
+
+# Waits for the herdr app to size a terminal anew after a split of its pane; fails when it still measures "cols rows"
+# (the second argument) at the end of the wait.
+forge_wait_resized() {
+  local size
+  for _ in $(seq 1 "$FORGE_LAYOUT_TRIES"); do
+    size="$(forge_terminal_size "$1")"
+    [ -z "$size" ] || [ "$size" = "$2" ] || return 0
+    sleep "$FORGE_WAIT_PAUSE"
+  done
+  return 1
+}
+
+# Sessions opened together in tabs of their own, never in the tab of the session that opens them: forge_group_start,
+# then forge_group_open once per session, then forge_group_show. The first session fills a new tab named after the
+# group; each next one splits the largest pane of that tab that leaves both halves at least FORGE_MIN_COLS x
+# FORGE_MIN_ROWS, and when none does the group goes on in another new tab. A tab is shown while it fills, because the
+# app sizes the panes of the shown tab only. Called in this shell, not in a $(...): it keeps its state in variables.
+FORGE_GROUP_NAME=""
+FORGE_GROUP_SPACE=""
+FORGE_GROUP_NAMES=""
+FORGE_GROUP_FILLING=""
+FORGE_GROUP_TERMINALS=()
+FORGE_GROUP_FIRST=""
+# The tab and the terminal of the session forge_group_open opened last.
+FORGE_GROUP_TAB=""
+FORGE_GROUP_MADE=""
+
+# Starts a group: its name, and the space its tabs open in (empty: the space the app shows).
+forge_group_start() {
+  FORGE_GROUP_NAME="$1"
+  FORGE_GROUP_SPACE="$2"
+  FORGE_GROUP_NAMES=""
+  FORGE_GROUP_FILLING=""
+  FORGE_GROUP_TERMINALS=()
+  FORGE_GROUP_FIRST=""
+}
+
+# The name of a new tab of the group: the group's name when no tab of its space has it, else the name with the first
+# free number from 2. The names this group gave count as taken, whatever the app lists.
+forge_group_tab_name() {
+  local taken candidate n=2
+  taken="$(forge_app ls 2>/dev/null | jq -r --arg space "$FORGE_GROUP_SPACE" \
+    '.spaces[]? | select($space == "" or .id == $space) | .tabs[]?.name' 2>/dev/null || true)"
+  taken="$taken"$'\n'"$FORGE_GROUP_NAMES"
+  candidate="$FORGE_GROUP_NAME"
+  while printf '%s\n' "$taken" | grep -Fxq -- "$candidate"; do
+    candidate="$FORGE_GROUP_NAME $n"
+    n=$((n + 1))
+  done
+  printf '%s\n' "$candidate"
+}
+
+# Opens one session of the group in a folder, running an argv (JSON, as forge_claude_argv makes it; a shell when empty),
+# and sets FORGE_GROUP_TAB and FORGE_GROUP_MADE. Fails when the app opens nothing.
+forge_group_open() {
+  local folder="$1" argv="$2" sizes="" slot="" terminal size target dir before made name
+  if [ -n "$FORGE_GROUP_FILLING" ]; then
+    for terminal in "${FORGE_GROUP_TERMINALS[@]}"; do
+      size="$(forge_terminal_size "$terminal")"
+      [ -z "$size" ] || sizes+="$terminal $size"$'\n'
+    done
+    slot="$(printf '%s' "$sizes" | forge_pick_split)"
+  fi
+  if [ -n "$slot" ]; then
+    target="${slot% *}"
+    dir="${slot#* }"
+    before="$(forge_terminal_size "$target")"
+    forge_do pane.focus --terminal "$target" >/dev/null || return 1
+    made="$(forge_do terminal.open --place "$dir" --folder "$folder" ${argv:+--argv "$argv"})" || return 1
+    FORGE_GROUP_MADE="$(printf '%s' "$made" | jq -r '.terminal // empty')"
+    [ -n "$FORGE_GROUP_MADE" ] || return 1
+    FORGE_GROUP_TAB="$FORGE_GROUP_FILLING"
+    FORGE_GROUP_TERMINALS+=("$FORGE_GROUP_MADE")
+    # Measured before the app laid the split out, the next pick would split a pane already halved.
+    forge_wait_resized "$target" "$before" || FORGE_GROUP_FILLING=""
+    return 0
+  fi
+  name="$(forge_group_tab_name)"
+  made="$(forge_do tab.new ${FORGE_GROUP_SPACE:+--space "$FORGE_GROUP_SPACE"} --name "$name" --folder "$folder" \
+    ${argv:+--argv "$argv"} --focus true)" || return 1
+  FORGE_GROUP_TAB="$(printf '%s' "$made" | jq -r '.tab // empty')"
+  FORGE_GROUP_MADE="$(printf '%s' "$made" | jq -r '.terminal // empty')"
+  [ -n "$FORGE_GROUP_TAB" ] && [ -n "$FORGE_GROUP_MADE" ] || return 1
+  FORGE_GROUP_NAMES+="$name"$'\n'
+  FORGE_GROUP_FILLING="$FORGE_GROUP_TAB"
+  FORGE_GROUP_TERMINALS=("$FORGE_GROUP_MADE")
+  [ -n "$FORGE_GROUP_FIRST" ] || FORGE_GROUP_FIRST="$FORGE_GROUP_TAB $FORGE_GROUP_MADE"
+}
+
+# Shows the group's first session, in its tab.
+forge_group_show() {
+  [ -n "$FORGE_GROUP_FIRST" ] || return 0
+  forge_do tab.select --id "${FORGE_GROUP_FIRST% *}" >/dev/null || true
+  forge_do pane.focus --terminal "${FORGE_GROUP_FIRST#* }" >/dev/null || true
+}
+
 # First line of the message that gives a dispatched agent a task (hooks/agent-dispatch.sh, hooks/agent-message.sh);
 # hooks/agent-state.sh starts the agent's current task at the last message that carries it.
 FORGE_TASK_HEADER="Task from the Claude session that dispatched you"

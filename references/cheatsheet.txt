@@ -1,6 +1,6 @@
 forgerdr — Forge once. Herd many.
 
-START WORK (herdr app)                        one titled tab per item; items separated by |
+START WORK (herdr app)                        a titled session per item; items separated by |
   /forgerdr:workitem [--auto] <item> [| <item>...]
                                  items in the current clone
   /forgerdr:worktree [--auto] <item> [| <item>...]
