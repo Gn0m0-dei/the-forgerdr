@@ -6,6 +6,7 @@ import { props } from "herdr";
 import { empty } from "./roles/empty.js";
 import { gallery } from "./roles/gallery.js";
 import { heat } from "./roles/heat.js";
+import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
 import { pane } from "./roles/pane.js";
 import { sessions } from "./roles/sessions.js";
@@ -26,6 +27,7 @@ const ROLES = {
   empty,
   gallery,
   heat,
+  lanes,
   manual,
   pane,
   sessions,

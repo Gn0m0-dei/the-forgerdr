@@ -10,7 +10,7 @@
 #        {"at": <epoch s>, "windows": {"five_hour": {"used": <%>, "resets_at": <epoch s>}, "seven_day": {...}}}
 #        (each window keeps its newest period and, within it, the highest use any session sent; a window goes once its
 #        reset passes; a JSON with no rate_limits, before a session's first answer, leaves the file as it was), and
-#        sessions.json, each herdr terminal's session context as {"<terminal>": {"used": <%>, "size", "session", "at"}},
+#        sessions/<terminal>.json, the context of the session in each herdr terminal: {"used": <%>, "size", "session", "at"},
 #        and history.jsonl beside it, one sample
 #        {"at", "five_hour", "seven_day"} a minute at most while the numbers change, the last 7 days.
 # Settings: ${CLAUDE_CONFIG_DIR:-~/.claude}/settings.json; the status line before forgerdr's is kept in
@@ -29,22 +29,30 @@ die() { printf 'forge-statusline: %s\n' "$1" >&2; exit 1; }
 # The statusLine command that runs forgerdr's: the copy that stays put across plugin versions.
 ours() { printf 'bash %q' "$copy"; }
 
-# Keeps how full the session's context is, by the herdr terminal the session runs in (HC_TERMINAL_ID, which the
-# session's status line inherits), so the golem that stands for it can show it. A day of terminals at most.
+# Writes a file whole or not at all: through a temporary file of its own beside it, so status lines of several sessions
+# writing at once never leave it half written.
+write_whole() {
+  local target="$1" tmp
+  tmp="$(mktemp "$target.XXXXXX")" || return 1
+  if cat > "$tmp" && mv "$tmp" "$target"; then return 0; fi
+  rm -f "$tmp"
+  return 1
+}
+
+# Keeps how full the session's context is, in a file of the herdr terminal the session runs in (HC_TERMINAL_ID, which
+# the session's status line inherits), so the golem that stands for it can show it; each session writes only its own.
+# Files a day old go.
 remember_context() {
-  local payload="$1" now="$2" terminal="${HC_TERMINAL_ID:-}" context sessions="$state/sessions.json" known
-  [ -n "$terminal" ] || return 0
+  local payload="$1" now="$2" terminal="${HC_TERMINAL_ID:-}" context dir="$state/sessions"
+  [[ "$terminal" =~ ^[A-Za-z0-9_-]+$ ]] || return 0
   context="$(jq -c --argjson at "$now" '
     if (.context_window.used_percentage? | type) != "number" then empty else
       {used: .context_window.used_percentage, size: .context_window.context_window_size, session: .session_id, at: $at}
     end' <<<"$payload" 2>/dev/null)"
   [ -n "$context" ] || return 0
-  mkdir -p "$state" || return 0
-  known="$(jq -c '.' "$sessions" 2>/dev/null)"
-  [ -n "$known" ] || known="{}"
-  jq -cn --argjson known "$known" --arg terminal "$terminal" --argjson context "$context" --argjson since "$((now - 86400))" \
-    '$known | .[$terminal] = $context | with_entries(select((.value.at // 0) >= $since))' > "$sessions.tmp" &&
-    mv "$sessions.tmp" "$sessions"
+  mkdir -p "$dir" || return 0
+  printf '%s\n' "$context" | write_whole "$dir/$terminal.json"
+  find "$dir" -name '*.json' -mtime +1 -delete 2>/dev/null || true
 }
 
 # Keeps the windows the JSON tells of, and a sample of them in the history. Never fails the status line.
@@ -76,8 +84,7 @@ record() {
           elif same($w.value; $old) then {used: ([$old.used, $w.value.used] | max), resets_at: ([$old.resets_at, $w.value.resets_at] | max)}
           else $old end))
     | with_entries(select((.value.resets_at // 0) > $now))')" || return 0
-  jq -cn --argjson at "$now" --argjson windows "$windows" '{at: $at, windows: $windows}' > "$state/claude.json.tmp" &&
-    mv "$state/claude.json.tmp" "$state/claude.json"
+  jq -cn --argjson at "$now" --argjson windows "$windows" '{at: $at, windows: $windows}' | write_whole "$state/claude.json"
 
   local sample history="$state/history.jsonl"
   sample="$(jq -c --argjson at "$now" '{at: $at, five_hour: .five_hour.used, seven_day: .seven_day.used}' <<<"$windows")"
@@ -89,8 +96,8 @@ record() {
   fi
   printf '%s\n' "$sample" >> "$history"
   if [ "$(wc -l < "$history")" -gt "$history_cap" ]; then
-    jq -c --argjson since "$((now - week))" 'select(.at >= $since)' "$history" > "$history.tmp" &&
-      tail -n "$history_cap" "$history.tmp" > "$history" && rm -f "$history.tmp"
+    jq -c --argjson since "$((now - week))" 'select(.at >= $since)' "$history" | tail -n "$history_cap" |
+      write_whole "$history"
   fi
 }
 

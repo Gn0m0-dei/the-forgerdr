@@ -47,6 +47,8 @@ fresh() {
   rm -f "$state/s1.grid" "$state/s1.area"
   fake_terminal t5 live working "" herdr.space=sp-own herdr.tab=tb-own
   jq '.cols = 310 | .rows = 66' "$FAKE_DIR/terminals/t5.json" > "$FAKE_DIR/t5.tmp" && mv "$FAKE_DIR/t5.tmp" "$FAKE_DIR/terminals/t5.json"
+  # The first shell of a new tab of agents, which gives its place to the first agent.
+  fake_terminal t21 live
 }
 export FAKE_LS_PANES=1
 
@@ -69,8 +71,8 @@ fresh
 printf '%s\n' '{"type":"assistant","message":{"model":"claude-haiku-5-5"}}' '{"type":"assistant","message":{"model":"<synthetic>"}}' > "$sandbox/transcript.jsonl"
 expect "general-purpose is dispatched to the herdr app" deny "$(TRANSCRIPT="$sandbox/transcript.jsonl" in_herdr decision general-purpose "" plan)"
 run="$(started)"
-expect "in a new pane split off this session's, to the right" "p-t5 right" "$(splits)"
-expect "the user keeps the pane they were in" '["herdr-app","do","pane.focus","--pane","p-t5"]' "$(call_of herdr-app "do" pane.focus)"
+expect "in a tab of agents, its pane split off the tab's first shell" "p-t21 right" "$(splits)"
+expect "this session's pane is never split, so the user keeps the keyboard" "" "$(call_of herdr-app "do" pane.focus)"
 expect "where this session works" "$sandbox" "$(printf '%s' "$run" | jq -r '.[4]')"
 # shellcheck disable=SC2016 # literal arguments
 expect "through the user's login interactive shell" '/bin/zsh -lic cd "$1" && shift && exec "$@" /bin/zsh' "$(printf '%s' "$run" | jq -r '.[0:4] | join(" ")')"
@@ -84,6 +86,7 @@ expect "the message opens with a fixed header" yes "$(contains "$line" "Task fro
 expect "the message carries the report address" yes "$(contains "$line" "uds:/tmp/cc-socks/42.sock")"
 expect "the agent knows where to report" yes "$(printf '%s' "$run" | has_arg "FORGE_REPORT_TO=uds:/tmp/cc-socks/42.sock")"
 expect "and carries its task as the session title" yes "$(printf '%s' "$run" | has_arg "FORGE_SESSION_TITLE=Probe task")"
+expect "and the terminal of the session that dispatched it" yes "$(printf '%s' "$run" | has_arg "FORGE_PARENT_TERMINAL=t5")"
 expect "terminal recorded for the session" "t40	$agent" "$(cat "$state/s1.terminals")"
 record="$state/s1.agents/$agent.json"
 expect "the agent knows its record" yes "$(printf '%s' "$run" | has_arg "FORGE_AGENT_RECORD=$record")"
@@ -92,21 +95,20 @@ expect "the record keeps what reopening it needs" "general-purpose|Probe task|wo
 reason="$(TRANSCRIPT="$sandbox/transcript.jsonl" in_herdr call general-purpose | jq -r '.hookSpecificOutput.permissionDecisionReason')"
 expect "the reason says it is not an error" yes "$(contains "$reason" "Not an error:")"
 expect "the reason says how to give it another task" yes "$(contains "$reason" "SendMessage to \"agent-")"
-expect "and where the user finds it" yes "$(contains "$reason" "a new pane next to this session")"
+expect "and where the user finds it" yes "$(contains "$reason" "tab of agents")"
 
-# The grid, as in the herdr TUI: the first agent halves this session's pane, the next ones the largest agent pane that
-# keeps 80x15, and a tab of agents opens in the background once none does; the agents after it fill that tab.
+# The grid: the first agent opens a tab of agents in the background, at the size of this session's pane, and the next
+# ones split the largest agent pane there that keeps 80x15; this session's own pane is never split.
 fresh
 for _ in 1 2 3 4; do in_herdr decision general-purpose >/dev/null; done
-expect "this session's pane, then the agent panes, then a tab of agents and the agent pane in it" "p-t5 right|p-t40 down|p-t21 right|p-t42 right" "$(splits)"
-expect "leaving the agent panes next to this session even" "152x31 152x31" \
-  "$(for t in t40 t41; do jq -r '"\(.cols)x\(.rows)"' "$FAKE_DIR/terminals/$t.json"; done | paste -sd ' ' -)"
+expect "a tab of agents, then its agent panes as an even grid" "p-t21 right|p-t40 right|p-t40 down|p-t41 down" "$(splits)"
+expect "all four in one tab of agents" 1 "$(grep -c '"tab.new"' "$FAKE_CALLS")"
 made="$(call_of herdr-app "do" tab.new)"
 expect "the tab of agents opens in this session's space, in the background" "sp-own false" \
   "$(printf '%s %s' "$(printf '%s' "$made" | option_of --space)" "$(printf '%s' "$made" | option_of --focus)")"
 expect "named after this session" yes "$(contains "$(printf '%s' "$made" | option_of --name)" "agents · ")"
 expect "its first shell gives its place to the agent" yes "$(called hc kill t21)"
-expect "the user's pane is given back after splits in the shown tab only" 2 "$(grep -c '"pane.focus"' "$FAKE_CALLS")"
+expect "the user's pane keeps the keyboard: no split in their tab" 0 "$(grep -c '"pane.focus"' "$FAKE_CALLS")"
 expect "the grid keeps the agent panes" "t40 t41 t42 t43" "$(cut -f1 "$state/s1.grid" | paste -sd ' ' -)"
 fake_terminal t21 live
 
@@ -114,11 +116,29 @@ fresh
 fake_terminal t39 finished
 printf 't39\tp-t39\ttb-own\t152\t66\n' > "$state/s1.grid"
 in_herdr decision general-purpose >/dev/null
-expect "once its agent panes are gone, this session's pane is split again" "p-t5 right" "$(splits)"
+expect "once its agent panes are gone, a new tab of agents opens" "p-t21 right" "$(splits)"
+
+# A tab of agents opens in the background, where its panes have no real size: it is taken at the size of this session's
+# whole tab, two panes side by side making it twice as wide, so its agents sit side by side first.
+fresh
+fake_terminal t7 live working "" herdr.space=sp-own herdr.tab=tb-own
+jq '.cols = 310 | .rows = 66' "$FAKE_DIR/terminals/t7.json" > "$FAKE_DIR/t7.tmp" && mv "$FAKE_DIR/t7.tmp" "$FAKE_DIR/terminals/t7.json"
+jq -n '{spaces: [{id: "sp-own", name: "own", tabs: [{id: "tb-own", name: "1",
+  terminals: [{terminal: "t5", pane: "p-t5"}, {terminal: "t7", pane: "p-t7"}]}]}]}' > "$FAKE_DIR/ls.json"
+in_herdr decision general-purpose >/dev/null
+expect "a tab of agents is taken at the size of this session's whole tab" "621 66" "$(cat "$state/s1.area")"
+rm -f "$FAKE_DIR/ls.json"
+fake_terminal t7 finished
+
+fresh
+fake_terminal t38 live working
+printf 't38\tp-t38\ttb-own\t152\t66\n' > "$state/s1.grid"
+in_herdr decision general-purpose >/dev/null
+expect "an agent pane in this session's own tab is not split: a tab of agents opens" "p-t21 right" "$(splits)"
 
 fresh
 expect "a pane the app cannot split leaves the agent in-process" "" "$(FAKE_SPLIT_FAILS=1 in_herdr decision general-purpose)"
-expect "and says why" yes "$(logged "could not split pane p-t5")"
+expect "and says why" yes "$(logged "could not open the agent's pane in its tab of agents")"
 
 # A session with no pane of its own starts its agents as sub-agents of its terminal.
 fresh
@@ -297,7 +317,7 @@ reopened="$(send agent-gone "Second fix pass")"
 expect "an agent whose terminal ended is reopened instead" deny "$(printf '%s' "$reopened" | jq -r .hookSpecificOutput.permissionDecision)"
 expect "and the reason says so" yes "$(contains "$(printf '%s' "$reopened" | jq -r .hookSpecificOutput.permissionDecisionReason)" "reopened")"
 expect "its ended terminal gives its name back first" yes "$(called hc rm t-gone)"
-expect "in a new pane next to this session" "p-t5 right" "$(splits)"
+expect "in a tab of agents" "p-t21 right" "$(splits)"
 expect "resuming its Claude session with its own arguments" yes "$(contains "$(claude_line)" "claude --model m1 --resume sess-9")"
 expect "with the message as its task" yes "$(contains "$(claude_line)" 'Task from the Claude session that dispatched you (general-purpose agent agent-gone, "Second fix pass")')"
 expect "and the sweep knows its terminal" yes "$(grep -q "^t40	agent-gone$" "$state/s1.terminals" && echo yes)"

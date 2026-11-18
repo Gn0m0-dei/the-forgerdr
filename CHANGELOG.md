@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The golem lanes under the panes, an accordion that stays whatever tab shows: the golems every session of the active space spawned (agents in terminals of their own and subagents inside a session), the most urgent first, each with what it is doing now, its context, how long its current task has taken and its status. Folded, one line with how many there are and the most urgent; unfolded, every lane. A lane goes to its terminal on a click; `forgerdr.lanes` folds and unfolds them from a key.
+- CRACKED: `hooks/golem-state.sh` labels a session's herdr terminal when its turn ends in an API error (Claude Code's `StopFailure`, with the error's kind), and the tree, the lanes and the forge's heat show it until the human writes to that session again. It also keeps when each task started and stopped, which the lanes time.
+
+### Changed
+
+- Agents forgerdr dispatches open in a tab of agents of the session, next to its tab, as many panes as fit, then another tab: the session's own pane is never split.
+- An agent forgerdr dispatches knows the terminal of the session that dispatched it (`FORGE_PARENT_TERMINAL`) and labels its own terminal with it at its start, so the sidebar's tree and the lanes list it under that session.
+
+### Fixed
+
+- The status line lost the sessions' contexts when many sessions wrote at once (their golems showed no context): each session now keeps its context in a file of its own terminal (`usage/sessions/<terminal>.json`), and every file the status line writes is written whole.
+
 ## [0.23.0] - 2026-11-18
 
 ### Added

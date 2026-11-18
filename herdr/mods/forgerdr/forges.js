@@ -114,17 +114,19 @@ export const forgeMoves = (order, forges, from, to) => {
   return moves;
 };
 
-// What each status is called in a forge's words, in the order a forge's line reads.
-/** @type {[Status, string][]} */
+// What each status is called in a forge's words, in the order a forge's line reads; cracked is the forge's own (a turn
+// that ended in an API error, hooks/golem-state.sh).
+/** @type {[string, string][]} */
 const STATUS_WORDS = [
   ["working", "forging"],
   ["blocked", "waiting"],
   ["done", "done"],
+  ["cracked", "cracked"],
 ];
 
 /**
- * What a forge's golems do, in a line: "3 forging · 1 waiting · 1 done"; "no golems at work" when none is.
- * @param {{ status: Status }[]} agents the forge's
+ * What a forge's golems do, in a line: "3 forging · 1 waiting · 1 cracked"; "no golems at work" when none is.
+ * @param {{ status: string }[]} agents the forge's
  */
 export const forgeSummary = (agents) => {
   const parts = STATUS_WORDS.map(([status, word]) => ({

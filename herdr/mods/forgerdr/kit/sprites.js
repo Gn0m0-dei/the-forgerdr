@@ -13,8 +13,10 @@ import { TONE, toneColour } from "./tokens.js";
 export const ICON = Object.freeze({
   add: "add",
   branch: "branch",
+  chevronDown: "chevron-down",
   chevronLeft: "chevron-left",
   chevronRight: "chevron-right",
+  chevronUp: "chevron-up",
   close: "close",
   coal: "coal",
   gnomemark: "gnomemark",

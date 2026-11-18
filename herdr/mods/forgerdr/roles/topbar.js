@@ -17,6 +17,7 @@ import {
   spaces,
 } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
+import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
 import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
@@ -74,6 +75,7 @@ export const topbar = (cx) => {
         for (;;) {
           const command = await nextCommand();
           if (command === "motion") toggleMotion();
+          if (command === "lanes") toggleLanes();
           cx.notify();
         }
       });

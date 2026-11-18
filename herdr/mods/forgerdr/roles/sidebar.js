@@ -15,6 +15,7 @@ import {
 } from "herdr";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
+import { readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
 import {
   forgeMood,
@@ -27,8 +28,9 @@ import { brotherOf, hatColourOf } from "../identity.js";
 import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeHeat, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon } from "../kit/sprites.js";
-import { tokens, toneOf } from "../kit/tokens.js";
+import { TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
+import { parentOf } from "../lanes.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -182,7 +184,7 @@ export const sidebar = (cx) => {
     : cx.spawn(async (cx) => {
         for (;;) {
           await refresh();
-          contexts = await readContexts();
+          contexts = await readContexts(agents().map((agent) => agent.address));
           cx.notify();
           await cx.sleep(TIMING.poll);
         }
@@ -194,8 +196,9 @@ export const sidebar = (cx) => {
    * @param {AgentInfo[]} everyone
    * @param {Map<string, string | null>} parents
    * @param {string | null} looking the terminal that has the keyboard
+   * @param {(agent: AgentInfo) => import("../kit/tokens.js").Tone} toneOfAgent
    */
-  const golemsOf = (space, everyone, parents, looking) => {
+  const golemsOf = (space, everyone, parents, looking, toneOfAgent) => {
     const mine = everyone.filter((agent) => agent.space === space.id);
     const agentAddresses = new Set(everyone.map((agent) => agent.address));
     const leads = mine.filter(
@@ -207,7 +210,7 @@ export const sidebar = (cx) => {
           context: contexts[lead.address]?.used,
           name: agentName(lead),
           selected: lead.address === looking,
-          tone: toneOf(lead.status),
+          tone: toneOfAgent(lead),
           unseen: lead.status === "done",
         }),
         `agent-${lead.address}`,
@@ -220,7 +223,7 @@ export const sidebar = (cx) => {
             subagentRow({
               context: contexts[sub.address]?.used,
               name: agentName(sub),
-              tone: toneOf(sub.status),
+              tone: toneOfAgent(sub),
             }),
             `agent-${sub.address}`,
             () => openAgent(sub),
@@ -261,11 +264,17 @@ export const sidebar = (cx) => {
     );
     /** @type {Map<string, string | null>} */
     const parents = new Map(
-      terminals().map((terminal) => [
-        String(terminal.address),
-        terminal.parent ?? null,
-      ]),
+      readTerminals().map((terminal) => [terminal.address, parentOf(terminal)]),
     );
+    // A golem marked cracked (hooks/golem-state.sh) shows so, whatever herdr says of it.
+    const cracked = new Set(
+      terminals()
+        .filter((terminal) => terminal.labels?.["forge.state"] === "cracked")
+        .map((terminal) => String(terminal.address)),
+    );
+    /** @param {AgentInfo} agent */
+    const toneOfAgent = (agent) =>
+      cracked.has(agent.address) ? TONE.failed : toneOf(agent.status);
     const looking = focused()?.terminal ?? null;
     const key = lookKeyOf(forge);
     const state = forgeState(forgeAgents);
@@ -288,7 +297,7 @@ export const sidebar = (cx) => {
             clickable(
               golem(
                 parents.get(agent.address) ? "clay" : "iron",
-                toneOf(agent.status),
+                toneOfAgent(agent),
                 2,
                 contexts[agent.address]?.used,
               ),
@@ -353,12 +362,20 @@ export const sidebar = (cx) => {
                     ];
               return [
                 ...checkout,
-                ...golemsOf(space, everyone, parents, looking),
+                ...golemsOf(space, everyone, parents, looking, toneOfAgent),
               ];
             }),
           ),
       )
-      .child(forgeHeat(forgeSummary(forgeAgents)));
+      .child(
+        forgeHeat(
+          forgeSummary(
+            forgeAgents.map((agent) => ({
+              status: cracked.has(agent.address) ? "cracked" : agent.status,
+            })),
+          ),
+        ),
+      );
   };
 
   return { close: () => task?.cancel(), render };

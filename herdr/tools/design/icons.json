@@ -1,15 +1,19 @@
 {
   "_added": {
+    "chevron-down": "not in the design: the golem lanes' accordion, the right chevron turned",
     "chevron-left": "not in the design: the top bar's scroll arrows, in the icons' style",
     "chevron-right": "not in the design: the top bar's scroll arrows, in the icons' style",
+    "chevron-up": "not in the design: the golem lanes' accordion, the left chevron turned",
     "zoom": "not in the design: the pane header's zoom, drawn in the icons' style (four corners)"
   },
   "_source": "forgnome.pen, 11 Icons, motion and names: the 1x path of each 12x12 pixel icon",
   "icons": {
     "add": "M5 1h2v1h-2z m0 1h2v1h-2z m0 1h2v1h-2z m0 1h2v1h-2z m-4 1h10v1h-10z m0 1h10v1h-10z m4 1h2v1h-2z m0 1h2v1h-2z m0 1h2v1h-2z m0 1h2v1h-2z",
     "branch": "M2 0h2v1h-2z m0 1h2v1h-2z m6 0h2v1h-2z m-6 1h1v1h-1z m6 0h2v1h-2z m-6 1h1v1h-1z m7 0h1v1h-1z m-7 1h1v1h-1z m7 0h1v1h-1z m-7 1h1v1h-1z m6 0h1v1h-1z m-6 1h1v1h-1z m4 0h2v1h-2z m-4 1h1v1h-1z m2 0h2v1h-2z m-2 1h2v1h-2z m0 1h1v1h-1z m-1 1h3v1h-3z m0 1h3v1h-3z",
+    "chevron-down": "M1 3h1v2h-1zM2 4h1v2h-1zM3 5h1v2h-1zM4 6h1v2h-1zM5 7h1v2h-1zM6 7h1v2h-1zM7 6h1v2h-1zM8 5h1v2h-1zM9 4h1v2h-1zM10 3h1v2h-1z",
     "chevron-left": "M7 1h2v1h-2zM6 2h2v1h-2zM5 3h2v1h-2zM4 4h2v1h-2zM3 5h2v1h-2zM3 6h2v1h-2zM4 7h2v1h-2zM5 8h2v1h-2zM6 9h2v1h-2zM7 10h2v1h-2z",
     "chevron-right": "M3 1h2v1h-2zM4 2h2v1h-2zM5 3h2v1h-2zM6 4h2v1h-2zM7 5h2v1h-2zM7 6h2v1h-2zM6 7h2v1h-2zM5 8h2v1h-2zM4 9h2v1h-2zM3 10h2v1h-2z",
+    "chevron-up": "M1 7h1v2h-1zM2 6h1v2h-1zM3 5h1v2h-1zM4 4h1v2h-1zM5 3h1v2h-1zM6 3h1v2h-1zM7 4h1v2h-1zM8 5h1v2h-1zM9 6h1v2h-1zM10 7h1v2h-1z",
     "close": "M1 1h2v1h-2z m8 0h2v1h-2z m-7 1h2v1h-2z m6 0h2v1h-2z m-5 1h2v1h-2z m4 0h2v1h-2z m-3 1h4v1h-4z m1 1h2v1h-2z m-1 1h4v1h-4z m-1 1h2v1h-2z m4 0h2v1h-2z m-5 1h2v1h-2z m6 0h2v1h-2z m-7 1h2v1h-2z m8 0h2v1h-2z",
     "coal": "M3 1h6v1h-6z m-1 1h1v1h-1z m7 0h1v1h-1z m-8 1h1v1h-1z m4 0h2v1h-2z m5 0h1v1h-1z m-9 1h1v1h-1z m3 0h1v1h-1z m6 0h1v1h-1z m-9 1h1v1h-1z m4 0h2v1h-2z m5 0h1v1h-1z m-9 1h1v1h-1z m6 0h1v1h-1z m3 0h1v1h-1z m-9 1h1v1h-1z m4 0h2v1h-2z m5 0h1v1h-1z m-8 1h1v1h-1z m7 0h1v1h-1z m-6 1h6v1h-6z",
     "gnomemark": "M4 0h4v1h-4z m0 1h1v1h-1z m3 0h1v1h-1z m-3 1h1v1h-1z m3 0h1v1h-1z m-2 1h2v1h-2z m0 1h2v1h-2z m-3 1h8v1h-8z m-1 1h1v1h-1z m9 0h1v1h-1z m-9 1h10v1h-10z m1 2h8v1h-8z",

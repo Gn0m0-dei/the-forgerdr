@@ -14,6 +14,14 @@ import {
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
 import { brotherOf, hatColourOf } from "../herdr/mods/forgerdr/identity.js";
 import {
+  byUrgency,
+  elapsed,
+  golemStatus,
+  lanesHeight,
+  lanesOf,
+  spaceLanes,
+} from "../herdr/mods/forgerdr/lanes.js";
+import {
   folderLabel,
   newSwipe,
   paneLabel,
@@ -427,4 +435,157 @@ test("a golem's crucible fills a level a quarter of its context, half on a clay 
     [0, 30, 50, 51, 100].map((p) => fillLevel(p, 2)),
     [0, 1, 1, 2, 2],
   );
+});
+
+test("a session's lanes are its agents in their own terminals, then its subagents inside it", () => {
+  const terminals = [
+    {
+      address: "t5",
+      records: { a1: { state: "working", title: "explore" } },
+      status: "working",
+      title: "claude · main",
+    },
+    {
+      address: "t8",
+      created_ms: 1000,
+      parent: "t5",
+      report: { msg: 'Grep("snapshot")' },
+      status: "working",
+      title: "review",
+    },
+    {
+      address: "t9",
+      created_ms: 2000,
+      labels: { "forge.parent": "t5", "forge.state": "cracked" },
+      parent: null,
+      status: "idle",
+      status_ms: 9000,
+      title: "resize",
+    },
+    { address: "t3", status: "idle", title: "elsewhere" },
+  ];
+  const lanes = lanesOf(
+    terminals[0],
+    terminals,
+    { t8: { used: 40 } },
+    { "t5/a1": 500 },
+  );
+  deepStrictEqual(
+    lanes.map((l) => [
+      l.id,
+      l.name,
+      l.status,
+      l.context,
+      l.since,
+      l.until,
+      l.activity,
+    ]),
+    [
+      ["t8", "review", "working", 40, 1000, undefined, 'Grep("snapshot")'],
+      ["t9", "resize", "cracked", undefined, 2000, 9000, ""],
+      ["t5/a1", "explore", "working", undefined, 500, undefined, ""],
+    ],
+  );
+  strictEqual(golemStatus({ address: "t1" }), "idle");
+});
+
+test("a lane's time reads in minutes and seconds, then hours", () => {
+  strictEqual(elapsed(0, 72_000), "1m 12s");
+  strictEqual(elapsed(0, 55_000), "0m 55s");
+  strictEqual(elapsed(0, 3_780_000), "1h 3m");
+  strictEqual(elapsed(undefined, 1000), "");
+});
+
+test("a space's lanes gather every session's golems, wherever their panes are, the most urgent first", () => {
+  const terminals = [
+    {
+      address: "t5",
+      labels: { "herdr.space": "sp1" },
+      records: { a1: { state: "working", title: "explore" } },
+      title: "main",
+    },
+    { address: "t6", labels: { "herdr.space": "sp1" }, title: "other session" },
+    {
+      address: "t8",
+      created_ms: 100,
+      labels: { "forge.parent": "t5", "herdr.space": "sp1" },
+      status: "done",
+      title: "review",
+    },
+    {
+      address: "t9",
+      created_ms: 200,
+      labels: { "forge.parent": "t6" },
+      status: "blocked",
+      title: "asks",
+    },
+    {
+      address: "t10",
+      created_ms: 300,
+      labels: { "forge.parent": "t8" },
+      status: "working",
+      title: "nested",
+    },
+    {
+      address: "t11",
+      labels: { "forge.parent": "t5" },
+      state: "finished",
+      status: "done",
+      title: "gone",
+    },
+    { address: "t20", labels: { "herdr.space": "sp2" }, title: "elsewhere" },
+    {
+      address: "t21",
+      labels: { "forge.parent": "t20" },
+      status: "working",
+      title: "not here",
+    },
+  ];
+  deepStrictEqual(
+    spaceLanes("sp1", terminals, {}, { "t5/a1": 50 }).map(
+      (lane) => `${lane.name}:${lane.status}`,
+    ),
+    ["asks:blocked", "nested:working", "explore:working", "review:done"],
+  );
+  deepStrictEqual(spaceLanes("sp3", terminals, {}, {}), []);
+  deepStrictEqual(
+    byUrgency([
+      { id: "a", since: 1, status: "done" },
+      { id: "b", since: 2, status: "cracked" },
+      { id: "c", since: 3, status: "working" },
+      { id: "d", since: 4, status: "working" },
+    ]).map((lane) => lane.id),
+    ["b", "d", "c", "a"],
+  );
+});
+
+test("folded, the lanes are one line; unfolded, a head and a row a lane up to five", () => {
+  strictEqual(lanesHeight(3, false), 36);
+  strictEqual(lanesHeight(0, true), 36);
+  strictEqual(lanesHeight(3, true), 34 + 3 * 34 + 2);
+  strictEqual(lanesHeight(9, true), 34 + 5 * 34 + 2);
+});
+
+test("a lane's time is its current task's, from the hook's labels, and stops when the task does", () => {
+  const lead = { address: "t5" };
+  const agent = {
+    address: "t8",
+    created_ms: 1,
+    labels: {
+      "forge.parent": "t5",
+      "forge.started": "1000",
+      "forge.stopped": "61000",
+    },
+    status: "done",
+    status_ms: 999_999,
+  };
+  const [lane] = lanesOf(lead, [lead, agent], {}, {});
+  deepStrictEqual([lane.since, lane.until], [1000, 61000]);
+  const [working] = lanesOf(
+    lead,
+    [lead, { ...agent, status: "working" }],
+    {},
+    {},
+  );
+  strictEqual(working.until, undefined);
 });

@@ -166,6 +166,19 @@
               "content": {
                 "mod": "forgerdr",
                 "props": {
+                  "role": "lanes"
+                }
+              },
+              "id": "lanes",
+              "size": {
+                "px": 36
+              },
+              "type": "block"
+            },
+            {
+              "content": {
+                "mod": "forgerdr",
+                "props": {
                   "role": "statusbar"
                 }
               },

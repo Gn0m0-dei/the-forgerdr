@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # PreToolUse for Agent: inside the herdr app (a herdr-core terminal), a subagent runs as its own Claude session in a
-# terminal of its own instead of inside this session, so it can be watched and talked to: in a new pane next to this
-# session, laid out as an even grid, or in a new tab of agents once no agent pane can be halved without going under
-# 80 x 15 (place_pane). One with isolation "worktree" works in its worktree, as a pane of the worktree's space when the
+# terminal of its own instead of inside this session, so it can be watched and talked to: in a tab of agents of this
+# session, next to its tab, as many panes as fit laid out as an even grid, then another tab once no agent pane can be
+# halved without going under 80 x 15 (place_pane); this session's own pane is never split. One with isolation "worktree" works in its worktree, as a pane of the worktree's space when the
 # app opened one. A session with no pane of its own (a sub-agent) starts its agents as sub-agents of its terminal,
 # which the app lists under it in its Agents sidebar.
 # It gets the agent's definition (instructions, model, tool list) and this session's permission mode, and sends its
@@ -76,6 +76,31 @@ in_process() {
 # same way. The app sizes the panes of the shown tab only, so a pane in another tab is taken at the size this hook gave
 # it, kept in $session.grid ("terminal pane tab cols rows" lines). Run holding the grid's lock. Argument: the agent's
 # argv (JSON). Sets placed (its terminal) and where; on failure sets placing and returns 1.
+# The size of a whole tab, from this session's own, as "cols rows": a tab of agents opens in the background, where the
+# app gives its panes no real size to measure. Panes of the same height sit side by side and add their columns (one
+# between them); panes of the same width are stacked and add their rows; the larger of the two is the tab, side by side
+# unless stacked is clearly larger, since panes of the same size could be either and windows are wide. Empty when the
+# app lists nothing.
+tab_area() {
+  local tab="$1" terminal size sizes=""
+  while IFS= read -r terminal; do
+    size="$(forge_terminal_size "$terminal")"
+    [ -z "$size" ] || sizes+="$size"$'\n'
+  done < <(forge_app ls 2>/dev/null | jq -r --arg tab "$tab" '.. | objects | select(.id? == $tab) | .terminals[]?.terminal' 2>/dev/null)
+  [ -n "$sizes" ] || return 0
+  printf '%s' "$sizes" | awk '
+    { c[NR] = $1; r[NR] = $2 }
+    END {
+      for (i = 1; i <= NR; i++) {
+        wide = -1; tall = -1
+        for (j = 1; j <= NR; j++) { if (r[j] == r[i]) wide += c[j] + 1; if (c[j] == c[i]) tall += r[j] + 1 }
+        if (wide * r[i] > best) { best = wide * r[i]; out = wide " " r[i] }
+        if (c[i] * tall > best * 1.05) { best = c[i] * tall; out = c[i] " " tall }
+      }
+      print out
+    }'
+}
+
 place_pane() {
   local argv="$1" grid="$state_dir/$session.grid" area_file="$state_dir/$session.area" status shown focused
   local t p tb c r info size kept="" cands="" slot target tpane ttab tcols trows made new_pane nc nr name holder hpane area
@@ -84,6 +109,8 @@ place_pane() {
   focused="$(printf '%s' "$status" | jq -r '.focused_pane // empty' 2>/dev/null || true)"
   if [ -f "$grid" ]; then
     while IFS=$'\t' read -r t p tb c r; do
+      # An agent pane in this session's own tab (an older forgerdr put agents there) is not split either.
+      [ "$tb" != "$own_tab" ] || continue
       info="$(forge_hc get "$t" --json 2>/dev/null)" || continue
       [ "$(printf '%s' "$info" | jq -r '.state // empty')" = live ] || continue
       if [ "$tb" = "$shown" ]; then
@@ -93,14 +120,13 @@ place_pane() {
       kept+="$t"$'\t'"$p"$'\t'"$tb"$'\t'"$c"$'\t'"$r"$'\n'
     done < "$grid"
   fi
+  # Agents never split this session's own pane: the first opens a tab of agents, the next ones split the agent panes there.
   cands="$kept"
   if [ -z "$cands" ]; then
-    size="$(forge_terminal_size "$HC_TERMINAL_ID")"
+    size="$(tab_area "$own_tab")"
+    [ -n "$size" ] || size="$(forge_terminal_size "$HC_TERMINAL_ID")"
     [ -n "$size" ] || { placing="hc could not tell the size of this session's terminal $HC_TERMINAL_ID"; return 1; }
-    p="$(forge_pane_of "$HC_TERMINAL_ID")"
-    [ -n "$p" ] || { placing="the herdr app lists no pane for this session's terminal $HC_TERMINAL_ID"; return 1; }
-    cands="$HC_TERMINAL_ID"$'\t'"$p"$'\t'"$own_tab"$'\t'"${size% *}"$'\t'"${size#* }"$'\n'
-    # A tab of agents is taken at the size of this session's pane before agents split it.
+    # A tab of agents is taken at the size of this session's whole tab.
     printf '%s\n' "$size" > "$area_file"
   fi
   slot="$(printf '%s' "$cands" | awk -F'\t' 'NF == 5 { print $1, $4, $5 }' | forge_pick_split)"
@@ -115,8 +141,7 @@ place_pane() {
     if [ "${slot#* }" = right ]; then nc=$(((tcols - FORGE_SPLIT_COLS) / 2)); else nr=$(((trows - FORGE_SPLIT_ROWS) / 2)); fi
     kept="$(printf '%s' "$kept" | awk -F'\t' -v OFS='\t' -v t="$target" -v c="$nc" -v r="$nr" '$1 == t { $4 = c; $5 = r } { print }')"
     [ -z "$kept" ] || kept+=$'\n'
-    where="a new pane next to this session"
-    [ "$ttab" = "$own_tab" ] || where="a new pane of this session's tab of agents"
+    where="a new pane of this session's tab of agents"
     # A dispatch queued behind this one measures the split once the app has laid it out.
     [ "$ttab" != "$shown" ] || forge_wait_resized "$target" "$tcols $trows" || true
   else
@@ -250,7 +275,7 @@ if [ "${isolation:-}" = worktree ]; then
 fi
 space=""
 tab=""
-# An agent without a worktree gets a pane next to this session, when this session has one (place_pane).
+# An agent without a worktree gets a pane in this session's tab of agents, when this session has a pane (place_pane).
 own_tab=""
 own_space=""
 if [ -z "$worktree_path" ]; then
@@ -278,7 +303,9 @@ printf '%s\0' ${claude_args[@]+"${claude_args[@]}"} | jq -Rs --arg name "$agent"
 message="$(forge_agent_task "$type" "$agent" "$title" "$prompt" "uds:$CLAUDE_CODE_MESSAGING_SOCKET" "$note")"
 extra=()
 read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
+# FORGE_PARENT_TERMINAL ties the agent's golem to this session (hooks/golem-state.sh born labels its terminal).
 command=(env "FORGE_SESSION_TITLE=$title" "FORGE_REPORT_TO=uds:$CLAUDE_CODE_MESSAGING_SOCKET" "FORGE_AGENT_RECORD=$record"
+  "FORGE_PARENT_TERMINAL=${HC_TERMINAL_ID:-}"
   claude ${extra[@]+"${extra[@]}"} ${claude_args[@]+"${claude_args[@]}"} ${claude_session:+--resume "$claude_session"} "$message")
 if [ -n "$own_tab" ]; then
   placed=""

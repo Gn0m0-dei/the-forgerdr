@@ -55,17 +55,32 @@ jq -c '.at -= 120' "$usage/history.jsonl" > "$sandbox/h" && mv "$sandbox/h" "$us
 payload 41 "$later" 31 "$later" | bash "$bin" >/dev/null
 expect "a changed sample after a minute is kept" 2 "$(wc -l < "$usage/history.jsonl" | tr -d ' ')"
 
-# The session's context, by the herdr terminal it runs in.
+# The session's context, in a file of the herdr terminal it runs in.
 printf '{"session_id":"s9","context_window":{"used_percentage":61,"context_window_size":1000000}}' |
   HC_TERMINAL_ID=t5 bash "$bin" >/dev/null
 printf '{"session_id":"s8","context_window":{"used_percentage":12,"context_window_size":200000}}' |
   HC_TERMINAL_ID=t7 bash "$bin" >/dev/null
-expect "keeps each terminal's context" "61 12" "$(jq -r '"\(.t5.used) \(.t7.used)"' "$usage/sessions.json")"
+expect "keeps each terminal's context" "61 12" \
+  "$(jq -r '.used' "$usage/sessions/t5.json") $(jq -r '.used' "$usage/sessions/t7.json")"
 printf '{"session_id":"s9","context_window":{"used_percentage":8,"context_window_size":1000000}}' |
   HC_TERMINAL_ID=t5 bash "$bin" >/dev/null
-expect "a compacted session's context falls" 8 "$(jq -r '.t5.used' "$usage/sessions.json")"
+expect "a compacted session's context falls" 8 "$(jq -r '.used' "$usage/sessions/t5.json")"
 printf '{"session_id":"s0","context_window":{"used_percentage":50}}' | bash "$bin" >/dev/null
-expect "outside herdr no context is kept" "t5,t7" "$(jq -r 'keys | join(",")' "$usage/sessions.json")"
+expect "outside herdr no context is kept" "t5.json t7.json" \
+  "$(find "$usage/sessions" -name '*.json' -exec basename {} \; | sort | paste -sd ' ' -)"
+
+# Many sessions' status lines at once leave every file whole.
+for n in $(seq 1 24); do
+  jq -cn --argjson n "$n" --argjson r "$later" \
+    '{session_id: "c\($n)", context_window: {used_percentage: $n}, rate_limits: {five_hour: {used_percentage: $n, resets_at: $r}}}' |
+    HC_TERMINAL_ID="c$n" bash "$bin" >/dev/null &
+done
+wait
+expect "every context file is whole JSON" 0 \
+  "$(for f in "$usage"/sessions/c*.json; do jq -e . "$f" >/dev/null 2>&1 || echo bad; done | grep -c bad || true)"
+expect "one file a terminal" 24 "$(find "$usage/sessions" -name 'c*.json' | wc -l | tr -d ' ')"
+expect "the windows file is whole JSON" yes "$(jq -e '.windows' "$usage/claude.json" >/dev/null 2>&1 && echo yes || echo no)"
+expect "no temporary file is left" 0 "$(find "$usage" -name '*.json.*' | wc -l | tr -d ' ')"
 
 # Install over the user's status line, which gets the same JSON and is what shows.
 cat > "$sandbox/theirs.sh" <<'SH'
