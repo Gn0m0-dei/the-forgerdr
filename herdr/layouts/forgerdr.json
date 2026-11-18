@@ -164,7 +164,10 @@
             },
             {
               "content": {
-                "mod": "workspace-status"
+                "mod": "forgerdr",
+                "props": {
+                  "role": "statusbar"
+                }
               },
               "id": "status",
               "size": {

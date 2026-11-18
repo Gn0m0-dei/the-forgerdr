@@ -53,6 +53,7 @@ The desktop app (`herdr-app`) shows spaces, tabs and panes; herdr-core (`hc`) ru
 | Piece | Check | Missing |
 |---|---|---|
 | reply language | `~/.claude/settings.json` has a `language` key | optional: without it the reply language is the one the user writes in; `/config` sets it |
+| usage bar's data | `"${CLAUDE_PLUGIN_ROOT}/bin/forge-statusline.sh" status` says `installed: yes` | optional; ask first, naming the status line they have now (`jq .statusLine ~/.claude/settings.json`), which stays what they see: `"${CLAUDE_PLUGIN_ROOT}/bin/forge-statusline.sh" install` makes forgerdr's the status line, which keeps the subscription's 5-hour and weekly windows for the forgerdr layout's usage bar and hands the same JSON on to their line; it backs the settings up first, and `remove` puts their line back. Once installed, run `install` on every setup without asking: it refreshes its copy |
 | plugins the user keeps | `claude plugin list` shows `typescript-lsp@claude-plugins-official` and `azdo@azdospec` | `claude plugin marketplace add Gn0m0-dei/azdospec && claude plugin install azdo@azdospec`; `claude plugin install typescript-lsp@claude-plugins-official` (ask first: optional) |
 
 ## Leftovers the plugin replaces

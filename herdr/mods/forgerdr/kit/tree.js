@@ -61,15 +61,38 @@ export const worktreeRow = ({
  * @property {Tone} tone
  * @property {boolean} [selected] marked with the accent
  * @property {boolean} [unseen] changed since it was looked at
+ * @property {number} [context] its session's context used, in percent: beside the golem, and in its chest
  */
 
+/**
+ * How full a golem's session is, in grey before it; the same room when it tells nothing, so the golems line up.
+ * @param {number | undefined} context
+ */
+const contextLabel = (context) =>
+  div()
+    .flex_none()
+    .w(30)
+    .flex()
+    .justify_end()
+    .child(
+      context === undefined
+        ? ""
+        : text(`${Math.round(context)}%`, "ui", 11, tokens().muted),
+    );
+
 /** @param {AgentRowProps} props */
-export const agentRow = ({ name, tone, selected = false, unseen = false }) => {
+export const agentRow = ({
+  name,
+  tone,
+  selected = false,
+  unseen = false,
+  context,
+}) => {
   const k = tokens();
   return h_flex()
     .items_center()
     .gap(8)
-    .pl(selected ? 24 : 26)
+    .pl(selected ? 8 : 10)
     .pr(8)
     .py(5)
     .bg(selected ? k.bg3 : NONE)
@@ -82,7 +105,8 @@ export const agentRow = ({ name, tone, selected = false, unseen = false }) => {
         .h(6)
         .bg(unseen ? k.accent : NONE),
     )
-    .child(golem("iron", tone, 2))
+    .child(contextLabel(context))
+    .child(golem("iron", tone, 2, context))
     .child(fill(name, "ui", 13, k.fg))
     .child(agentChip(tone));
 };
@@ -91,17 +115,19 @@ export const agentRow = ({ name, tone, selected = false, unseen = false }) => {
  * @typedef {object} SubagentRowProps
  * @property {string} name
  * @property {Tone} tone
+ * @property {number} [context] its session's context used, in percent
  */
 
 /** @param {SubagentRowProps} props */
-export const subagentRow = ({ name, tone }) =>
+export const subagentRow = ({ name, tone, context }) =>
   h_flex()
     .items_center()
     .gap(8)
-    .pl(56)
+    .pl(40)
     .pr(8)
     .py(5)
-    .child(golem("clay", tone, 2))
+    .child(contextLabel(context))
+    .child(golem("clay", tone, 2, context))
     .child(fill(name, "ui", 13, tokens().fg))
     .child(agentChip(tone));
 

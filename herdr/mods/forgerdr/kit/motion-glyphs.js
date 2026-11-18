@@ -4,6 +4,9 @@
 export const GLYPH_FONT = "Forgerdr Glyphs";
 
 export const GLYPH_FRAMES = Object.freeze({
+  crucible: {
+    F: ["\ue01a", "\ue01b", "\ue01c", "\ue01d", "\ue00a"],
+  },
   flame: {
     D: ["\ue000", "\ue000", "\ue000"],
     O: ["\ue001", "\ue001", "\ue002"],

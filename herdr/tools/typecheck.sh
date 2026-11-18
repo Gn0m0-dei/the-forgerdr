@@ -14,7 +14,8 @@ if [ ! -f "$home/herdr.d.ts" ] || [ ! -f "$home/gpui-kit.d.ts" ]; then
   exit 0
 fi
 # name.js is written by bin/forge-herdr-install.sh into each installed copy, never into the checkout: one is made here.
-[ -f "$mod/name.js" ] || printf '// Written by herdr/tools/typecheck.sh for the check.\nexport const MOD = "forgerdr";\n' > "$mod/name.js"
+grep -qs "export const ROOT" "$mod/name.js" ||
+  printf '// Written by herdr/tools/typecheck.sh for the check.\nexport const ROOT = "";\nexport const MOD = "forgerdr";\n' > "$mod/name.js"
 
 config="$(mktemp -d)/tsconfig.json"
 trap 'rm -rf "$(dirname "$config")"' EXIT

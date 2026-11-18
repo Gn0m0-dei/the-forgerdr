@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forgerdr layout's status bar, in place of the app's: the account's profile, the subscription's forge heat (the 5-hour window and the week, each with its steps and its reset, coloured from 80 % and 95 % with a notification the first time each is crossed in a window), Herdr's update when one is ready and `? MANUAL`, which opens the forgerdr cheat sheet over the window. A window whose reset has passed is hidden rather than shown at 0 %.
+- Golems that show their session's context: the percentage in grey before each golem in the sidebar, and its chest as a crucible that fills from the bottom with molten metal, a quarter at a time (a half on a clay golem), white hot from 80 % and blinking from 90 %. The status line keeps each session's context by the herdr terminal it runs in (`sessions.json`).
+- The forge heat window, which the status bar's profile opens: each window with its stepped bar, its use, when it resets on the local clock and its history, a bar per half hour of the 5 hours and a bar a day of the week.
+- `bin/forge-statusline.sh`, Claude Code's status line for forgerdr: it keeps the subscription's windows, merged across sessions (each window's newest period and the highest use any session sent), and a week of samples in `~/.local/state/forgerdr/usage/` and hands the same JSON on to the status line the user had, whose output still shows. `install` (offered by `/forgerdr:setup`) and `remove` change `settings.json` after a backup; `status` says what it hands on to and what it last saw.
+
+### Changed
+
+- The forgerdr mod knows the plugin it came from (`name.js` has its root), so it can read the plugin's references.
+
 ## [0.22.0] - 2026-11-18
 
 ### Added

@@ -5,9 +5,12 @@ import { div, View } from "gpui-kit";
 import { props } from "herdr";
 import { empty } from "./roles/empty.js";
 import { gallery } from "./roles/gallery.js";
+import { heat } from "./roles/heat.js";
+import { manual } from "./roles/manual.js";
 import { pane } from "./roles/pane.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
+import { statusbar } from "./roles/statusbar.js";
 import { topbar } from "./roles/topbar.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -19,7 +22,17 @@ import { topbar } from "./roles/topbar.js";
 const readProps = props;
 
 /** @type {Record<string, (cx: AsyncContext) => Role>} */
-const ROLES = { empty, gallery, pane, sessions, sidebar, topbar };
+const ROLES = {
+  empty,
+  gallery,
+  heat,
+  manual,
+  pane,
+  sessions,
+  sidebar,
+  statusbar,
+  topbar,
+};
 
 // herdr asks for a class extending View as the mod's default export. A copy makes its role once and hands it every
 // render and its close; the role keeps its own state.

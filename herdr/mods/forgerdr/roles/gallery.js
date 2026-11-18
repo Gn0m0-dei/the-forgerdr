@@ -8,8 +8,10 @@ import {
   kbdHint,
   keyButton,
   paletteHint,
+  quietButton,
+  updateChip,
 } from "../kit/buttons.js";
-import { agentChip, statusChip } from "../kit/chips.js";
+import { agentChip, profileSwitch, statusChip } from "../kit/chips.js";
 import { heatMeter, steppedBar } from "../kit/meters.js";
 import { SIGN, sign } from "../kit/motion.js";
 import {
@@ -143,6 +145,13 @@ const statusAndMeters = () => {
         label: "5H",
         percent: 62,
       }),
+      heatMeter({ band: "warn", label: "5H", percent: 84 }),
+      heatMeter({ band: "danger", label: "WEEK", percent: 96 }),
+    ]),
+    row([
+      profileSwitch(["OAuth", "OpenRouter"], 0),
+      updateChip("0.1.17"),
+      quietButton("? Manual"),
     ]),
     row([
       steppedBar({ ...band, colour: k.ok }),
@@ -192,13 +201,14 @@ const navigation = () =>
       .child(worktreeRow({ branch: "main", selected: true }))
       .child(
         agentRow({
+          context: 61,
           name: "claude · main",
           selected: true,
           tone: TONE.working,
           unseen: true,
         }),
       )
-      .child(subagentRow({ name: "explore", tone: TONE.working }))
+      .child(subagentRow({ context: 34, name: "explore", tone: TONE.working }))
       .child(subagentRow({ name: "code review", tone: TONE.done }))
       .child(
         worktreeRow({
@@ -209,7 +219,9 @@ const navigation = () =>
           sync: "↑2 ↓1",
         }),
       )
-      .child(agentRow({ name: "claude · login", tone: TONE.needs }))
+      .child(
+        agentRow({ context: 93, name: "claude · login", tone: TONE.needs }),
+      )
       .child(warningRow("claude · login asks about src/cart.rs"))
       .child(agentRow({ name: "claude · resize", tone: TONE.failed })),
   ]);

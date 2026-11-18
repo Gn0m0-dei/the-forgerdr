@@ -129,3 +129,26 @@ export const inboxButton = (count) => {
     .child(icon(ICON.inbox, colour))
     .child(text(count > 0 ? `INBOX ${count}` : "INBOX", "display", 11, colour));
 };
+
+/**
+ * A new Herdr is ready: a click restarts into it.
+ * @param {string} version
+ */
+export const updateChip = (version) =>
+  h_flex()
+    .flex_none()
+    .items_center()
+    .px(10)
+    .py(3)
+    .border(1)
+    .border_color(BRAND.forgeGold)
+    .child(text(`v${version} forged · restart`, "ui", 12, BRAND.forgeGold));
+
+/**
+ * A button that is only its words, quiet until it is needed: ? MANUAL.
+ * @param {string} label
+ */
+export const quietButton = (label) =>
+  div()
+    .flex_none()
+    .child(text(label.toUpperCase(), "display", 9, tokens().muted));

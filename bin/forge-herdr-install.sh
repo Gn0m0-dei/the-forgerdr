@@ -38,6 +38,8 @@ done
 [ "$watch" = 0 ] || [ "$dev" = 1 ] || forge_die "--watch goes with --dev"
 
 src="${FORGE_HERDR_SRC:-$(cd "$(dirname "$0")/../herdr" && pwd -P)}"
+# The plugin (or checkout) the herdr folder belongs to.
+root="$(cd "$src/.." && pwd -P)"
 [ -d "$src/mods/$MOD" ] || forge_die "no herdr/mods/$MOD in $src"
 home="$(forge_app_home)"
 # What the stable install put in the app's home, "relative path -> sha256", to tell its files from changed ones.
@@ -120,9 +122,13 @@ shipped() {
   mod_files | sed "s|^|mods/$MOD/|"
 }
 
-# Writes name.js, the name of the folder the mod runs from (herdr/mods/forgerdr/assets.js), to a path.
+# Writes name.js to a path: the plugin the mod came from (its references, such as the cheat sheet the manual shows) and
+# the name of the folder the mod runs from (herdr/mods/forgerdr/assets.js).
 name_file() {
-  printf '// Written by bin/forge-herdr-install.sh: the folder this mod runs from.\nexport const MOD = "%s";\n' "$1" > "$2"
+  {
+    printf '// Written by bin/forge-herdr-install.sh: the plugin this mod came from and the folder it runs from.\n'
+    printf 'export const ROOT = "%s";\nexport const MOD = "%s";\n' "$root" "$1"
+  } > "$2"
 }
 
 # Takes away the type files the app writes into the mods it loads, then the folders left empty.
@@ -169,7 +175,10 @@ sync_dev_mod() {
   while IFS= read -r rel; do
     [ -e "$src/mods/$MOD/$rel" ] || { rm -f "$to/$rel"; touched=$((touched + 1)); }
   done < <(cd "$to" && find . -type f ! -name name.js ! -name '*.d.ts' | sed 's|^\./||')
-  grep -qs "\"$DEV_MOD\"" "$to/name.js" || { name_file "$DEV_MOD" "$to/name.js"; touched=$((touched + 1)); }
+  if ! grep -qs "\"$DEV_MOD\"" "$to/name.js" || ! grep -qsF "ROOT = \"$root\"" "$to/name.js"; then
+    name_file "$DEV_MOD" "$to/name.js"
+    touched=$((touched + 1))
+  fi
   printf '%s\n' "$touched"
 }
 

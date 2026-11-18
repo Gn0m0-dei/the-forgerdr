@@ -3,6 +3,7 @@
 // clock, so the layers stay together, and nothing runs while the window is not drawn. With motion off, a sign holds
 // its resting frame. The frames are drawn in herdr/tools/design/motion-frames.txt.
 import { div } from "gpui-kit";
+import { CONTEXT, fillLevel } from "../usage.js";
 import { GLYPH_FONT, GLYPH_FRAMES } from "./motion-glyphs.js";
 import { BRAND, motionOn, tokens } from "./tokens.js";
 
@@ -10,6 +11,7 @@ import { BRAND, motionOn, tokens } from "./tokens.js";
 /** @typedef {keyof typeof GLYPH_FRAMES} SignName */
 
 export const SIGN = Object.freeze({
+  crucible: "crucible",
   flame: "flame",
   needs: "needs",
   smoke: "smoke",
@@ -20,6 +22,8 @@ export const SIGN = Object.freeze({
 // How each sign moves: ms a frame shows, the frames in the order they show, and the one it rests on.
 /** @type {Record<SignName, { ms: number, order: number[], rest: number }>} */
 const MOTION = {
+  // Not stepped through: crucible() picks a frame, and blinks it near the limit.
+  crucible: { ms: 500, order: [3], rest: 3 },
   // 3 frames at 8 fps, looping.
   flame: { ms: 125, order: [0, 1, 2], rest: 1 },
   // A 500 ms blink.
@@ -38,6 +42,7 @@ const MOTION = {
  * @returns {Record<SignName, Record<string, Color>>}
  */
 const colours = (k) => ({
+  crucible: { F: BRAND.ember },
   flame: {
     D: BRAND.emberDeep,
     O: BRAND.whiteHot,
@@ -88,4 +93,33 @@ export const sign = (name, scale = 2) => {
           : layer.child(frames[rest]);
       }),
     );
+};
+
+// The crucible's frames: a quarter of the chest filled per frame, then the empty one the blink shows.
+const CRUCIBLE_EMPTY = 4;
+
+/**
+ * A golem's chest as a crucible, molten metal filling it from the bottom as its session's context fills: in ember,
+ * white hot from 80 %, blinking from 90 %, when the session is close to compacting. Null when the context is empty.
+ * @param {number} percent the session's context used
+ * @param {number} levels how many steps the chest has: 4 for an iron or stone golem, 2 for a clay one
+ * @param {number} side the chest's side, in pixels
+ */
+export const crucible = (percent, levels, side) => {
+  const level = fillLevel(percent, levels);
+  if (level === 0) return null;
+  /** @type {string[]} */
+  const frames = GLYPH_FRAMES.crucible.F;
+  const glyph = frames[(level * 4) / levels - 1];
+  const layer = div()
+    .flex_none()
+    .w(side)
+    .h(side)
+    .font_family(GLYPH_FONT)
+    .text_size(side)
+    .line_height(`${side}px`)
+    .text_color(percent >= CONTEXT.hot ? BRAND.whiteHot : BRAND.ember);
+  return percent >= CONTEXT.blink && motionOn()
+    ? layer.frames([glyph, frames[CRUCIBLE_EMPTY]], MOTION.needs.ms)
+    : layer.child(glyph);
 };

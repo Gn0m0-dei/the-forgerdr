@@ -15,6 +15,7 @@ import {
 } from "herdr";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
+import { readContexts } from "../bridges/usage.js";
 import {
   forgeMood,
   forgeState,
@@ -130,6 +131,8 @@ const spaceRow = (element, id, spaceId) =>
 export const sidebar = (cx) => {
   /** @type {Map<string, { git: PlaceGit | null, at: number }>} */
   const places = new Map();
+  /** @type {Record<string, { used: number, at: number }>} each golem's session context, by its terminal */
+  let contexts = {};
   let width = Number.POSITIVE_INFINITY;
 
   // Asks git about the places that are new or not asked for a while, a few at a time as the app's space list does (all
@@ -179,6 +182,7 @@ export const sidebar = (cx) => {
     : cx.spawn(async (cx) => {
         for (;;) {
           await refresh();
+          contexts = await readContexts();
           cx.notify();
           await cx.sleep(TIMING.poll);
         }
@@ -200,6 +204,7 @@ export const sidebar = (cx) => {
     return leads.flatMap((lead) => [
       clickable(
         agentRow({
+          context: contexts[lead.address]?.used,
           name: agentName(lead),
           selected: lead.address === looking,
           tone: toneOf(lead.status),
@@ -212,7 +217,11 @@ export const sidebar = (cx) => {
         .filter((agent) => parents.get(agent.address) === lead.address)
         .map((sub) =>
           clickable(
-            subagentRow({ name: agentName(sub), tone: toneOf(sub.status) }),
+            subagentRow({
+              context: contexts[sub.address]?.used,
+              name: agentName(sub),
+              tone: toneOf(sub.status),
+            }),
             `agent-${sub.address}`,
             () => openAgent(sub),
           ),
@@ -281,6 +290,7 @@ export const sidebar = (cx) => {
                 parents.get(agent.address) ? "clay" : "iron",
                 toneOf(agent.status),
                 2,
+                contexts[agent.address]?.used,
               ),
               `rail-${agent.address}`,
               () => openAgent(agent),

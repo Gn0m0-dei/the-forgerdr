@@ -3,6 +3,7 @@
 // scale by whole numbers.
 import { div, image, svg } from "gpui-kit";
 import { asset } from "../assets.js";
+import { crucible } from "./motion.js";
 import { TONE, toneColour } from "./tokens.js";
 
 /** @typedef {import("gpui-kit").Color} Color */
@@ -103,6 +104,14 @@ export const GOLEM = Object.freeze({ clay: 8, iron: 12, stone: 12 });
 
 /** @typedef {keyof typeof GOLEM} GolemRole */
 
+// Where each golem's chest is, the crucible its context fills: its top-left pixel, its side and its levels.
+/** @type {Record<GolemRole, { x: number, y: number, side: number, levels: number }>} */
+const CHEST = {
+  clay: { levels: 2, side: 2, x: 3, y: 4 },
+  iron: { levels: 4, side: 4, x: 4, y: 5 },
+  stone: { levels: 4, side: 4, x: 4, y: 5 },
+};
+
 /** @type {Record<Tone, string>} */
 const GOLEM_MOOD = {
   done: "done",
@@ -180,14 +189,28 @@ export const gnome = ({
  * @param {GolemRole} role
  * @param {Tone} tone
  * @param {number} [scale]
+ * @param {number} [context] its session's context used, in percent: its chest fills as a crucible
  */
-export const golem = (role, tone, scale = 2) => {
+export const golem = (role, tone, scale = 2, context) => {
   const side = GOLEM[role] * scale;
   const file = asset(`img/golem/${role}-${GOLEM_MOOD[tone]}`);
-  return stack(side, side, [
+  const body = stack(side, side, [
     image(`${file}.svg`),
     svg(`${file}-tone.svg`).text_color(toneColour(tone)),
   ]);
+  const chest = CHEST[role];
+  const metal =
+    context === undefined
+      ? null
+      : crucible(context, chest.levels, chest.side * scale);
+  return metal === null
+    ? body
+    : body.child(
+        metal
+          .absolute()
+          .left(chest.x * scale)
+          .top(chest.y * scale),
+      );
 };
 
 /**

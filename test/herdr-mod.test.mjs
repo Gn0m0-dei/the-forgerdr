@@ -22,6 +22,16 @@ import {
   tabLabel,
 } from "../herdr/mods/forgerdr/sessions.js";
 import { scrollTarget, stripState } from "../herdr/mods/forgerdr/strip.js";
+import {
+  bandOf,
+  clockOf,
+  fillLevel,
+  historyBars,
+  keptWarnings,
+  resetsIn,
+  runningWindows,
+  warningsDue,
+} from "../herdr/mods/forgerdr/usage.js";
 
 test("a key binding reads as its keycaps", () => {
   strictEqual(keyLabel("cmd-shift-p"), "⌘⇧P");
@@ -321,5 +331,100 @@ test("a wheel swipe moves one tab, then one per longer stretch, never faster tha
   strictEqual(
     swipeTab(newSwipe(), { dy: 0, lines: -1, started: false }, 0).go,
     "next",
+  );
+});
+
+test("a window not sent or past its reset is hidden, not shown at 0 %", () => {
+  const snapshot = {
+    at: 1000,
+    windows: {
+      five_hour: { resets_at: 900, used: 62 },
+      seven_day: { resets_at: 5000, used: 41 },
+    },
+  };
+  deepStrictEqual(Object.keys(runningWindows(snapshot, 1000)), ["seven_day"]);
+  deepStrictEqual(runningWindows(null, 1000), {});
+});
+
+test("a reset reads in days, hours and minutes", () => {
+  strictEqual(resetsIn(1000 + 72 * 60, 1000), "1h 12m");
+  strictEqual(resetsIn(1000 + (3 * 1440 + 4 * 60 + 5) * 60, 1000), "3d 4h");
+  strictEqual(resetsIn(1000 + 12 * 60 + 30, 1000), "12m");
+  strictEqual(resetsIn(1010, 1000), "<1m");
+});
+
+test("the heat turns at 80 % and 95 %, and each warning is told once a period", () => {
+  deepStrictEqual([79.9, 80, 94, 95, 100].map(bandOf), [
+    "heat",
+    "warn",
+    "warn",
+    "danger",
+    "danger",
+  ]);
+  const windows = {
+    five_hour: { resets_at: 5000, used: 96 },
+    seven_day: { resets_at: 9000, used: 50 },
+  };
+  const due = warningsDue(windows, []);
+  deepStrictEqual(
+    due.map((w) => w.key),
+    ["five_hour:5000:80", "five_hour:5000:95"],
+  );
+  deepStrictEqual(
+    warningsDue(windows, ["five_hour:5000:80"]).map((w) => w.threshold),
+    [95],
+  );
+  deepStrictEqual(
+    keptWarnings(["five_hour:5000:80", "five_hour:900:95"], 1000),
+    ["five_hour:5000:80"],
+  );
+});
+
+test("a reset reads on the local clock", () => {
+  // 19 November 2026 was a Thursday.
+  strictEqual(
+    clockOf(new Date(2026, 10, 19, 1, 0).getTime() / 1000),
+    "Thu 01:00",
+  );
+  strictEqual(
+    clockOf(new Date(2026, 10, 22, 19, 5).getTime() / 1000),
+    "Sun 19:05",
+  );
+});
+
+test("a window's history is the rise in use within each stretch of its period", () => {
+  const resets = 100_000;
+  const start = resets - 5 * 3600;
+  const half = 1800;
+  const samples = [
+    { at: start - 60, five_hour: 90 }, // the period before: left out
+    { at: start + 60, five_hour: 2 },
+    { at: start + half + 60, five_hour: 10 },
+    { at: start + half + 600, five_hour: 12 },
+    { at: start + 3 * half + 60, five_hour: 20, seven_day: 40 },
+  ];
+  deepStrictEqual(
+    historyBars(samples, "five_hour", { resets_at: resets, used: 20 }),
+    [2, 10, 0, 8, 0, 0, 0, 0, 0, 0],
+  );
+  // Seen only from the third stretch on: what came before is where it starts, not a bar.
+  const late = [
+    { at: start + 2 * half + 60, five_hour: 28 },
+    { at: start + 3 * half + 60, five_hour: 31 },
+  ];
+  deepStrictEqual(
+    historyBars(late, "five_hour", { resets_at: resets, used: 31 }),
+    [0, 0, 0, 3, 0, 0, 0, 0, 0, 0],
+  );
+});
+
+test("a golem's crucible fills a level a quarter of its context, half on a clay one", () => {
+  deepStrictEqual(
+    [0, 1, 25, 26, 50, 75, 76, 100, 130].map((p) => fillLevel(p, 4)),
+    [0, 1, 1, 2, 2, 3, 4, 4, 4],
+  );
+  deepStrictEqual(
+    [0, 30, 50, 51, 100].map((p) => fillLevel(p, 2)),
+    [0, 1, 1, 2, 2],
   );
 });
