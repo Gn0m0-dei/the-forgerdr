@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.25.0] - 2026-11-19
+
 ### Added
 
 - Each forge's gnome is whole from the forge's key: its hat and the hat's colour, its beard, its eyes and what it wears over them, the same on every start and machine. A double click on the sidebar's gnome renames it; an empty name gives it back its brother's.
