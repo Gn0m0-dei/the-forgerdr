@@ -35,3 +35,18 @@ export const fill = (content, face, size, colour) =>
     .text_size(size)
     .text_color(colour)
     .child(content);
+
+/**
+ * Words that wrap within the room they are given, for a sentence or two.
+ * @param {string} content
+ * @param {Face} face
+ * @param {number} size
+ * @param {Color} colour
+ */
+export const wrapped = (content, face, size, colour) =>
+  div()
+    .min_w(0)
+    .font_family(FONT[face])
+    .text_size(size)
+    .text_color(colour)
+    .child(content);

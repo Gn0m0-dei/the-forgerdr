@@ -7,7 +7,6 @@ import {
   forgeMood,
   forgeMoves,
   forgeState,
-  forgeSummary,
   groupForges,
   knownGit,
   lookKeyOf,
@@ -32,6 +31,14 @@ import {
   spaceLanes,
 } from "../herdr/mods/forgerdr/lanes.js";
 import {
+  backlogOf,
+  backlogTyped,
+  MODE,
+  modeKind,
+  modeLabel,
+  shortLabel,
+} from "../herdr/mods/forgerdr/modes.js";
+import {
   folderLabel,
   newSwipe,
   paneLabel,
@@ -39,6 +46,16 @@ import {
   swipeTab,
   tabLabel,
 } from "../herdr/mods/forgerdr/sessions.js";
+import {
+  belongsTo,
+  changeRows,
+  ideaLaunches,
+  linkOf,
+  reviewRows,
+  startLaunches,
+  titleOf,
+  workRows,
+} from "../herdr/mods/forgerdr/start.js";
 import { scrollTarget, stripState } from "../herdr/mods/forgerdr/strip.js";
 import {
   bandOf,
@@ -182,15 +199,13 @@ test("spaces of one repository make one forge, its main checkout first", () => {
   );
 });
 
-test("a forge's golems in a line, and its gnome's mood", () => {
+test("a forge's gnome's mood, with its golems", () => {
   const agents = [
     { status: "working" },
     { status: "working" },
     { status: "blocked" },
     { status: "idle" },
   ];
-  strictEqual(forgeSummary(agents), "2 forging · 1 waiting");
-  strictEqual(forgeSummary([]), "no golems at work");
   strictEqual(forgeMood(agents), "needs you · 4 golems");
   strictEqual(forgeMood([{ status: "idle" }]), "idle · 1 golem");
 });
@@ -705,4 +720,576 @@ test("a re-roll is a new whole gnome, and the human's picks go with the old one"
     rerolled("/a", rerolled("/a", {})).roll > rerolled("/a", {}).roll,
     true,
   );
+});
+
+const FORGNOME = {
+  org: undefined,
+  project: "Gn0m0-dei/forgnome",
+  provider: "github",
+  repo: "forgnome",
+};
+const SHOP = {
+  azure_project: "Shop Platform",
+  org: "https://dev.azure.com/acme",
+  provider: "azure",
+  repo: "Check.Out",
+};
+
+test("a pasted line is a pull request, an item or skipped", () => {
+  deepStrictEqual(linkOf(" https://github.com/Gn0m0-dei/forgnome/pull/42 "), {
+    id: "42",
+    kind: "pr",
+    project: "Gn0m0-dei/forgnome",
+    provider: "github",
+    repo: "forgnome",
+    url: "https://github.com/Gn0m0-dei/forgnome/pull/42",
+  });
+  strictEqual(
+    linkOf("https://github.com/Gn0m0-dei/forgnome/issues/31#top").kind,
+    "item",
+  );
+  strictEqual(
+    linkOf("https://github.com/Gn0m0-dei/forgnome/issues/31#top").url,
+    "https://github.com/Gn0m0-dei/forgnome/issues/31",
+  );
+  deepStrictEqual(
+    linkOf("https://gitlab.example.com/shop/web/storefront/-/merge_requests/9"),
+    {
+      id: "9",
+      kind: "pr",
+      project: "shop/web/storefront",
+      provider: "gitlab",
+      repo: "storefront",
+      url: "https://gitlab.example.com/shop/web/storefront/-/merge_requests/9",
+    },
+  );
+  strictEqual(linkOf("https://gitlab.com/g/r/-/issues/3").kind, "item");
+  deepStrictEqual(
+    linkOf(
+      "https://dev.azure.com/acme/Shop%20Platform/_git/Check.Out/pullrequest/4242",
+    ),
+    {
+      id: "4242",
+      kind: "pr",
+      org: "https://dev.azure.com/acme",
+      provider: "azure",
+      repo: "Check.Out",
+      url: "https://dev.azure.com/acme/Shop%20Platform/_git/Check.Out/pullrequest/4242",
+    },
+  );
+  deepStrictEqual(
+    linkOf("https://acme.visualstudio.com/Shop/_workitems/edit/1234/"),
+    {
+      id: "1234",
+      kind: "item",
+      org: "https://dev.azure.com/acme",
+      provider: "azure",
+      url: "https://acme.visualstudio.com/Shop/_workitems/edit/1234/",
+    },
+  );
+  deepStrictEqual(linkOf("hello world"), {
+    kind: "skip",
+    line: "hello world",
+    reason: "not a supported URL",
+  });
+});
+
+test("a link belongs to the forge of its repository; a work item to any Azure forge", () => {
+  const link = (url) => linkOf(url);
+  strictEqual(
+    belongsTo(link("https://github.com/gn0m0-dei/FORGNOME/issues/1"), FORGNOME),
+    true,
+  );
+  strictEqual(
+    belongsTo(link("https://github.com/Gn0m0-dei/other/issues/1"), FORGNOME),
+    false,
+  );
+  strictEqual(
+    belongsTo(
+      link(
+        "https://dev.azure.com/acme/Shop%20Platform/_git/check.out/pullrequest/4",
+      ),
+      SHOP,
+    ),
+    true,
+  );
+  strictEqual(
+    belongsTo(
+      link("https://dev.azure.com/other/X/_git/Check.Out/pullrequest/4"),
+      SHOP,
+    ),
+    false,
+  );
+  strictEqual(
+    belongsTo(link("https://dev.azure.com/other/X/_workitems/edit/4"), SHOP),
+    true,
+  );
+  strictEqual(
+    belongsTo(link("https://dev.azure.com/acme/X/_workitems/edit/4"), FORGNOME),
+    false,
+  );
+});
+
+const GITLAB = {
+  host: "gitlab.example.com",
+  project: "shop/web/storefront",
+  provider: "gitlab",
+  repo: "storefront",
+};
+const WAY = { flow: "manual", where: "worktrees" };
+
+test("a forge's mode, as the sidebar shows it", () => {
+  strictEqual(modeKind("openspec:team-specs"), MODE.openspec);
+  strictEqual(modeKind("github"), MODE.github);
+  strictEqual(modeKind("bogus"), MODE.chat);
+  deepStrictEqual(modeLabel({ mode: "chat" }), {
+    detail: "designs in the conversation",
+    name: "Chat",
+  });
+  deepStrictEqual(modeLabel({ mode: "openspec" }), {
+    detail: "in this repository",
+    name: "OpenSpec",
+  });
+  deepStrictEqual(modeLabel({ mode: "openspec:team-specs" }), {
+    detail: "store team-specs",
+    name: "OpenSpec",
+  });
+  deepStrictEqual(
+    modeLabel({ ...FORGNOME, host: "github.com", mode: "github" }),
+    {
+      detail: "Gn0m0-dei/forgnome",
+      name: "GitHub",
+    },
+  );
+  deepStrictEqual(
+    modeLabel({ ...FORGNOME, host: "github.com", mode: "gitlab" }),
+    {
+      detail: "no project yet",
+      name: "GitLab",
+    },
+  );
+  // Work that comes from elsewhere than the code shows both, as the mode dialog does.
+  deepStrictEqual(
+    modeLabel({
+      ...FORGNOME,
+      backlog: "https://gitlab.com/team/issues",
+      host: "github.com",
+      mode: "gitlab",
+    }),
+    { code: "Gn0m0-dei/forgnome", detail: "team/issues", name: "GitLab" },
+  );
+  deepStrictEqual(
+    modeLabel({
+      ...FORGNOME,
+      backlog: "https://github.com/Gn0m0-dei/forgnome",
+      host: "github.com",
+      mode: "github",
+    }),
+    { detail: "Gn0m0-dei/forgnome", name: "GitHub" },
+  );
+  deepStrictEqual(modeLabel({ ...SHOP, backlog: "", mode: "azure" }), {
+    detail: "acme/Shop Platform",
+    name: "Azure DevOps",
+  });
+  deepStrictEqual(
+    modeLabel({
+      ...SHOP,
+      backlog: "https://dev.azure.com/other/Backlog",
+      mode: "azure",
+    }),
+    {
+      code: "acme/Shop Platform/Check.Out",
+      detail: "other/Backlog",
+      name: "Azure DevOps",
+    },
+  );
+  deepStrictEqual(
+    modeLabel({
+      ...SHOP,
+      backlog: "https://dev.azure.com/acme/Shop%20Platform",
+      mode: "azure",
+    }),
+    { detail: "acme/Shop Platform", name: "Azure DevOps" },
+  );
+});
+
+test("the sidebar's foot keeps the first part of each place, its organization or owner", () => {
+  deepStrictEqual(
+    shortLabel({
+      code: "acme/Shop Platform/Check.Out",
+      detail: "other/Backlog",
+      name: "Azure DevOps",
+    }),
+    { code: "acme", detail: "other", name: "Azure DevOps" },
+  );
+  deepStrictEqual(
+    shortLabel({ detail: "Gn0m0-dei/forgnome", name: "GitHub" }),
+    {
+      detail: "Gn0m0-dei",
+      name: "GitHub",
+    },
+  );
+  deepStrictEqual(
+    shortLabel({ detail: "store team-specs", name: "OpenSpec" }),
+    {
+      detail: "store team-specs",
+      name: "OpenSpec",
+    },
+  );
+});
+
+test("a forge's work comes from its backlog, else from its origin on the mode's provider", () => {
+  // Azure DevOps: its repository's project, else the one it names.
+  strictEqual(
+    backlogOf({ ...SHOP, backlog: "", mode: "azure" }),
+    "https://dev.azure.com/acme/Shop%20Platform",
+  );
+  strictEqual(
+    backlogOf({
+      ...SHOP,
+      backlog: "https://dev.azure.com/other/Back Log",
+      mode: "azure",
+    }),
+    "https://dev.azure.com/other/Back%20Log",
+  );
+  // GitHub and GitLab: the origin's repository when it is on that provider.
+  strictEqual(
+    backlogOf({ ...FORGNOME, backlog: "", host: "github.com", mode: "github" }),
+    "https://github.com/Gn0m0-dei/forgnome",
+  );
+  strictEqual(
+    backlogOf({ ...FORGNOME, backlog: "", host: "github.com", mode: "gitlab" }),
+    "",
+  );
+  strictEqual(
+    backlogOf({
+      ...FORGNOME,
+      backlog: "https://gitlab.com/team/issues/",
+      host: "github.com",
+      mode: "gitlab",
+    }),
+    "https://gitlab.com/team/issues",
+  );
+  // Asked for another kind than its mode's, a forge's own backlog is not that kind's.
+  strictEqual(
+    backlogOf(
+      {
+        ...SHOP,
+        backlog: "https://dev.azure.com/other/Backlog",
+        mode: "azure",
+      },
+      MODE.github,
+    ),
+    "",
+  );
+  strictEqual(backlogOf({ mode: "chat", provider: "github" }), "");
+  // The backlog /azdo:init keeps wins on Azure DevOps: the azdospec skills work on it.
+  const azdo = {
+    ...SHOP,
+    azdospec_backlog: "https://dev.azure.com/contoso/Back%20Office",
+    mode: "azure",
+  };
+  strictEqual(
+    backlogOf({ ...azdo, backlog: "" }),
+    "https://dev.azure.com/contoso/Back%20Office",
+  );
+  strictEqual(
+    backlogOf({ ...azdo, backlog: "https://dev.azure.com/other/X" }),
+    "https://dev.azure.com/contoso/Back%20Office",
+  );
+  deepStrictEqual(modeLabel({ ...azdo, backlog: "" }), {
+    code: "acme/Shop Platform/Check.Out",
+    detail: "contoso/Back Office",
+    name: "Azure DevOps",
+  });
+  strictEqual(
+    backlogOf({
+      ...FORGNOME,
+      azdospec_backlog: "https://dev.azure.com/contoso/X",
+      host: "github.com",
+      mode: "github",
+    }),
+    "https://github.com/Gn0m0-dei/forgnome",
+  );
+});
+
+test("the backlog typed in the mode dialog, as a URL", () => {
+  const github = { ...FORGNOME, host: "github.com" };
+  strictEqual(
+    backlogTyped(MODE.github, "team/issues", github),
+    "https://github.com/team/issues",
+  );
+  strictEqual(
+    backlogTyped(MODE.gitlab, "shop/web/issues", github),
+    "https://gitlab.com/shop/web/issues",
+  );
+  strictEqual(
+    backlogTyped(MODE.gitlab, "shop/issues", { ...GITLAB }),
+    "https://gitlab.example.com/shop/issues",
+  );
+  strictEqual(
+    backlogTyped(
+      MODE.github,
+      " https://github.example.com/team/issues.git/ ",
+      github,
+    ),
+    "https://github.example.com/team/issues",
+  );
+  // Any URL in the repository or project names it.
+  strictEqual(
+    backlogTyped(
+      MODE.github,
+      "https://github.com/team/issues/issues/12",
+      github,
+    ),
+    "https://github.com/team/issues",
+  );
+  strictEqual(
+    backlogTyped(
+      MODE.gitlab,
+      "https://gitlab.com/shop/web/issues/-/issues/7",
+      github,
+    ),
+    "https://gitlab.com/shop/web/issues",
+  );
+  strictEqual(backlogTyped(MODE.github, "issues", github), null);
+  strictEqual(
+    backlogTyped(MODE.github, "https://github.com/team", github),
+    null,
+  );
+  // Azure DevOps: a project by its URL, any URL in it, or org/project.
+  strictEqual(
+    backlogTyped(
+      MODE.azure,
+      "https://dev.azure.com/acme/Shop%20Platform",
+      SHOP,
+    ),
+    "https://dev.azure.com/acme/Shop%20Platform",
+  );
+  strictEqual(
+    backlogTyped(
+      MODE.azure,
+      "https://acme@dev.azure.com/acme/Shop%20Platform/_workitems/edit/12",
+      SHOP,
+    ),
+    "https://dev.azure.com/acme/Shop%20Platform",
+  );
+  strictEqual(
+    backlogTyped(
+      MODE.azure,
+      "https://acme.visualstudio.com/Shop/_boards",
+      SHOP,
+    ),
+    "https://dev.azure.com/acme/Shop",
+  );
+  strictEqual(
+    backlogTyped(MODE.azure, "acme/Shop Platform", SHOP),
+    "https://dev.azure.com/acme/Shop%20Platform",
+  );
+  strictEqual(backlogTyped(MODE.azure, "acme", SHOP), null);
+});
+
+test("a GitHub or GitLab forge's work: its issues by URL or number", () => {
+  const rows = workRows(
+    "https://github.com/Gn0m0-dei/forgnome/issues/12\n#15\n  20 \n\nhttps://github.com/Gn0m0-dei/forgnome/pull/42\nhttps://github.com/x/y/issues/1\nfix the login",
+    { ...FORGNOME, host: "github.com", mode: "github" },
+    WAY,
+  );
+  deepStrictEqual(
+    rows.map((row) => [row.kind, row.label, row.value ?? row.action]),
+    [
+      [
+        "item",
+        "forgnome#12",
+        "https://github.com/Gn0m0-dei/forgnome/issues/12",
+      ],
+      [
+        "item",
+        "forgnome#15",
+        "https://github.com/Gn0m0-dei/forgnome/issues/15",
+      ],
+      [
+        "item",
+        "forgnome#20",
+        "https://github.com/Gn0m0-dei/forgnome/issues/20",
+      ],
+      ["skip", "forgnome#42", "a pull request: review it in Review"],
+      ["skip", "y#1", "another repository: start it from its forge"],
+      ["skip", "fix the login", "not an issue URL or number"],
+    ],
+  );
+  strictEqual(rows[0].action, "worktree · /forgerdr:worktree");
+  strictEqual(
+    workRows("#7", { ...GITLAB, mode: "gitlab" }, WAY)[0].value,
+    "https://gitlab.example.com/shop/web/storefront/-/issues/7",
+  );
+  // Issues on GitLab for code on GitHub: numbers go to the GitLab project, a GitHub issue is another repository's.
+  const split = workRows(
+    "#7\nhttps://github.com/Gn0m0-dei/forgnome/issues/3",
+    {
+      ...FORGNOME,
+      backlog: "https://gitlab.example.com/shop/web/storefront",
+      host: "github.com",
+      mode: "gitlab",
+    },
+    WAY,
+  );
+  deepStrictEqual(
+    split.map((row) => [row.kind, row.value ?? row.action]),
+    [
+      ["item", "https://gitlab.example.com/shop/web/storefront/-/issues/7"],
+      ["skip", "another repository: start it from its forge"],
+    ],
+  );
+  // An issue given twice starts once.
+  strictEqual(
+    workRows(
+      "#15\nhttps://github.com/Gn0m0-dei/forgnome/issues/15",
+      { ...FORGNOME, host: "github.com", mode: "github" },
+      WAY,
+    ).length,
+    1,
+  );
+});
+
+test("an Azure DevOps forge's work: its work items by URL or id", () => {
+  const rows = workRows(
+    "1234\nAB#1240\nhttps://dev.azure.com/other/X/_workitems/edit/9\nhttps://github.com/a/b/issues/1",
+    { ...SHOP, backlog: "https://dev.azure.com/other/Backlog", mode: "azure" },
+    { flow: "auto", where: "here" },
+  );
+  deepStrictEqual(
+    rows.map((row) => [row.kind, row.label, row.value ?? row.action]),
+    [
+      [
+        "item",
+        "AB#1234",
+        "https://dev.azure.com/other/Backlog/_workitems/edit/1234",
+      ],
+      [
+        "item",
+        "AB#1240",
+        "https://dev.azure.com/other/Backlog/_workitems/edit/1240",
+      ],
+      ["item", "AB#9", "https://dev.azure.com/other/X/_workitems/edit/9"],
+      ["skip", "b#1", "not a work item URL or id"],
+    ],
+  );
+  strictEqual(rows[0].action, "here · /forgerdr:workitem --auto");
+});
+
+test("a review takes pull requests of any provider, whatever the forge's mode", () => {
+  deepStrictEqual(
+    reviewRows(
+      "https://dev.azure.com/acme/Shop/_git/Check.Out/pullrequest/4242\nhttps://github.com/a/b/pull/3\nhttps://github.com/a/b/issues/3\nhello",
+    ).map((row) => [row.kind, row.label, row.action]),
+    [
+      ["pr", "Check.Out#4242", "review · /forgerdr:review"],
+      ["pr", "b#3", "review · /forgerdr:review"],
+      ["skip", "b#3", "not a pull request: start it in the work tab"],
+      ["skip", "hello", "not a supported URL"],
+    ],
+  );
+});
+
+test("what starts: one session for the work, one tab of reviews", () => {
+  const work = [
+    ...changeRows(["add-inbox"], { flow: "auto", where: "worktrees" }),
+    ...workRows(
+      "#12\nnope",
+      { ...FORGNOME, host: "github.com", mode: "github" },
+      WAY,
+    ),
+  ];
+  deepStrictEqual(work[0], {
+    action: "worktree · /forgerdr:worktree --auto",
+    kind: "change",
+    label: "add-inbox",
+    value: "add-inbox",
+  });
+  deepStrictEqual(
+    startLaunches(
+      [...work, ...reviewRows("https://github.com/Gn0m0-dei/forgnome/pull/42")],
+      { flow: "auto", where: "worktrees" },
+      "/p/bin/forge-prompt.sh",
+    ),
+    [
+      {
+        argv: [
+          "claude",
+          "/forgerdr:worktree --auto add-inbox | https://github.com/Gn0m0-dei/forgnome/issues/12",
+        ],
+        name: "forgerdr worktree",
+      },
+      {
+        argv: [
+          "bash",
+          "/p/bin/forge-prompt.sh",
+          "review",
+          "https://github.com/Gn0m0-dei/forgnome/pull/42",
+        ],
+        name: "forgerdr review",
+      },
+    ],
+  );
+  deepStrictEqual(
+    startLaunches(
+      changeRows(["a"], { flow: "manual", where: "here" }),
+      { flow: "manual", where: "here" },
+      "/p",
+    ),
+    [{ argv: ["claude", "/forgerdr:workitem a"], name: "forgerdr workitem" }],
+  );
+  deepStrictEqual(startLaunches([], WAY, "/p"), []);
+});
+
+test("ideas start a spec session each, or one session that works them", () => {
+  const ideas = [
+    "Remember each pane's zoom | across restarts\nand reset it",
+    "Lanes overflow",
+  ];
+  deepStrictEqual(
+    ideaLaunches(ideas, { flow: "manual", spec: true, where: "here" }),
+    [
+      {
+        argv: [
+          "env",
+          "FORGE_SESSION_TITLE=Remember each pane's zoom / across",
+          "claude",
+          "/forgerdr:spec Remember each pane's zoom / across restarts and reset it",
+        ],
+        main: true,
+        name: "Remember each pane's zoom / across",
+      },
+      {
+        argv: [
+          "env",
+          "FORGE_SESSION_TITLE=Lanes overflow",
+          "claude",
+          "/forgerdr:spec Lanes overflow",
+        ],
+        main: true,
+        name: "Lanes overflow",
+      },
+    ],
+  );
+  deepStrictEqual(
+    ideaLaunches(ideas.slice(1), {
+      flow: "auto",
+      spec: false,
+      where: "worktrees",
+    }),
+    [
+      {
+        argv: ["claude", "/forgerdr:worktree --auto Lanes overflow"],
+        name: "forgerdr worktree",
+      },
+    ],
+  );
+  deepStrictEqual(
+    ideaLaunches(["  "], { flow: "auto", spec: true, where: "here" }),
+    [],
+  );
+  strictEqual(titleOf("a".repeat(50)), "a".repeat(40));
+  strictEqual(titleOf("  short one  "), "short one");
 });

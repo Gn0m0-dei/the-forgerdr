@@ -136,30 +136,6 @@ export const forgeMoves = (order, forges, from, to) => {
   return moves;
 };
 
-// What each status is called in a forge's words, in the order a forge's line reads; cracked is the forge's own (a turn
-// that ended in an API error, hooks/golem-state.sh).
-/** @type {[string, string][]} */
-const STATUS_WORDS = [
-  ["working", "forging"],
-  ["blocked", "waiting"],
-  ["done", "done"],
-  ["cracked", "cracked"],
-];
-
-/**
- * What a forge's golems do, in a line: "3 forging · 1 waiting · 1 cracked"; "no golems at work" when none is.
- * @param {{ status: string }[]} agents the forge's
- */
-export const forgeSummary = (agents) => {
-  const parts = STATUS_WORDS.map(([status, word]) => ({
-    count: agents.filter((agent) => agent.status === status).length,
-    word,
-  }))
-    .filter(({ count }) => count > 0)
-    .map(({ count, word }) => `${count} ${word}`);
-  return parts.length > 0 ? parts.join(" · ") : "no golems at work";
-};
-
 /**
  * The line under a forge's gnome: its mood and how many golems it has, as "working · 3 golems".
  * @param {{ status: string }[]} agents the forge's

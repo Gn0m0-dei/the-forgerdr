@@ -24,6 +24,7 @@ expect "slug short" "short-title" "$(forge_slug 'Short title')"
 
 expect "provider azure" azure "$(forge_provider 'https://dev.azure.com/org/proj/_workitems/edit/1')"
 expect "provider azure ssh" azure "$(forge_provider 'git@ssh.dev.azure.com:v3/org/proj/repo')"
+expect "provider azure through an ssh alias" azure "$(forge_provider 'git@azure-client:v3/org/My%20Proj/repo')"
 expect "provider github" github "$(forge_provider 'https://github.com/o/r/pull/3')"
 expect "provider gitlab" gitlab "$(forge_provider 'https://gitlab.example.com/g/r/-/merge_requests/9')"
 

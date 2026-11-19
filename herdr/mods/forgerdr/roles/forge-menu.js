@@ -1,17 +1,21 @@
-// A forge's menu, opened by a right click on its tab: its gnome's dialog, then what the app's own space menu does on
-// the space the tab shows (rename, new, open and remove worktree, close), whose items the app's menu does not let a
-// mod add to. ↑ and ↓ move, Enter runs, Esc closes.
+// A forge's menu, opened by a right click on its tab: Start work and its gnome's dialog, then what the app's own space
+// menu does on the space the tab shows (rename, new, open and remove worktree, close), whose items the app's menu does
+// not let a mod add to. ↑ and ↓ move, Enter runs, Esc closes.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { closeOverlay, openOverlay, props, run } from "herdr";
+import { closeOverlay, openOverlay, props, run, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
+import { placeOf } from "../bridges/places.js";
+import { groupForges } from "../forges.js";
 import { gnomeLookOf } from "../identity.js";
 import { gnome, ICON, icon } from "../kit/sprites.js";
 import { text } from "../kit/text.js";
 import { tokens } from "../kit/tokens.js";
 import { MOD } from "../name.js";
 import { openGnome } from "./gnome.js";
+import { openMode } from "./mode.js";
+import { openStart } from "./start.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
@@ -67,6 +71,27 @@ const worktree = (space, action) =>
 const itemsOf = (target) => {
   const git = readSpacesGit()[target.space] ?? null;
   return [
+    {
+      act: () => {
+        const all = spaces();
+        const forge = groupForges(all, readSpacesGit()).find(
+          (one) => one.main.id === target.main,
+        );
+        const shown = all.find((space) => space.id === target.space);
+        if (forge !== undefined && shown !== undefined) openStart(forge, shown);
+      },
+      label: "Start work…",
+      mark: ICON.hammer,
+    },
+    {
+      act: () => {
+        const shown = spaces().find((space) => space.id === target.space);
+        if (shown !== undefined)
+          openMode({ dir: placeOf(shown), forge: target.forge });
+      },
+      label: "Forge mode…",
+      mark: ICON.settings,
+    },
     {
       act: () =>
         openGnome({ forge: target.forge, key: target.key, name: target.name }),
@@ -199,7 +224,7 @@ export const forgeMenu = (cx) => {
             )
             .child(
               h_flex()
-                .id(`forge-menu-${index}`)
+                .id(`forge-menu-${item.label}`)
                 .h(ROW)
                 .px(8)
                 .gap(9)

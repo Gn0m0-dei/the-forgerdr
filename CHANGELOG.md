@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forge's mode, at the foot of the sidebar where the forge heat was: Chat, OpenSpec (in the repository, or in another folder registered or made as an OpenSpec store), Azure DevOps, GitHub or GitLab, each with the backlog its work comes from: the origin's project or repository on that provider, else the one named with `Work with another backlog` by any URL of it (issues on GitLab for code on GitHub, work items of another organization). On Azure DevOps the backlog `/azdo:init` keeps in the clone's git config is read, shown filled in and editable, and changed there. The sidebar's foot shows the mode and the backlog's organization or owner, and the code's too, a line each, when the work comes from elsewhere. Its dialog keeps it per project with `bin/forge-config.sh`, whose new `mode` and `backlog` settings set the spec mode the skills read; `Forge mode…` in a forge's menu and `forgerdr.mode` open it too.
+- Start work, from `START WORK` under the forge's gnome (a hammer on the folded sidebar), `Start work…` in a forge's menu or `forgerdr.start`: what the forge's mode takes (what to work on in Chat, issues by URL or #number in GitHub and GitLab, work items by URL or id in Azure DevOps, changes to tick and new ones to spec in OpenSpec), here or in worktrees, manual or auto, as `/forgerdr:workitem`, `/forgerdr:worktree` or `/forgerdr:spec`; and Review, the same in every mode, for pull request URLs of any provider. A preview says what each line starts and skips what it cannot.
+- `forge_openspec` in `bin/forge-lib.sh` runs the OpenSpec CLI through mise when it is not on the PATH, as in a shell that is not interactive, and `bin/forge-start.sh` reads a forge's mode and its OpenSpec changes and stores.
+- Icons for the hammer, OpenSpec, the board, pull requests and ideas, in the icons' pixel style.
+
+### Changed
+
+- The sidebar's foot shows the forge's mode instead of its heat: what its golems do is in the gnome's mood and the golem lanes.
+- `bin/forge-prompt.sh review` takes the pull request URLs as arguments too, and then closes its tab once the reviews are open.
+
+### Fixed
+
+- An Azure DevOps origin through an ssh alias of `~/.ssh/config` (`git@<alias>:v3/<org>/<project>/<repository>`) was taken for an unknown provider: `forge_provider` reads any `:v3/` path as Azure DevOps.
+
 ## [0.26.0] - 2026-11-19
 
 ### Added

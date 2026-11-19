@@ -246,6 +246,15 @@ expect "and its space is forgotten" "" "$(cat "$XDG_STATE_HOME/forgerdr/spaces.t
 fakes_reset
 printf '\n' | in_herdr bash "$bin/forge-prompt.sh" review >/dev/null
 expect "the prompt tab closes when given nothing" yes "$(called hc kill t5)"
+fakes_reset
+(cd "$repo" && FAKE_TAB_SIZE="310 66" in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7) </dev/null >/dev/null
+expect "given the URLs, it opens their reviews without asking" "/forgerdr:review-other https://example.com/o/r/pull/7" \
+  "$(call_of herdr-app "do" tab.new | jq -r '(index("--argv")) as $j | .[$j + 1] | fromjson | .[-1]')"
+expect "and closes its tab once they are open" yes "$(called hc kill t5)"
+fakes_reset
+out="$(cd "$repo" && FAKE_APP_DOWN=1 in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7 </dev/null 2>&1 || true)"
+expect "a review that fails keeps the tab until Enter, to say why" yes \
+  "$([[ "$out" == *"Press Enter to close this tab."* ]] && echo yes || echo no)"
 
 # forge-setup-keys.sh: two bindings that open a prompt tab, from wherever the plugin is installed.
 mkdir -p "$sandbox/keys"

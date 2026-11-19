@@ -1,42 +1,49 @@
 // The forge's sidebar (design 04): its gnome, the tree of the forge the window shows (the repository, its main
 // checkout and worktrees, the golems at work in each and their subagents) and the forge's heat at its foot. Narrower
-// than a rail, it shows the golems alone (design 04b). A double click on the gnome opens its dialog (roles/gnome.js), a
-// right click the forge's menu, as on its tab. It also asks git about every space's place, which the app does not
+// than a rail, it shows the golems alone (design 04b). Under the gnome, START WORK opens the forge's Start work
+// (roles/start.js), a hammer on the rail; at its foot, the forge's mode opens the mode dialog (roles/mode.js). A double click on the gnome opens its dialog (roles/gnome.js), a right click
+// the forge's menu, as on its tab. It also asks git about every space's place, which the app does not
 // tell, and publishes it for the top bar (bridges/git.js), keeping what it knew until git answers again.
 import { v_flex } from "gpui-base";
+import { div } from "gpui-kit";
 import {
   agents,
   checking,
   focused,
   openOverlay,
-  panes,
   run,
   spaces,
   terminals,
 } from "herdr";
+import { modesSaved, readForge } from "../bridges/forge.js";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
+import { placeOf } from "../bridges/places.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
 import {
   forgeMood,
   forgeState,
-  forgeSummary,
   groupForges,
   knownGit,
   lookKeyOf,
 } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
+import { startButton } from "../kit/buttons.js";
+import { control } from "../kit/control.js";
 import { SIGN } from "../kit/motion.js";
-import { emptyState, forgeHeat, gnomeHeader } from "../kit/panels.js";
+import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon } from "../kit/sprites.js";
-import { TONE, tokens, toneOf } from "../kit/tokens.js";
+import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
 import { parentOf } from "../lanes.js";
+import { modeLabel, shortLabel } from "../modes.js";
 import { openForgeMenu } from "./forge-menu.js";
 import { openGnome } from "./gnome.js";
+import { openMode } from "./mode.js";
+import { openStart } from "./start.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -69,17 +76,6 @@ const MOOD_SIGN = Object.freeze({
   needs: SIGN.needs,
   working: SIGN.flame,
 });
-
-/**
- * Where a space is now: its first terminal's live folder, else where its terminals start.
- * @param {SpaceInfo} space
- */
-const placeOf = (space) => {
-  const tabs = new Set(space.tabs.map((tab) => tab.id));
-  return (
-    panes().find((pane) => tabs.has(pane.tab) && pane.cwd)?.cwd ?? space.folder
-  );
-};
 
 /** @param {string} branch the work item a branch is for, as #42 */
 const itemOf = (branch) => /#\d+/.exec(branch)?.[0];
@@ -208,16 +204,58 @@ export const sidebar = (cx) => {
       return where !== "" && !tried.has(keyOf({ on: space.machine, where }));
     });
 
+  /**
+   * The mode of each forge shown, by forge key: what forge-start.sh said, when, and the save it had seen.
+   * @type {Map<string, { info: import("../bridges/forge.js").ForgeInfo | null, at: number, saved: number }>}
+   */
+  const modes = new Map();
+
+  // The forge shown and the space it shows, else null.
+  const shownForge = () => {
+    const all = spaces();
+    const forge = groupForges(all, readSpacesGit()).find((one) =>
+      one.spaces.some((space) => space.active),
+    );
+    const shown = forge?.spaces.find((space) => space.active);
+    return forge === undefined || shown === undefined ? null : { forge, shown };
+  };
+
+  // Whether the forge shown waits for its mode: never read, kept anew in the mode dialog, or read a while ago.
+  const modeDue = () => {
+    const now = shownForge();
+    if (now === null || now.forge.main.machine !== null) return false;
+    const known = modes.get(now.forge.key);
+    return (
+      known === undefined ||
+      known.saved !== modesSaved() ||
+      Date.now() - known.at >= TIMING.fresh
+    );
+  };
+
+  // Reads the mode of the forge shown when it is due; a forge on another machine keeps none.
+  const readMode = async () => {
+    const now = shownForge();
+    if (now === null || !modeDue()) return;
+    const saved = modesSaved();
+    const read = await readForge(placeOf(now.shown));
+    modes.set(now.forge.key, {
+      at: Date.now(),
+      info: read.state === "ready" ? read.value : null,
+      saved,
+    });
+  };
+
   const task = checking()
     ? null
     : cx.spawn(async (cx) => {
         for (;;) {
           await refresh();
+          await readMode();
           contexts = await readContexts(agents().map((agent) => agent.address));
           cx.notify();
           for (
             let slept = 0;
-            slept < TIMING.poll && !waiting();
+            slept < TIMING.poll && !waiting() && !modeDue();
             slept += TIMING.step
           )
             await cx.sleep(TIMING.step);
@@ -349,6 +387,9 @@ export const sidebar = (cx) => {
     const look = { ...gnomeLookOf(key, readGnomes()[key]), mood: state.mood };
     const name = nameOf(key, readNames());
 
+    const shown = forge.spaces.find((space) => space.active) ?? forge.main;
+    const startWork = () => openStart(forge, shown);
+
     if (width < RAIL) {
       return root
         .items_center()
@@ -359,6 +400,17 @@ export const sidebar = (cx) => {
             gnome({ ...look, scale: 2 }),
             "sidebar-unfold",
             foldSidebar,
+          ),
+        )
+        .child(
+          clickable(
+            div()
+              .p(4)
+              .border(2)
+              .border_color(BRAND.forgeGold)
+              .child(icon(ICON.hammer, BRAND.forgeGold)),
+            "rail-start-work",
+            startWork,
           ),
         )
         .children(
@@ -380,6 +432,7 @@ export const sidebar = (cx) => {
     return root
       .child(
         gnomeHeader({
+          action: control(startButton(), "start-work", startWork),
           forge: forge.main.name,
           look,
           mood: forgeMood(golems),
@@ -400,8 +453,7 @@ export const sidebar = (cx) => {
               key,
               main: forge.main.id,
               name,
-              space: (forge.spaces.find((space) => space.active) ?? forge.main)
-                .id,
+              space: shown.id,
             });
           })
           .child(
@@ -459,7 +511,21 @@ export const sidebar = (cx) => {
             }),
           ),
       )
-      .child(forgeHeat(forgeSummary(golems)));
+      .child(
+        control(
+          forgeMode(
+            forge.main.machine !== null
+              ? { detail: "on another machine", name: "Unknown" }
+              : modes.has(forge.key)
+                ? shortLabel(
+                    modeLabel(modes.get(forge.key)?.info ?? { mode: "chat" }),
+                  )
+                : { detail: "reading the forge…", name: "…" },
+          ),
+          "forge-mode",
+          () => openMode({ dir: placeOf(shown), forge: forge.main.name }),
+        ),
+      );
   };
 
   return { close: () => task?.cancel(), render };

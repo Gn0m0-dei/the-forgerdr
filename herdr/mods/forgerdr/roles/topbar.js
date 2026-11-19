@@ -1,7 +1,6 @@
 // The window's top bar (design 04): a forge tab per repository (its main checkout and its worktrees, which the sidebar
 // lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
-// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
-// A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
+// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not. A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
 // else its main checkout's): a click shows it, its ✕ or a middle click closes it (the app confirms), and a right click
 // opens its menu: the dialog of its gnome (roles/gnome.js), then what the app's space menu does (rename, worktrees,
 // close). A double click renames the forge, which bears its main checkout's name, and dragging a forge onto another
@@ -14,6 +13,7 @@ import { readGnomes } from "../bridges/gnomes.js";
 import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
 import { readNames } from "../bridges/names.js";
+import { placeOf } from "../bridges/places.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
@@ -25,6 +25,8 @@ import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
 import { scrollTarget, stripState } from "../strip.js";
 import { openForgeMenu } from "./forge-menu.js";
+import { openMode } from "./mode.js";
+import { openStart } from "./start.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -57,7 +59,9 @@ const openInbox = (waiting) => {
  */
 export const topbar = (cx) => {
   const strip = ScrollHandle.new();
-  // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on.
+  // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on,
+  // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown and
+  // forgerdr.mode its mode.
   const commands = checking()
     ? null
     : cx.spawn(async (cx) => {
@@ -65,6 +69,8 @@ export const topbar = (cx) => {
           const command = await nextCommand();
           if (command === "motion") toggleMotion();
           if (command === "lanes") toggleLanes();
+          if (command === "start") startShown();
+          if (command === "mode") modeShown();
           cx.notify();
         }
       });
@@ -117,6 +123,25 @@ export const topbar = (cx) => {
     forge.spaces.find((space) => space.active) ??
     forge.spaces.find((space) => space.id === lastShown.get(forge.key)) ??
     forge.main;
+
+  // The forge shown, if any.
+  const forgeShown = () =>
+    groupForges(spaces(), readSpacesGit()).find((one) =>
+      one.spaces.some((space) => space.active),
+    );
+
+  // Start work on the forge shown, on the space it shows.
+  const startShown = () => {
+    const forge = forgeShown();
+    if (forge !== undefined) openStart(forge, shownIn(forge));
+  };
+
+  // The mode of the forge shown.
+  const modeShown = () => {
+    const forge = forgeShown();
+    if (forge !== undefined)
+      openMode({ dir: placeOf(shownIn(forge)), forge: forge.main.name });
+  };
 
   /**
    * @param {Forge} forge

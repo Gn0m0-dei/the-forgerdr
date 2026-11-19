@@ -26,6 +26,10 @@ No arguments: print the current value of every setting for this project and the 
 
 Setting `openspec:<store>` checks the store is registered first (`openspec store list --json`); when it is not, offer `openspec store register <path>` and set the mode only after it. The change applies to the next skill that reads it, in this session. Confirm in one line: setting, scope, old value, new value.
 
+## The forge's mode
+
+The herdr app's forgerdr layout shows a forge's mode at the foot of its sidebar and sets it from a dialog, which writes two more settings for the project: `mode` (a spec mode, or `github` and `gitlab`, whose design stays in the chat) and `backlog`, the URL of the repository or project its work comes from (a GitHub repository, a GitLab project, `https://dev.azure.com/<org>/<project>`) when it is not the origin's, which completes the numbers and ids typed in Start work. On Azure DevOps, a clone `/azdo:init` set up keeps its backlog in its git config (`azdospec.organization`, `azdospec.project`); the dialog reads it first and changes it there, never `azdospec`'s other keys. Setting `mode` sets `spec` too; a `spec` set afterwards here wins over it. Show them with `forge-config.sh get mode <project-key>` and `get backlog <project-key>`.
+
 ## Spec modes
 
 | Value | Design and tasks live in | Backend |

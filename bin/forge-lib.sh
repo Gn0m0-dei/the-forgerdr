@@ -123,6 +123,18 @@ forge_spec_mode() {
   "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/forge-config.sh" get spec "$1" 2>/dev/null || echo chat
 }
 
+# Runs the OpenSpec CLI: from the PATH, else through mise, whose shims a shell that is not interactive (the herdr app's
+# commands, a Claude Code tool) does not have. Fails with 127 when neither has it.
+forge_openspec() {
+  if command -v openspec >/dev/null 2>&1; then
+    openspec "$@"
+  elif command -v mise >/dev/null 2>&1 && mise which openspec >/dev/null 2>&1; then
+    mise exec -- openspec "$@"
+  else
+    return 127
+  fi
+}
+
 # Branch for a work item: <kind>/EXT-<id>-<slug> for an item of an external backlog (fifth argument "external"),
 # else <kind>/AB<id>-<slug> when the workspace's spec mode is azure (the azdospec convention, so /azdo:apply finds
 # the branch it expects), else <kind>/#<id>-<slug>.
@@ -147,7 +159,8 @@ forge_agent_name() {
 # Provider of a URL or a git remote: azure | github | gitlab | unknown
 forge_provider() {
   case "$1" in
-    *dev.azure.com*|*visualstudio.com*) echo azure ;;
+    # An ssh remote whose path starts v3/ is Azure DevOps, whatever its host: an alias of ~/.ssh/config, say.
+    *dev.azure.com*|*visualstudio.com*|[!/]*:v3/*) echo azure ;;
     *github.com*) echo github ;;
     *gitlab*) echo gitlab ;;
     *) echo unknown ;;

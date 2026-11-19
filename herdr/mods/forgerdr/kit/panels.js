@@ -58,6 +58,7 @@ export const splitControls = () => {
  * @property {string} mood what its golems do, as "working · 3 golems"
  * @property {GnomeLook} [look]
  * @property {SignName} [sign] what its golems do, moving beside the gnome: the flame, the "!", the spark, the zZ
+ * @property {NativeElement} [action] what the forge offers to do, under its gnome
  */
 
 /** @param {GnomeHeaderProps} props */
@@ -68,15 +69,13 @@ export const gnomeHeader = ({
   mood,
   look = {},
   sign: mark,
+  action,
 }) => {
   const k = tokens();
   const colour = toneColour(tone);
-  return h_flex()
+  const gnomeRow = h_flex()
     .items_center()
     .gap(12)
-    .p(16)
-    .border_b(2)
-    .border_color(k.line)
     .child(
       div()
         .relative()
@@ -101,6 +100,13 @@ export const gnomeHeader = ({
             .child(text(mood, "ui", 12, colour)),
         ),
     );
+  return v_flex()
+    .gap(12)
+    .p(16)
+    .border_b(2)
+    .border_color(k.line)
+    .child(gnomeRow)
+    .when(action !== undefined, (el) => el.child(action));
 };
 
 /**
@@ -172,15 +178,41 @@ export const toast = ({ from, message, look = {}, tone = "needs" }) => {
 };
 
 /**
- * The foot of a forge's sidebar: the forge's heat, what its golems do in a line ("3 forging · 1 waiting").
- * @param {string} summary
+ * The foot of a forge's sidebar: how the forge works, its mode, and where the mode points ("owner/repo"); where the
+ * work comes from elsewhere than the code, both, a line each. The role opens the mode's dialog from it.
+ * @param {{ name: string, detail: string, code?: string }} mode
  */
-export const forgeHeat = (summary) =>
-  v_flex()
+export const forgeMode = ({ name, detail, code }) => {
+  const k = tokens();
+  /**
+   * @param {string} label
+   * @param {string} value
+   */
+  const line = (label, value) =>
+    h_flex()
+      .gap(6)
+      .items_center()
+      .child(text(label, "display", 8, BRAND.ash))
+      .child(fill(value, "ui", 12, k.muted));
+  return h_flex()
     .flex_none()
-    .gap(4)
+    .items_center()
+    .gap(10)
     .px(14)
     .py(12)
     .bg(BRAND.glow)
-    .child(text("FORGE HEAT RISES WITH EACH GOLEM", "display", 9, BRAND.ember))
-    .child(text(summary, "ui", 12, tokens().muted));
+    .child(
+      v_flex()
+        .flex_1()
+        .min_w(0)
+        .gap(4)
+        .child(text(`MODE · ${name.toUpperCase()}`, "display", 9, BRAND.ember))
+        .when(code === undefined, (el) =>
+          el.child(fill(detail, "ui", 12, k.muted)),
+        )
+        .when(code !== undefined, (el) =>
+          el.child(line("CODE", code ?? "")).child(line("BACKLOG", detail)),
+        ),
+    )
+    .child(icon(ICON.settings, k.muted));
+};

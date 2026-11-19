@@ -10,9 +10,11 @@ import { gnomeDialog } from "./roles/gnome.js";
 import { heat } from "./roles/heat.js";
 import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
+import { modeDialog } from "./roles/mode.js";
 import { pane } from "./roles/pane.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
+import { start } from "./roles/start.js";
 import { statusbar } from "./roles/statusbar.js";
 import { toast } from "./roles/toast.js";
 import { topbar } from "./roles/topbar.js";
@@ -34,9 +36,11 @@ const ROLES = {
   heat,
   lanes,
   manual,
+  mode: modeDialog,
   pane,
   sessions,
   sidebar,
+  start,
   statusbar,
   toast,
   topbar,

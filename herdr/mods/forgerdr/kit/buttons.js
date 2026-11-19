@@ -110,6 +110,22 @@ export const paletteHint = (shortcut = "⌘K") => {
     .child(text(shortcut, "display", 11, k.muted));
 };
 
+/** The way into a forge's Start work, under its gnome, in forge gold. */
+export const startButton = () => {
+  const k = tokens();
+  return h_flex()
+    .items_center()
+    .justify_center()
+    .gap(8)
+    .px(10)
+    .py(6)
+    .bg(k.bg2)
+    .border(2)
+    .border_color(BRAND.forgeGold)
+    .child(icon(ICON.hammer, BRAND.forgeGold))
+    .child(text("START WORK", "display", 11, BRAND.forgeGold));
+};
+
 /**
  * Quiet when nothing waits on the human's mark.
  * @param {number} count
