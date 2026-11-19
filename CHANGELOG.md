@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.28.0] - 2026-11-19
+
 ### Added
 
 - The forge's own New and Remove worktree dialogs, from the `+` beside the repository in the sidebar, a forge's menu, and `forgerdr.worktree-new` and `forgerdr.worktree-remove`. New worktree takes an optional issue or work item and a title, previews the branch forgerdr names, its folder, its base and its dev server's free port as you type, and opens it as a space with a shell. Remove worktree lists the panes that close and keeps the branch; it lists the uncommitted files and offers to discard them with it, and removes nothing while a golem is at work or waiting on you there.
