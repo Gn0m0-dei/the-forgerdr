@@ -8,9 +8,12 @@
 # blocks use it. --watch keeps that copy in step with the checkout until Ctrl-C, so the app reloads the mod as it is
 # edited (the app does not see edits through a link). ctrl-shift-l switches layouts; ctrl-alt-shift-escape always goes
 # back to the app's own main layout.
-# --remove takes away what it installed (with --dev, the forgerdr-dev pieces only), except the theme, which any layout
-# may use. --switch shows the layout after.
-# Usage: forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
+# --sounds makes the app's alert sounds the forge's (settings.json "sounds"): blocked, the hammer on the anvil; done,
+# the quench. A sound of the person's own is kept and named, unless --force. Ask the person first: settings.json is
+# theirs. The mod plays its third sound itself, when a golem cracks.
+# --remove takes away what it installed (with --dev, the forgerdr-dev pieces only), the forge's sounds among them,
+# except the theme, which any layout may use. --switch shows the layout after.
+# Usage: forge-herdr-install.sh [--dev [--watch]] [--sounds] [--remove] [--force] [--switch]
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR
@@ -24,6 +27,7 @@ watch=0
 remove=0
 force=0
 switch=0
+sounds=0
 while [ $# -gt 0 ]; do
   case "$1" in
     --dev) dev=1; shift ;;
@@ -31,7 +35,8 @@ while [ $# -gt 0 ]; do
     --remove) remove=1; shift ;;
     --force) force=1; shift ;;
     --switch) switch=1; shift ;;
-    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
+    --sounds) sounds=1; shift ;;
+    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
     *) forge_die "unknown option $1" ;;
   esac
 done
@@ -151,6 +156,37 @@ check_mod() {
   forge_app check "$home/mods/$1" >/dev/null 2>&1 || forge_die "herdr-app check failed for $home/mods/$1: run it to see why"
 }
 
+settings="$home/settings.json"
+
+# A sound the mod ships, as settings.json names it: relative to the app's home.
+sound_of() { printf 'mods/%s/sounds/%s.mp3' "$1" "$2"; }
+
+# Points the app's alert sounds at a copy of the mod's, keeping a sound of the person's own unless --force.
+use_sounds() {
+  local mod="$1" alert current
+  [ -f "$settings" ] || printf '{}\n' > "$settings"
+  jq -e 'type == "object"' "$settings" >/dev/null 2>&1 || forge_die "$settings is not valid JSON; fix it first"
+  for alert in blocked done; do
+    current="$(jq -r --arg alert "$alert" '.sounds[$alert] // ""' "$settings")"
+    case "$current" in
+      ""|"mods/$MOD/sounds/"*|"mods/$DEV_MOD/sounds/"*) ;;
+      *)
+        if [ "$force" = 0 ]; then
+          printf '  kept your own %s sound: %s (--force replaces it)\n' "$alert" "$current"
+          continue
+        fi ;;
+    esac
+    forge_json_update "$settings" --arg alert "$alert" --arg sound "$(sound_of "$mod" "$alert")" '.sounds[$alert] = $sound'
+  done
+}
+
+# Takes the alert sounds that point at a copy of the mod away, so the app plays its own again.
+drop_sounds() {
+  [ -f "$settings" ] && jq -e 'type == "object"' "$settings" >/dev/null 2>&1 || return 0
+  forge_json_update "$settings" --arg from "mods/$1/sounds/" \
+    'if (.sounds | type) == "object" then .sounds |= with_entries(select((.value | type) != "string" or (.value | startswith($from) | not))) else . end'
+}
+
 report() {
   local rel
   printf 'forgerdr: %s, %d file(s) changed in %s\n' "$1" "$changed" "$home"
@@ -202,6 +238,7 @@ if [ "$dev" = 1 ] && [ "$remove" = 1 ]; then
     grep -qs "\"$DEV_MOD\"" "$home/mods/$DEV_MOD/name.js" || forge_die "$home/mods/$DEV_MOD was not made by forgerdr; left as it is"
     rm -rf "$home/mods/$DEV_MOD"
   fi
+  drop_sounds "$DEV_MOD"
   printf 'forgerdr: removed the %s layout and mod from %s\n' "$DEV_MOD" "$home"
   exit 0
 fi
@@ -215,6 +252,7 @@ if [ "$remove" = 1 ]; then
     rm -f "$manifest"
   fi
   clear_mod_folder "$home/mods/$MOD"
+  drop_sounds "$MOD"
   report "removed the $MOD layout and mod (the forge-night theme stays: any layout may use it)"
   exit 0
 fi
@@ -233,6 +271,7 @@ if [ "$dev" = 1 ]; then
   sync_dev_mod >/dev/null
   sync_dev_layout
   check_mod "$DEV_MOD"
+  [ "$sounds" = 0 ] || use_sounds "$DEV_MOD"
   [ "$switch" = 0 ] || forge_do layout.switch --name "$DEV_MOD" >/dev/null 2>&1 || true
   report "installed the $DEV_MOD layout and mod from $src"
   [ "$watch" = 1 ] || exit 0
@@ -263,5 +302,6 @@ if [ -f "$manifest" ]; then
   done < <(jq -r '.files | keys[]' "$manifest")
 fi
 check_mod "$MOD"
+[ "$sounds" = 0 ] || use_sounds "$MOD"
 [ "$switch" = 0 ] || forge_do layout.switch --name "$MOD" >/dev/null 2>&1 || true
 report "installed the $MOD layout, theme and mod"

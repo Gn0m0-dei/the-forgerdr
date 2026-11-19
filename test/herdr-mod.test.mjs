@@ -2,14 +2,17 @@
 // runtime: herdr-app check and the gallery cover that.
 // Run: node --test test/herdr-mod.test.mjs
 import { deepStrictEqual, strictEqual } from "node:assert";
+import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  crackedOf,
   forgeMood,
   forgeMoves,
   forgeState,
   groupForges,
   knownGit,
   lookKeyOf,
+  newlyCracked,
 } from "../herdr/mods/forgerdr/forges.js";
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
 import {
@@ -1542,4 +1545,35 @@ test("what forge-worktree.sh is given for a new worktree", () => {
     "Empty state",
     "#12",
   ]);
+});
+
+test("the golems an API error cracked, and the ones it cracked since the last look", () => {
+  const terminals = [
+    { address: "t1", labels: { "forge.state": "cracked" } },
+    { address: "t2", labels: {} },
+    { address: "t3" },
+    { address: "t4", labels: { "forge.state": "cracked" } },
+  ];
+  deepStrictEqual([...crackedOf(terminals)], ["t1", "t4"]);
+  deepStrictEqual(newlyCracked(new Set(["t1"]), crackedOf(terminals)), ["t4"]);
+  // Mended and cracked again, it cracks anew.
+  deepStrictEqual(newlyCracked(new Set(["t1", "t4"]), new Set(["t4", "t9"])), [
+    "t9",
+  ]);
+  deepStrictEqual(newlyCracked(new Set(["t1"]), new Set()), []);
+});
+
+test("no control is put on a bare icon or picture, where the app never wires a click", () => {
+  // The app wires the pointer only on a div, an h_flex, a v_flex or a component such as Button: a control on an svg
+  // or an image hears nothing (kit/sprites.js iconButton wraps an icon to click).
+  const roles = new URL("../herdr/mods/forgerdr/roles/", import.meta.url);
+  const bare = readdirSync(roles)
+    .filter((name) => name.endsWith(".js"))
+    .flatMap((name) => {
+      const source = readFileSync(new URL(name, roles), "utf8");
+      return [
+        ...source.matchAll(/\b(?:control|clickable)\(\s*(?:icon|svg|image)\(/g),
+      ].map((match) => `${name}: ${match[0].replace(/\s+/g, " ")}`);
+    });
+  deepStrictEqual(bare, []);
 });

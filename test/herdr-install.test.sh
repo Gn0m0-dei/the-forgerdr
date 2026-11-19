@@ -134,5 +134,34 @@ bash "$install" --dev --remove >/dev/null
 expect "--dev --remove takes the dev mod and layout" "no no" "$(exists "$dev") $(exists "$app/layouts/forgerdr-dev.json")"
 expect "leaving the checkout as it is" yes "$(exists "$sandbox/src/mods/forgerdr/main.js")"
 
+# --sounds: the app's alert sounds (settings.json) are the forge's, the person's own kept; --remove takes them away.
+settings="$app/settings.json"
+printf '{"zoom":1,"sounds":{"enabled":true}}\n' > "$settings"
+bash "$install" --sounds >/dev/null
+expect "the forge's sounds for both alerts" "mods/forgerdr/sounds/blocked.mp3 mods/forgerdr/sounds/done.mp3" \
+  "$(jq -r '"\(.sounds.blocked) \(.sounds.done)"' "$settings")"
+expect "shipped with the mod" "yes yes yes" \
+  "$(exists "$app/mods/forgerdr/sounds/blocked.mp3") $(exists "$app/mods/forgerdr/sounds/done.mp3") $(exists "$app/mods/forgerdr/sounds/cracked.mp3")"
+expect "the rest of the person's settings stay" "1 true" "$(jq -r '"\(.zoom) \(.sounds.enabled)"' "$settings")"
+jq '.sounds.blocked = "sounds/my-bell.mp3"' "$settings" > "$sandbox/s" && mv "$sandbox/s" "$settings"
+out="$(bash "$install" --sounds)"
+expect "a sound of the person's own is kept" "sounds/my-bell.mp3" "$(jq -r '.sounds.blocked' "$settings")"
+expect "and named" yes "$(contains "$out" "kept your own blocked sound: sounds/my-bell.mp3")"
+bash "$install" --sounds --force >/dev/null
+expect "unless --force" "mods/forgerdr/sounds/blocked.mp3" "$(jq -r '.sounds.blocked' "$settings")"
+bash "$install" >/dev/null
+expect "an install without --sounds leaves them as they are" "mods/forgerdr/sounds/done.mp3" "$(jq -r '.sounds.done' "$settings")"
+jq '.sounds.done = "sounds/my-chime.mp3"' "$settings" > "$sandbox/s" && mv "$sandbox/s" "$settings"
+bash "$install" --remove >/dev/null
+expect "--remove takes the forge's sounds away, and keeps the person's own" '{"enabled":true,"done":"sounds/my-chime.mp3"}' \
+  "$(jq -c '.sounds' "$settings")"
+bash "$install" --dev --sounds >/dev/null
+expect "--dev points them at the dev copy" "mods/forgerdr-dev/sounds/blocked.mp3" "$(jq -r '.sounds.blocked' "$settings")"
+bash "$install" --dev --remove >/dev/null
+expect "and --dev --remove takes those" null "$(jq -c '.sounds.blocked' "$settings")"
+printf '{ "zoom": 1, // a comment\n}\n' > "$settings"
+expect "settings that are not plain JSON are refused" 1 "$(status_of bash "$install" --sounds)"
+expect "and left as they were" yes "$(contains "$(cat "$settings")" "// a comment")"
+
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

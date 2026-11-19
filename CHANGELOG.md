@@ -6,6 +6,14 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forge's sounds: `bin/forge-herdr-install.sh --sounds` makes the app's alerts the hammer working the piece on the anvil (blocked) and the hiss of a quench (done), keeping a sound of the person's own unless `--force`; `--remove` takes them away. The mod sounds a golem's crack when an API error breaks it, while the app's sounds are on. Synthesised by `herdr/tools/sounds.mts`, with no one else's licence, and offered by `/forgerdr:setup`.
+
+### Fixed
+
+- The ✕ of a forge tab, a session tab, a pane's header and the forge heat and manual dialogs, and the chevron that folds the sidebar, did nothing: they were controls on a bare icon, an svg, where the app never wires a click. They are icons wrapped in a div now (`iconButton`), and a test fails on a control put on a bare icon. A control also stops its click as the app's own buttons do, so a ✕ no longer sets off the tab or header under it, and a session tab acts on a release only when the press started on it.
+
 ## [0.28.0] - 2026-11-19
 
 ### Added

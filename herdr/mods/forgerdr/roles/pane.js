@@ -5,7 +5,7 @@ import { div } from "gpui-kit";
 import { home, panes, props, run } from "herdr";
 import { control } from "../kit/control.js";
 import { paneHeader } from "../kit/panels.js";
-import { ICON, icon } from "../kit/sprites.js";
+import { ICON, iconButton } from "../kit/sprites.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import {
   folderLabel,
@@ -32,7 +32,7 @@ export const pane = () => {
     return paneHeader({
       close: hovered
         ? control(
-            icon(ICON.close, tokens().muted),
+            iconButton(ICON.close, tokens().muted),
             `pane-close-${me.pane}`,
             () => run("pane.close", { pane: me.pane }),
           )

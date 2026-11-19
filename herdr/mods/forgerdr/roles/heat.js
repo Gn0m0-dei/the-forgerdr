@@ -8,7 +8,7 @@ import { checking, closeOverlay, props } from "herdr";
 import { readHistory, readUsage, watchUsage } from "../bridges/usage.js";
 import { control } from "../kit/control.js";
 import { historyBars, steppedBar } from "../kit/meters.js";
-import { ICON, icon } from "../kit/sprites.js";
+import { ICON, icon, iconButton } from "../kit/sprites.js";
 import { text } from "../kit/text.js";
 import { BRAND, tokens, toneColour } from "../kit/tokens.js";
 import {
@@ -144,7 +144,7 @@ export const heat = (cx) => {
           .child(div().flex_1())
           .child(text("Claude subscription · OAuth", "ui", 12, k.muted))
           .child(
-            control(icon(ICON.close, k.muted), "heat-close", () =>
+            control(iconButton(ICON.close, k.muted), "heat-close", () =>
               closeOverlay(readProps()?.overlay ?? ""),
             ),
           ),

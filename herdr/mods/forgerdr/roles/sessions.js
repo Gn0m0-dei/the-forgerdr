@@ -20,7 +20,7 @@ import { lanesOpen } from "../bridges/lanes.js";
 import { enabledPanels, layoutNode } from "../bridges/layout.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { control } from "../kit/control.js";
-import { ICON, icon } from "../kit/sprites.js";
+import { ICON, icon, iconButton } from "../kit/sprites.js";
 import { addTab, dropMark, panelToggle, sessionTab } from "../kit/tabs.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import { lanesHeight, spaceLanes } from "../lanes.js";
@@ -213,8 +213,10 @@ export const sessions = (cx) => {
     return sessionTab({
       active: tab.active,
       close: tab.active
-        ? control(icon(ICON.close, k.muted), `session-close-${tab.id}`, () =>
-            run("tab.close", { id: tab.id }),
+        ? control(
+            iconButton(ICON.close, k.muted),
+            `session-close-${tab.id}`,
+            () => run("tab.close", { id: tab.id }),
           )
         : undefined,
       icon: PROGRAM_ICON[programKind(lead?.program)],
@@ -241,7 +243,10 @@ export const sessions = (cx) => {
         cx.notify();
       })
       .on_mouse_up("left", (_event, cx) => {
-        if (drag.from !== null && drag.from !== tab.id) {
+        // Only a press that started on a tab acts: one on its ✕ is the ✕'s (it closes the tab), as the app's tab bar
+        // does it.
+        if (drag.from === null) return;
+        if (drag.from !== tab.id) {
           run("tab.move", { id: drag.from, index: tab.index });
         } else {
           run("tab.select", { id: tab.id });

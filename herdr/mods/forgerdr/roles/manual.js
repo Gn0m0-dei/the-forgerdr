@@ -4,7 +4,7 @@ import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, closeOverlay, props, readTextFile } from "herdr";
 import { control } from "../kit/control.js";
-import { ICON, icon } from "../kit/sprites.js";
+import { ICON, iconButton } from "../kit/sprites.js";
 import { text } from "../kit/text.js";
 import { BRAND, FONT, tokens } from "../kit/tokens.js";
 import { ROOT } from "../name.js";
@@ -57,7 +57,7 @@ export const manual = (cx) => {
           .border_color(k.line)
           .child(text("THE SMITH'S MANUAL", "display", 10, BRAND.forgeGold))
           .child(
-            control(icon(ICON.close, k.muted), "manual-close", () =>
+            control(iconButton(ICON.close, k.muted), "manual-close", () =>
               closeOverlay(readProps()?.overlay ?? ""),
             ),
           ),

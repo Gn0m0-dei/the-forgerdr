@@ -27,7 +27,7 @@ import { startButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
-import { gnome, golem, ICON, icon } from "../kit/sprites.js";
+import { gnome, golem, ICON, icon, iconButton } from "../kit/sprites.js";
 import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
 import { parentOf } from "../lanes.js";
@@ -89,7 +89,10 @@ const clickable = (element, id, action) =>
   element
     .id(id)
     .cursor_pointer()
-    .on_click(() => action());
+    .on_click((_event, cx) => {
+      cx.stop_propagation();
+      action();
+    });
 
 /**
  * A row that stands for a space, as the app's own space list does: a click shows it, a double click renames it and a
@@ -456,7 +459,7 @@ export const sidebar = (cx) => {
           })
           .child(
             clickable(
-              icon(ICON.chevronLeft, k.muted),
+              iconButton(ICON.chevronLeft, k.muted),
               "sidebar-fold",
               foldSidebar,
             )

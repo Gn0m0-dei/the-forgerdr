@@ -1,11 +1,12 @@
 // The window's top bar (design 04): a forge tab per repository (its main checkout and its worktrees, which the sidebar
 // lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
-// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not. A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
+// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
+// A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
 // else its main checkout's): a click shows it, its ✕ or a middle click closes it (the app confirms), and a right click
 // opens its menu: the dialog of its gnome (roles/gnome.js), then what the app's space menu does (rename, worktrees,
 // close). A double click renames the forge, which bears its main checkout's name, and dragging a forge onto another
 // moves its spaces there together. When the tabs do not fit, the strip scrolls under the trackpad and with the arrows
-// beside it.
+// beside it. The bar, always shown, also sounds the crack of a golem an API error breaks (bridges/sounds.js).
 import { h_flex, ScrollHandle } from "gpui-base";
 import { agents, checking, keys, nextCommand, run, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
@@ -14,13 +15,21 @@ import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
 import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
+import { playCracked } from "../bridges/sounds.js";
 import { readTerminals } from "../bridges/terminals.js";
-import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
+import {
+  crackedOf,
+  forgeMoves,
+  forgeState,
+  groupForges,
+  lookKeyOf,
+  newlyCracked,
+} from "../forges.js";
 import { keyLabel } from "../format.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
-import { ICON, icon } from "../kit/sprites.js";
+import { ICON, iconButton } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
 import { scrollTarget, stripState } from "../strip.js";
@@ -83,6 +92,22 @@ export const topbar = (cx) => {
           cx.notify();
         }
       });
+  // A golem an API error cracks sounds its crack (bridges/sounds.js), once: the golems cracked at the first look, from
+  // before this copy started, do not.
+  /** @type {Set<string> | null} */
+  let crackedBefore = null;
+  const cracks = checking()
+    ? null
+    : cx.timer.every(1000, () => {
+        const now = crackedOf(readTerminals());
+        if (
+          crackedBefore !== null &&
+          newlyCracked(crackedBefore, now).length > 0
+        )
+          playCracked();
+        crackedBefore = now;
+      });
+
   // What a copy knows of its strip: each tab's width, the strip's width and how far it is scrolled, kept in step with
   // the trackpad, the arrows and the active forge, since the app's scroll handle tells neither.
   /** @type {Map<string, number>} by forge key */
@@ -191,7 +216,7 @@ export const topbar = (cx) => {
     const active = shown.active;
     const key = lookKeyOf(forge);
     const close = control(
-      icon(ICON.close, tokens().muted),
+      iconButton(ICON.close, tokens().muted),
       `forge-close-${forge.key}`,
       () => closeSpace(shown.id),
     );
@@ -272,11 +297,7 @@ export const topbar = (cx) => {
     const forges = groupForges(all, readSpacesGit());
     const everyone = agents();
     // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
-    const cracked = new Set(
-      readTerminals()
-        .filter((terminal) => terminal.labels?.["forge.state"] === "cracked")
-        .map((terminal) => terminal.address),
-    );
+    const cracked = crackedOf(readTerminals());
     const waiting = everyone.filter((agent) => agent.status === "blocked");
     const palette = keys().find((binding) => binding.action === "app.palette");
     const order = [...forges.map((forge) => forge.key), ADD_TAB];
@@ -388,6 +409,7 @@ export const topbar = (cx) => {
   return {
     close: () => {
       commands?.cancel();
+      cracks?.cancel();
       strip.release();
     },
     render,

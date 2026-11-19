@@ -141,6 +141,17 @@ export const icon = (name, colour, scale = 1) =>
     .h(12 * scale)
     .text_color(colour);
 
+/**
+ * An icon to click, as a ✕ or a chevron: wrapped in a div, because the app wires the pointer only on a div, an
+ * h_flex, a v_flex or a component such as Button, never on an svg, so a control put on a bare icon never hears a
+ * click. The padding gives the pointer a little more room than the icon's 12 pixels.
+ * @param {IconName} name
+ * @param {Color} colour
+ * @param {number} [pad]
+ */
+export const iconButton = (name, colour, pad = 3) =>
+  div().flex_none().p(pad).child(icon(name, colour));
+
 /** @param {GnomeLook} [look] */
 export const gnome = ({
   accessory = ACCESSORY.none,

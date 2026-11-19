@@ -152,3 +152,22 @@ export const forgeMood = (agents) => {
     }[mood] ?? "idle";
   return `${word} · ${agents.length} ${agents.length === 1 ? "golem" : "golems"}`;
 };
+
+/**
+ * The golems an API error cracked: the terminals hooks/golem-state.sh labels so, by address.
+ * @param {{ address: string, labels?: Record<string, string> }[]} terminals
+ */
+export const crackedOf = (terminals) =>
+  new Set(
+    terminals
+      .filter((terminal) => terminal.labels?.["forge.state"] === "cracked")
+      .map((terminal) => terminal.address),
+  );
+
+/**
+ * The golems cracked now and not at the last look, in their order now.
+ * @param {Set<string>} before
+ * @param {Set<string>} now
+ */
+export const newlyCracked = (before, now) =>
+  [...now].filter((address) => !before.has(address));
