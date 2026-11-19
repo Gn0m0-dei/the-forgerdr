@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.26.0] - 2026-11-19
+
 ### Added
 
 - The gnome's dialog, so each project keeps a face of its own: its name, each part (hat, colour, eyes, beard, accessory) turned by hand through its options with a live preview, a re-roll for a whole new gnome and the way back to the one its repository rolls. What you keep lasts across restarts, by the repository (by the space outside git). A double click on the sidebar's gnome opens it.
