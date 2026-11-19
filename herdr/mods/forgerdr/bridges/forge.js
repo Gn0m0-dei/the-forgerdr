@@ -1,17 +1,24 @@
 // What forgerdr's scripts know of a forge and the app does not: its origin, project key and mode, its OpenSpec changes
-// and stores (bin/forge-start.sh), and its settings (bin/forge-config.sh). Every answer is JSON, an error object when
-// something cannot be read or done; the format is tested from bash (test/forge-start.test.sh). Saving a mode bumps a
-// shared key, so the sidebar reads the forge again at once.
+// and stores (bin/forge-start.sh), its settings (bin/forge-config.sh), and its worktrees, planned, made and removed
+// (bin/forge-worktree.sh, bin/forge-worktree-remove.sh). Every answer is JSON, an error object when something cannot be
+// read or done; the format is tested from bash (test/forge-start.test.sh, test/herdr-app.test.sh). Saving a mode bumps
+// a shared key, so the sidebar reads the forge again at once.
 import { exec, setShared, shared } from "herdr";
 import { ROOT } from "../name.js";
+import { folderOf, worktreeArgs } from "../worktrees.js";
 
 /** @typedef {import("../modes.js").ModeInfo} ModeInfo */
+/** @typedef {import("../worktrees.js").WorktreeForm} WorktreeForm */
 
 const SCRIPT = Object.freeze({
   config: `${ROOT}/bin/forge-config.sh`,
   prompt: `${ROOT}/bin/forge-prompt.sh`,
+  remove: `${ROOT}/bin/forge-worktree-remove.sh`,
   start: `${ROOT}/bin/forge-start.sh`,
   timeout: 60_000,
+  // Making or removing a worktree fetches, checks out and deletes a whole tree.
+  treeTimeout: 600_000,
+  worktree: `${ROOT}/bin/forge-worktree.sh`,
 });
 
 // The tab that opens reviews from URLs, as the review key does.
@@ -25,6 +32,23 @@ const MODES_KEY = "forgerdr.modes.saved";
  */
 
 /** @typedef {{ name: string, done: number, total: number, status: string }} Change */
+
+/**
+ * What forge-worktree.sh --plan says a new worktree would be: its branch, its folder, the base and the ref it starts
+ * from, its dev server and port ("" without one) and which worktree of the forge it would be.
+ * @typedef {{ branch: string, path: string, base: string, from: string, dev: string, port: string, worktrees: number }} WorktreePlan
+ */
+
+/**
+ * What forge-worktree.sh made: the branch, the folder, the space it opened and its dev server's port ("" without one).
+ * @typedef {{ branch: string, path: string, space: string, port: string }} MadeWorktree
+ */
+
+/**
+ * What forge-worktree-remove.sh --plan says of the worktree a folder is in: its top, its branch and its uncommitted
+ * files.
+ * @typedef {{ path: string, branch: string, changes: string[] }} RemovalPlan
+ */
 
 /**
  * An answer as it loads, or why it could not: its fix, and for a folder without OpenSpec whether a store can be made
@@ -45,26 +69,30 @@ const isError = (value) =>
   "error" in value;
 
 /**
+ * Why a script failed: the first line it wrote to stderr, without the "forgerdr: " its messages start with.
+ * @param {string} stderr
+ * @param {string} script
+ */
+const failure = (stderr, script) =>
+  stderr
+    .split("\n")
+    .find(Boolean)
+    ?.replace(/^forgerdr: /, "") ?? `${script.split("/").at(-1)} failed`;
+
+/**
  * Runs one of forgerdr's scripts for its JSON answer.
  * @template T
  * @param {string} script
  * @param {string[]} args
  * @param {string} cwd
+ * @param {number} [timeout]
  * @returns {Promise<Loaded<T>>}
  */
-const answer = async (script, args, cwd) => {
+const answer = async (script, args, cwd, timeout = SCRIPT.timeout) => {
   try {
-    const result = await exec("bash", [script, ...args], {
-      cwd,
-      timeout: SCRIPT.timeout,
-    });
+    const result = await exec("bash", [script, ...args], { cwd, timeout });
     if (result.code !== 0)
-      return {
-        error:
-          result.stderr.split("\n").find(Boolean) ??
-          `${args[0] ?? script} failed`,
-        state: "error",
-      };
+      return { error: failure(result.stderr, script), state: "error" };
     /** @type {unknown} */
     const parsed = JSON.parse(result.stdout);
     if (isError(parsed))
@@ -112,6 +140,25 @@ export const setupStore = (folder) =>
   answer(SCRIPT.start, ["setup", folder], folder);
 
 /**
+ * Runs one of forgerdr's scripts for what it does; null once done, else why not.
+ * @param {string} script
+ * @param {string[]} args
+ * @param {{ cwd?: string, timeout?: number }} [options]
+ * @returns {Promise<string | null>}
+ */
+const ran = async (script, args, options = {}) => {
+  try {
+    const result = await exec("bash", [script, ...args], {
+      timeout: SCRIPT.timeout,
+      ...options,
+    });
+    return result.code === 0 ? null : failure(result.stderr, script);
+  } catch (error) {
+    return String(error);
+  }
+};
+
+/**
  * Keeps a forge's mode, and for Azure DevOps its backlog ("-" when it is its repository's); null once kept, else why
  * not.
  * @param {string} key the forge's memory project key
@@ -121,18 +168,7 @@ export const setupStore = (folder) =>
  */
 export const keepMode = async (key, mode, backlog) => {
   /** @param {string[]} args */
-  const set = async (args) => {
-    try {
-      const result = await exec("bash", [SCRIPT.config, "set", ...args, key], {
-        timeout: SCRIPT.timeout,
-      });
-      return result.code === 0
-        ? null
-        : (result.stderr.split("\n").find(Boolean) ?? "forge-config.sh failed");
-    } catch (error) {
-      return String(error);
-    }
-  };
+  const set = (args) => ran(SCRIPT.config, ["set", ...args, key]);
   const failed =
     (backlog === undefined ? null : await set(["backlog", backlog])) ??
     (await set(["mode", mode]));
@@ -157,3 +193,46 @@ export const modesSaved = () => {
   const saved = shared(MODES_KEY);
   return typeof saved === "number" ? saved : 0;
 };
+
+/**
+ * What a new worktree would be, without making it.
+ * @param {WorktreeForm} form
+ * @returns {Promise<Loaded<WorktreePlan>>}
+ */
+export const planWorktree = (form) =>
+  answer(SCRIPT.worktree, worktreeArgs(form, true), form.repo);
+
+/**
+ * Makes a new worktree, opened as a space with a shell (and its dev server unless the form says not).
+ * @param {WorktreeForm} form
+ * @returns {Promise<Loaded<MadeWorktree>>}
+ */
+export const makeWorktree = (form) =>
+  answer(
+    SCRIPT.worktree,
+    worktreeArgs(form, false),
+    form.repo,
+    SCRIPT.treeTimeout,
+  );
+
+/**
+ * What removing the worktree a folder is in would do.
+ * @param {string} folder
+ * @returns {Promise<Loaded<RemovalPlan>>}
+ */
+export const planRemoval = (folder) =>
+  answer(SCRIPT.remove, ["--plan", folder], folder);
+
+/**
+ * Removes a worktree and closes its spaces; its branch stays. With discard its uncommitted work is thrown away; the
+ * script still refuses while an agent is at work in one of its spaces. Null once removed, else why not.
+ * @param {string} path its top, as planRemoval says it
+ * @param {boolean} discard
+ * @returns {Promise<string | null>}
+ */
+export const removeWorktree = (path, discard) =>
+  ran(SCRIPT.remove, [...(discard ? ["--discard"] : []), path], {
+    // Never from inside it: the script refuses to remove the folder it runs in.
+    cwd: folderOf(path),
+    timeout: SCRIPT.treeTimeout,
+  });

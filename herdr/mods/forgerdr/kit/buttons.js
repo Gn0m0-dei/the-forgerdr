@@ -11,6 +11,7 @@ export const KEY_BUTTON = Object.freeze({
   primary: "primary",
   secondary: "secondary",
   stamp: "stamp",
+  warn: "warn",
 });
 
 /** @typedef {typeof KEY_BUTTON[keyof typeof KEY_BUTTON]} KeyButtonKind */
@@ -22,7 +23,8 @@ export const KEY_BUTTON = Object.freeze({
  */
 
 /**
- * primary is the accent, stamp the human's mark in forge gold; secondary shows the key that also does it.
+ * primary is the accent, stamp the human's mark in forge gold, warn what throws work away; secondary shows the key that
+ * also does it.
  * @param {KeyButtonKind} kind
  * @param {string} label
  * @param {KeyButtonExtra} [extra]
@@ -54,6 +56,13 @@ export const keyButton = (kind, label, { key, icon: glyph } = {}) => {
     stamp: {
       bg: k.done,
       border: k.done,
+      ink: k.onAccent,
+      keyBorder: BRAND.inkSoft,
+      keyInk: k.onAccent,
+    },
+    warn: {
+      bg: k.needs,
+      border: k.needs,
       ink: k.onAccent,
       keyBorder: BRAND.inkSoft,
       keyInk: k.onAccent,

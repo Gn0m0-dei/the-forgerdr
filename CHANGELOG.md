@@ -6,6 +6,29 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The forge's own New and Remove worktree dialogs, from the `+` beside the repository in the sidebar, a forge's menu, and `forgerdr.worktree-new` and `forgerdr.worktree-remove`. New worktree takes an optional issue or work item and a title, previews the branch forgerdr names, its folder, its base and its dev server's free port as you type, and opens it as a space with a shell. Remove worktree lists the panes that close and keeps the branch; it lists the uncommitted files and offers to discard them with it, and removes nothing while a golem is at work or waiting on you there.
+- `Start the dev servers` in Start work when the items start in worktrees, and `--no-dev` for `/forgerdr:worktree` and `bin/forge-worktree.sh`.
+- `--plan` for `bin/forge-worktree.sh` and `bin/forge-worktree-remove.sh`, which say what a run would make and make nothing, and `--kind feature|fix` with `--title`, which names an item's branch without asking the provider.
+- Three more branch kinds, as Conventional Branch names them, picked by hand in the New worktree dialog or with `--kind`: `chore`, `hotfix` (from the production branch, `main` or `master`, instead of the base) and `release` (named by its version, `release/v1.2.0`). The skills still name an item's branch `fix` or `feature`, and open a `hotfix/` or `release/` branch's pull request to the production branch, then one back into the base.
+- `--discard` for `bin/forge-worktree-remove.sh`: it throws uncommitted work away and, unlike `--force`, still refuses while an agent is at work in one of the worktree's spaces.
+- Icons for a new worktree and for removing one, in the icons' pixel style.
+
+### Changed
+
+- A right click on a checkout's row of the sidebar opens the forge's menu on that space, with forgerdr's worktree dialogs, instead of the app's space menu.
+- A worktree's dev server gets the first free port from 3000, so it no longer takes the main clone's.
+- `bin/forge-worktree.sh` and `bin/forge-worktree-remove.sh` open and close the app's spaces whenever the app answers, also from outside its terminals, and a worktree given as `--repo` stands for its repository.
+
+### Fixed
+
+- Branch names from a title failed in a shell with no UTF-8 locale, as the herdr app runs its mods' commands: `forge_slug` now spells accented letters in ASCII in any locale.
+- A branch that versions a symlink where the clone keeps an ignored env file, or in its way, could have the env file written outside the new worktree: the copy now skips it and names it.
+- Removing a worktree could close a space of another machine open on the same path: only this machine's spaces are closed.
+- An item id typed in lowercase (`ab#12`) named no branch.
+- An item typed as forgerdr writes one of an external backlog, `EXT-231`, was refused: it names an `EXT-231` branch.
+
 ## [0.27.0] - 2026-11-19
 
 ### Added

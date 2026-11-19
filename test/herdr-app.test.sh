@@ -187,6 +187,38 @@ expect "several sessions take --group" 1 "$(status_of in_herdr bash "$bin/forge-
 expect "each title takes one prompt" 1 "$(status_of in_herdr bash "$bin/forge-session.sh" --group g --title a x --title b)"
 expect "a group's tabs are shown while they fill" 1 "$(status_of in_herdr bash "$bin/forge-session.sh" --no-focus --group g --title a x)"
 
+# A dev server's port: the first one nothing listens on, on any address of this machine.
+listen() {
+  python3 -c 'import socket, sys, time
+family = socket.AF_INET6 if sys.argv[1] == "::1" else socket.AF_INET
+s = socket.socket(family)
+s.bind((sys.argv[1], 0))
+s.listen()
+print(s.getsockname()[1], flush=True)
+time.sleep(60)' "$1" > "$sandbox/port" 2>/dev/null &
+  listener=$!
+  for _ in $(seq 1 50); do [ -s "$sandbox/port" ] && break; ! kill -0 "$listener" 2>/dev/null && break; sleep 0.1; done
+}
+: > "$sandbox/port"
+listen 127.0.0.1
+busy="$(cat "$sandbox/port")"
+expect "a port something listens on is skipped" yes "$([ "$(forge_free_port "$busy")" -gt "$busy" ] && echo yes || echo no)"
+kill "$listener"; wait "$listener" 2>/dev/null || true
+expect "a free port is taken as it is" "$busy" "$(forge_free_port "$busy")"
+: > "$sandbox/port"
+listen ::1
+if [ -s "$sandbox/port" ]; then
+  busy="$(cat "$sandbox/port")"
+  expect "so is one that listens on ::1 only" yes "$([ "$(forge_free_port "$busy")" -gt "$busy" ] && echo yes || echo no)"
+fi
+kill "$listener" 2>/dev/null; wait "$listener" 2>/dev/null || true
+
+expect "the app answers" 0 "$(status_of forge_app_answers)"
+expect "or not" 1 "$(FAKE_APP_DOWN=1 status_of forge_app_answers)"
+printf '{"spaces":[{"id":"sp-top","folder":"/w/tree","machine":null},{"id":"sp-in","folder":"/w/tree/src"},{"id":"sp-next","folder":"/w/tree-2"},{"id":"sp-far","folder":"/w/tree","machine":"box"}]}\n' > "$FAKE_DIR/ls.json"
+expect "the spaces on a worktree are this machine's on its folder or inside it" "sp-top sp-in" "$(forge_spaces_of /w/tree | paste -sd ' ' -)"
+rm "$FAKE_DIR/ls.json"
+
 # forge-worktree.sh: the worktree where the app puts its own, opened as a space, the dev server in a second tab.
 printf 'A=1\n' > "$repo/.env.local"
 printf '{"scripts":{"dev":"vite"}}\n' > "$repo/package.json"
@@ -215,7 +247,113 @@ expect "an item whose worktree path is taken stops before anything is made" 1 \
 expect "no space was opened" no "$(called herdr-app "do" space.new)"
 expect "no branch was made" "" "$(git -C "$repo" branch --list feature/login-2)"
 
+# The New worktree dialog's way: --plan says what a run would make and makes nothing; --kind names the branch from the
+# kind, the item's id and the title, without asking the provider.
+fakes_reset
+plan="$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title "Empty state on orders" '#1234')"
+expect "the plan names the branch from the kind, the id and the title" "feature/#1234-empty-state-on-orders" "$(jq -r .branch <<<"$plan")"
+expect "where it goes" "$HOME/.herdr/worktrees/front/feature-#1234-empty-state-on-orders" "$(jq -r .path <<<"$plan")"
+expect "its base and the ref it starts from" "main origin/main" "$(jq -r '"\(.base) \(.from)"' <<<"$plan")"
+expect "its dev server" "pnpm dev" "$(jq -r .dev <<<"$plan")"
+expect "on a port from 3000" yes "$([ "$(jq -r .port <<<"$plan")" -ge 3000 ] && echo yes || echo no)"
+expect "which worktree of the forge it is" 4 "$(jq -r .worktrees <<<"$plan")"
+expect "nothing was made" "no" "$(exists "$(jq -r .path <<<"$plan")")$(git -C "$repo" branch --list 'feature/#1234-*')"
+expect "no space was opened" no "$(called herdr-app "do" space.new)"
+expect "a worktree's folder stands for its repository" "$HOME/.herdr/worktrees/front/fix-#7-crash" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$path" --kind fix --title Crash 7 | jq -r .path)"
+expect "an item of another Azure DevOps organization is EXT" "feature/EXT-55-login-button" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title "Login button" https://dev.azure.com/other/P/_workitems/edit/55 | jq -r .branch)"
+expect "an item typed EXT-<id> is of an external backlog, whatever the mode" "fix/EXT-231-login-button" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind fix --title "Login button" ext-231 | jq -r .branch)"
+git -C "$repo" branch -q 'feature/#12-our-own' origin/main
+git -C "$repo" branch -q 'fix/EXT-13-theirs' origin/main
+expect "an EXT item never reuses the branch of our own item with its number" "feature/EXT-12-x" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title x EXT-12 | jq -r .branch)"
+expect "nor ours an EXT one's" "feature/#13-x" "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title x 13 | jq -r .branch)"
+expect "while each still reuses its own" "feature/#12-our-own fix/EXT-13-theirs" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title x 12 | jq -r .branch) $(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title x EXT-13 | jq -r .branch)"
+git -C "$repo" branch -q -D 'feature/#12-our-own' 'fix/EXT-13-theirs'
+expect "EXT- with more than a number is no item of an external backlog" 1 "$(status_of forge_item_external 'EXT-12 x' "$repo")"
+expect "with no item, the kind and the title" "feature/tidy-the-docs" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title "Tidy the docs" "" | jq -r .branch)"
+git -C "$repo" branch -q 'fix/#42-old-name' origin/main
+plan="$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind feature --title "New name" 42)"
+expect "a branch that carries the id is reused, from itself" "fix/#42-old-name fix/#42-old-name" "$(jq -r '"\(.branch) \(.from)"' <<<"$plan")"
+git -C "$repo" branch -q -D 'fix/#42-old-name'
+expect "--no-dev starts no dev server" '"" ""' "$(bash "$bin/forge-worktree.sh" --plan --no-dev --repo "$repo" --kind fix --title a 1 | jq -c '.dev, .port' | paste -sd ' ' -)"
+: > "$sandbox/port"
+listen 127.0.0.1
+busy="$(cat "$sandbox/port")"
+expect "a port something listens on is skipped" yes \
+  "$([ "$(bash "$bin/forge-worktree.sh" --plan --port-base "$busy" --repo "$repo" --kind fix --title a 1 | jq -r .port)" -gt "$busy" ] && echo yes || echo no)"
+kill "$listener"; wait "$listener" 2>/dev/null || true
+git clone -q --bare "$sandbox/origin.git" "$sandbox/bare.git"
+git -C "$sandbox/bare.git" worktree add -q "$sandbox/bare-main" main 2>/dev/null
+expect "a worktree of a bare repository stands for itself" "$HOME/.herdr/worktrees/bare-main/fix-#3-x" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/bare-main" --kind fix --title x 3 | jq -r .path)"
+mkdir -p "$sandbox/plain" "$sandbox/bare-main/src"
+expect "a folder outside git is refused" "1 yes" \
+  "$(status_of bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/plain" --kind fix --title x 3) $( (bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/plain" --kind fix --title x 3 2>&1 || true) | grep -q 'is not in a git repository' && echo yes)"
+expect "and a folder inside a bare repository's worktree stands for that worktree" "$HOME/.herdr/worktrees/bare-main/fix-#3-x" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/bare-main/src" --kind fix --title x 3 | jq -r .path)"
+expect "a title that gives no slug is refused" 1 "$(status_of bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind fix --title '!!!' 1)"
+expect "a kind forgerdr does not name is refused" 1 "$(status_of bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind docs --title a 1)"
+# The production branch a hotfix starts from: origin's main, else its master.
+git init -q "$sandbox/prod" && git -C "$sandbox/prod" commit -q --allow-empty -m init
+git -C "$sandbox/prod" update-ref refs/remotes/origin/master HEAD
+expect "with no main, the production branch is master" master "$(forge_production_branch "$sandbox/prod")"
+git -C "$sandbox/prod" update-ref refs/remotes/origin/main HEAD
+expect "main when there is one" main "$(forge_production_branch "$sandbox/prod")"
+# The kinds' bases: chore and release from develop, as feature and fix; hotfix from the production branch.
+git -C "$repo" update-ref refs/remotes/origin/develop origin/main
+plan_of() { bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind "$1" --title "$2" "$3" | jq -r '"\(.branch) \(.base)"'; }
+expect "a chore, from develop" "chore/#7-update-dependencies develop" "$(plan_of chore "Update dependencies" 7)"
+expect "a hotfix, from the production branch" "hotfix/#8-login-crash main" "$(plan_of hotfix "Login crash" 8)"
+expect "where it starts" "origin/main" "$(bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind hotfix --title "Login crash" 8 | jq -r .from)"
+expect "a release with an item carries its id" "release/#12-v1.2.0 develop" "$(plan_of release v1.2.0 12)"
+expect "a branch name git refuses shows in the plan" "1 yes" \
+  "$(status_of bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind release --title 1.2.lock "") $( (bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind release --title 1.2.lock "" 2>&1 || true) | grep -q 'not a branch name git takes' && echo yes)"
+expect "a release, from develop and named by its version" "release/v1.2.0 develop" "$(plan_of release v1.2.0 "")"
+expect "a feature still from develop" "feature/#9-x develop" "$(plan_of feature x 9)"
+git -C "$repo" update-ref -d refs/remotes/origin/develop
+expect "and --kind without --title" 1 "$(status_of bash "$bin/forge-worktree.sh" --plan --repo "$repo" --kind fix 1)"
+fakes_reset
+out="$(bash "$bin/forge-worktree.sh" --repo "$repo" --no-agent --no-dev --kind fix --title "Crash on save" 9)"
+expect "out of the app's terminals, as its mods run it, it makes one too" "fix/#9-crash-on-save" "$(jq -r .branch <<<"$out")"
+expect "with no dev server when told" no "$(called herdr-app "do" tab.new)"
+expect "its space named after the item" "#9 crash-on-save" "$(call_of herdr-app "do" space.new | option_of --name)"
+expect "with a shell tab named by the app" no "$(call_of herdr-app "do" space.new | has_arg --tab)"
+expect "but not while the app does not answer" 1 \
+  "$(FAKE_APP_DOWN=1 status_of bash "$bin/forge-worktree.sh" --repo "$repo" --no-agent --kind fix --title Other 10)"
+expect "and then makes no branch" "" "$(git -C "$repo" branch --list 'fix/#10-*')"
+made_path="$(jq -r .path <<<"$out")"
+
 # forge-worktree-remove.sh: the space closes first, the worktree goes, the branch stays.
+# The Remove worktree dialog's way: --plan says which worktree a folder is in, its branch and its uncommitted files.
+echo change > "$made_path/new file.txt"
+mkdir -p "$made_path/src"
+plan="$(bash "$bin/forge-worktree-remove.sh" --plan "$made_path/src")"
+expect "the plan names the worktree a folder is in, and its branch" "$made_path fix/#9-crash-on-save" "$(jq -r '"\(.path) \(.branch)"' <<<"$plan")"
+expect "and its uncommitted files" '["new file.txt"]' "$(jq -c .changes <<<"$plan")"
+expect "the main checkout has no plan" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" --plan "$repo")"
+rm "$made_path/new file.txt"
+rmdir "$made_path/src"
+expect "a clean worktree has none" '[]' "$(bash "$bin/forge-worktree-remove.sh" --plan "$made_path" | jq -c .changes)"
+expect "a plan is told from inside the worktree too, as the dialog asks it" '[]' \
+  "$(cd "$made_path" && bash "$bin/forge-worktree-remove.sh" --plan . | jq -c .changes)"
+printf '{"spaces":[{"id":"sp-made","folder":"%s","tabs":[{"id":"tb-made","terminals":[{"terminal":"t21","status":"idle","sub_agents":[]}]}]}]}\n' "$made_path" > "$FAKE_DIR/ls.json"
+echo change > "$made_path/new.txt"
+printf '{"spaces":[{"id":"sp-made","folder":"%s","tabs":[{"id":"tb-made","terminals":[{"terminal":"t21","status":"working","sub_agents":[]}]}]}]}\n' "$made_path" > "$FAKE_DIR/ls.json"
+fakes_reset
+expect "--discard throws uncommitted work away, but not while an agent is at work there" 1 \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" --discard "$made_path")"
+expect "which keeps the worktree and its space" "yes no" "$(exists "$made_path") $(called herdr-app "do" space.close)"
+printf '{"spaces":[{"id":"sp-made","folder":"%s","tabs":[{"id":"tb-made","terminals":[{"terminal":"t21","status":"idle","sub_agents":[]}]}]}]}\n' "$made_path" > "$FAKE_DIR/ls.json"
+fakes_reset
+bash "$bin/forge-worktree-remove.sh" --discard "$made_path" >/dev/null
+expect "out of the app's terminals, as its mods run it, its spaces still close" yes "$(called herdr-app "do" space.close --id sp-made --confirmed true)"
+expect "and its uncommitted work went with it" no "$(exists "$made_path")"
+expect "and are forgotten" "" "$(grep -F "$made_path" "$XDG_STATE_HOME/forgerdr/spaces.tsv" || true)"
 printf '{"spaces":[{"id":"sp-new","folder":"%s","tabs":[{"id":"tb-new","terminals":[{"terminal":"t20","status":"idle","sub_agents":[]}]}]}]}\n' "$path" > "$FAKE_DIR/ls.json"
 echo change > "$path/new.txt"
 expect "uncommitted work is refused" 1 "$(in_herdr status_of bash "$bin/forge-worktree-remove.sh" "$path")"

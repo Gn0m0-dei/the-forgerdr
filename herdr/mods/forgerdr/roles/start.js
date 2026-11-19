@@ -152,7 +152,7 @@ export const start = (cx) => {
   /** @type {Tab} */
   let tab = TAB.work;
   /** @type {Way} */
-  let way = { flow: "manual", where: "worktrees" };
+  let way = { dev: true, flow: "manual", where: "worktrees" };
   /** @type {Set<string>} the changes ticked, by name */
   const picked = new Set();
   /** @type {{ id: number, text: string }[]} ideas waiting to start, each with an id of its own */
@@ -327,6 +327,22 @@ export const start = (cx) => {
             (flow) => {
               way = { ...way, flow };
             },
+          ),
+        )
+        .when(way.where === "worktrees", (el) =>
+          el.child(div().w(8)).child(
+            control(
+              h_flex()
+                .items_center()
+                .gap(8)
+                .child(checkBox(way.dev))
+                .child(text("Start the dev servers", "ui", 13, k.fg)),
+              "start-dev",
+              (cx) => {
+                way = { ...way, dev: !way.dev };
+                cx.notify();
+              },
+            ),
           ),
         );
 

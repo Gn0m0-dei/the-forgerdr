@@ -9,6 +9,8 @@
     "hammer": "not in the design: the Start work button and dialog, in the icons' style",
     "idea": "not in the design: the Start work dialog's New tab, in the icons' style (a bulb)",
     "pull-request": "not in the design: the Start work dialog's pull requests tab, in the icons' style",
+    "trash": "design 16b's Remove a worktree header (a bin), drawn in the pixel icons' style",
+    "worktree-add": "design 16's Create a worktree header (a branch and a plus), drawn in the pixel icons' style",
     "zoom": "not in the design: the pane header's zoom, drawn in the icons' style (four corners)"
   },
   "_source": "forgnome.pen, 11 Icons, motion and names: the 1x path of each 12x12 pixel icon",
@@ -41,7 +43,9 @@
     "split-down": "M0 1h12v1h-12z m0 1h1v1h-1z m11 0h1v1h-1z m-11 1h1v1h-1z m11 0h1v1h-1z m-11 1h1v1h-1z m11 0h1v1h-1z m-11 1h12v1h-12z m0 1h1v1h-1z m11 0h1v1h-1z m-11 1h1v1h-1z m11 0h1v1h-1z m-11 1h1v1h-1z m11 0h1v1h-1z m-11 1h12v1h-12z",
     "split-right": "M0 1h12v1h-12z m0 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h1v1h-1z m5 0h2v1h-2z m6 0h1v1h-1z m-11 1h12v1h-12z",
     "terminal": "M0 1h12v1h-12z m0 1h1v1h-1z m11 0h1v1h-1z m-11 1h1v1h-1z m2 0h1v1h-1z m9 0h1v1h-1z m-11 1h1v1h-1z m3 0h1v1h-1z m8 0h1v1h-1z m-11 1h1v1h-1z m4 0h1v1h-1z m7 0h1v1h-1z m-11 1h1v1h-1z m3 0h1v1h-1z m8 0h1v1h-1z m-11 1h1v1h-1z m2 0h1v1h-1z m4 0h3v1h-3z m5 0h1v1h-1z m-11 1h1v1h-1z m11 0h1v1h-1z m-11 1h12v1h-12z",
+    "trash": "M4 0h4v1h-4z m-1 1h1v1h-1z m5 0h1v1h-1z m-8 1h12v1h-12z m1 1h1v1h-1z m9 0h1v1h-1z m-9 1h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m-9 1h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m-9 1h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m-9 1h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m3 0h1v1h-1z m-9 1h1v1h-1z m9 0h1v1h-1z m-9 1h1v1h-1z m9 0h1v1h-1z m-8 1h8v1h-8z",
     "warn": "M5 0h2v1h-2z m0 1h2v1h-2z m-1 1h1v1h-1z m3 0h1v1h-1z m-3 1h1v1h-1z m3 0h1v1h-1z m-4 1h1v1h-1z m2 0h2v1h-2z m3 0h1v1h-1z m-5 1h1v1h-1z m2 0h2v1h-2z m3 0h1v1h-1z m-6 1h1v1h-1z m3 0h2v1h-2z m4 0h1v1h-1z m-7 1h1v1h-1z m7 0h1v1h-1z m-8 1h1v1h-1z m4 0h2v1h-2z m5 0h1v1h-1z m-9 1h1v1h-1z m9 0h1v1h-1z m-10 1h12v1h-12z",
+    "worktree-add": "M1 0h1v1h-1z m6 0h2v1h-2z m-6 1h1v1h-1z m5 0h1v1h-1z m3 0h1v1h-1z m-8 1h1v1h-1z m5 0h1v1h-1z m3 0h1v1h-1z m-8 1h1v1h-1z m6 0h2v1h-2z m-6 1h1v1h-1z m5 0h1v1h-1z m-5 1h1v1h-1z m4 0h1v1h-1z m-4 1h1v1h-1z m2 0h2v1h-2z m-3 1h3v1h-3z m0 1h1v1h-1z m2 0h1v1h-1z m7 0h1v1h-1z m-9 1h3v1h-3z m8 0h3v1h-3z m1 1h1v1h-1z",
     "zoom": "M0 0h4v1h-4zM8 0h4v1h-4zM0 1h1v1h-1zM11 1h1v1h-1zM0 2h1v1h-1zM11 2h1v1h-1zM0 3h1v1h-1zM11 3h1v1h-1zM0 8h1v1h-1zM11 8h1v1h-1zM0 9h1v1h-1zM11 9h1v1h-1zM0 10h1v1h-1zM11 10h1v1h-1zM0 11h4v1h-4zM8 11h4v1h-4z"
   }
 }

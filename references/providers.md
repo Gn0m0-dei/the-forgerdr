@@ -73,7 +73,7 @@ az boards work-item create --organization $ORG --project <project> --type Task -
 az boards work-item relation add --organization $ORG --id <child> --relation-type parent --target-id <parent>
 # A spike is a backlog item titled "Spike: <question>" with the timebox in the description; "Spike" is not an Azure DevOps type.
 
-# Pull request to the base branch, linking the work item
+# Pull request to the base branch (the production branch for hotfix/ and release/), linking the work item
 az repos pr create --organization $ORG --project <project> --repository <repo> \
   --source-branch <branch> --target-branch <base> --title "#<id> <slug>" --description "<markdown>" --work-items <id>
 # A work item of an external backlog (items reference): title "EXT-<id> <slug>", EXT-<id> in the description, no --work-items.

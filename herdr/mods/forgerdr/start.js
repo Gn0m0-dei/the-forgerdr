@@ -27,9 +27,9 @@ import { backlogOf, backlogParts, MODE, modeKind } from "./modes.js";
  */
 
 /**
- * Where the work items start and how far they go alone: here, in the checkout shown, or each in a worktree of its own;
- * manual stops for the human at every step, auto only at the gates.
- * @typedef {{ where: "here" | "worktrees", flow: "manual" | "auto" }} Way
+ * Where the work items start and how far they go alone: here, in the checkout shown, or each in a worktree of its own,
+ * whose dev server starts with it unless dev is off; manual stops for the human at every step, auto only at the gates.
+ * @typedef {{ where: "here" | "worktrees", flow: "manual" | "auto", dev: boolean }} Way
  */
 
 /**
@@ -145,9 +145,16 @@ const labelOf = (link) =>
     ? `AB#${link.id}`
     : `${link.repo}#${link.id}`;
 
+/**
+ * The flags of the skill that works the items, as typed after its name: a worktree's dev server only matters there.
+ * @param {Way} way
+ */
+const wayFlags = ({ flow, where, dev }) =>
+  `${flow === "auto" ? " --auto" : ""}${where === "worktrees" && !dev ? " --no-dev" : ""}`;
+
 /** @param {Way} way */
-const workAction = ({ flow, where }) =>
-  `${where === "worktrees" ? "worktree · /forgerdr:worktree" : "here · /forgerdr:workitem"}${flow === "auto" ? " --auto" : ""}`;
+const workAction = (way) =>
+  `${way.where === "worktrees" ? "worktree · /forgerdr:worktree" : "here · /forgerdr:workitem"}${wayFlags(way)}`;
 
 /** @param {boolean | undefined} mine */
 const reviewAction = (mine) =>
@@ -296,13 +303,10 @@ export const reviewRows = (text) => {
  * @param {Way} way
  * @returns {Launch}
  */
-const workLaunch = (work, { flow, where }) => {
-  const skill = where === "worktrees" ? "worktree" : "workitem";
+const workLaunch = (work, way) => {
+  const skill = way.where === "worktrees" ? "worktree" : "workitem";
   return {
-    argv: [
-      "claude",
-      `/forgerdr:${skill} ${flow === "auto" ? "--auto " : ""}${work.join(" | ")}`,
-    ],
+    argv: ["claude", `/forgerdr:${skill}${wayFlags(way)} ${work.join(" | ")}`],
     name: `forgerdr ${skill}`,
   };
 };

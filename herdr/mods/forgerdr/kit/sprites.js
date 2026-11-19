@@ -40,7 +40,9 @@ export const ICON = Object.freeze({
   splitDown: "split-down",
   splitRight: "split-right",
   terminal: "terminal",
+  trash: "trash",
   warn: "warn",
+  worktreeAdd: "worktree-add",
   zoom: "zoom",
 });
 

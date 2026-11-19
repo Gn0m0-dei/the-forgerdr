@@ -7,8 +7,11 @@ import { NONE, tokens } from "./tokens.js";
 
 /** @typedef {import("./tokens.js").Tone} Tone */
 
-/** @param {string} name */
-export const repoRow = (name) => {
+/**
+ * @param {string} name
+ * @param {import("gpui-kit").NativeElement} [action] what the repository offers, after its name: a new worktree
+ */
+export const repoRow = (name, action) => {
   const k = tokens();
   return h_flex()
     .items_center()
@@ -16,7 +19,10 @@ export const repoRow = (name) => {
     .px(8)
     .py(5)
     .child(icon(ICON.repo, k.muted))
-    .child(text(name.toUpperCase(), "display", 11, k.fg));
+    .child(text(name.toUpperCase(), "display", 11, k.fg))
+    .when(action !== undefined, (el) =>
+      el.child(div().flex_1()).child(action ?? div()),
+    );
 };
 
 /**

@@ -6,15 +6,7 @@
 // tell, and publishes it for the top bar (bridges/git.js), keeping what it knew until git answers again.
 import { v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import {
-  agents,
-  checking,
-  focused,
-  openOverlay,
-  run,
-  spaces,
-  terminals,
-} from "herdr";
+import { agents, checking, focused, run, spaces, terminals } from "herdr";
 import { modesSaved, readForge } from "../bridges/forge.js";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
@@ -40,7 +32,7 @@ import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
 import { parentOf } from "../lanes.js";
 import { modeLabel, shortLabel } from "../modes.js";
-import { openForgeMenu } from "./forge-menu.js";
+import { newWorktreeOn, openForgeMenu } from "./forge-menu.js";
 import { openGnome } from "./gnome.js";
 import { openMode } from "./mode.js";
 import { openStart } from "./start.js";
@@ -58,14 +50,6 @@ const TIMING = Object.freeze({ fresh: 30_000, poll: 5_000, step: 250 });
 
 // Places asked about together (four git runs each), as the app's space list does.
 const AT_ONCE = 6;
-
-// The app's own space menu, as its space list opens it.
-const SPACE_MENU = Object.freeze({
-  height: 260,
-  kind: "popup",
-  mod: "menu",
-  width: 200,
-});
 
 // The sign beside the forge's gnome, by its mood; a forge with no golem sleeps.
 /** @type {Partial<Record<import("../kit/sprites.js").Mood, import("../kit/motion.js").SignName>>} */
@@ -109,21 +93,20 @@ const clickable = (element, id, action) =>
 
 /**
  * A row that stands for a space, as the app's own space list does: a click shows it, a double click renames it and a
- * right click opens the app's space menu (rename, worktrees, close).
+ * right click opens the forge's menu on it (roles/forge-menu.js: what the app's space menu does, with forgerdr's own
+ * worktree dialogs).
  * @param {NativeElement} element
  * @param {string} id
  * @param {string} spaceId
+ * @param {(spaceId: string) => void} menu
  */
-const spaceRow = (element, id, spaceId) =>
+const spaceRow = (element, id, spaceId, menu) =>
   element
     .id(id)
     .cursor_pointer()
     .on_mouse_down("right", (_event, cx) => {
       cx.stop_propagation();
-      openOverlay({
-        ...SPACE_MENU,
-        props: { tab: "space", target: { id: spaceId } },
-      });
+      menu(spaceId);
     })
     .on_click((event) =>
       event.click_count === 2
@@ -388,6 +371,19 @@ export const sidebar = (cx) => {
     const name = nameOf(key, readNames());
 
     const shown = forge.spaces.find((space) => space.active) ?? forge.main;
+    /**
+     * The forge's menu on one of its spaces; its Rename renames that space, as the app's space menu does on a row.
+     * @param {string} spaceId
+     */
+    const menuOn = (spaceId) =>
+      openForgeMenu({
+        forge: forge.main.name,
+        key,
+        main: forge.main.id,
+        name,
+        rename: spaceId,
+        space: spaceId,
+      });
     const startWork = () => openStart(forge, shown);
 
     if (width < RAIL) {
@@ -448,11 +444,13 @@ export const sidebar = (cx) => {
           })
           .on_mouse_down("right", (_event, cx) => {
             cx.stop_propagation();
+            // On the gnome, the menu is the forge's tab's: its Rename renames the forge.
             openForgeMenu({
               forge: forge.main.name,
               key,
               main: forge.main.id,
               name,
+              rename: forge.main.id,
               space: shown.id,
             });
           })
@@ -475,7 +473,21 @@ export const sidebar = (cx) => {
           .py(8)
           .overflow_y_scrollbar()
           .child(
-            spaceRow(repoRow(forge.main.name), "forge-repo", forge.main.id),
+            spaceRow(
+              repoRow(
+                forge.main.name,
+                git[forge.main.id] === null || git[forge.main.id] === undefined
+                  ? undefined
+                  : control(
+                      div().p(2).child(icon(ICON.add, k.muted)),
+                      "forge-new-worktree",
+                      () => newWorktreeOn(forge.main, forge.main.name),
+                    ),
+              ),
+              "forge-repo",
+              forge.main.id,
+              menuOn,
+            ),
           )
           .children(
             forge.spaces.flatMap((space) => {
@@ -495,6 +507,7 @@ export const sidebar = (cx) => {
                         }),
                         `space-${space.id}`,
                         space.id,
+                        menuOn,
                       ),
                     ];
               return [

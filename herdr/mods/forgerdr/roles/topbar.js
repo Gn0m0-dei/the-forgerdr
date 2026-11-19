@@ -24,7 +24,11 @@ import { ICON, icon } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
 import { scrollTarget, stripState } from "../strip.js";
-import { openForgeMenu } from "./forge-menu.js";
+import {
+  newWorktreeOn,
+  openForgeMenu,
+  removeWorktreeOn,
+} from "./forge-menu.js";
 import { openMode } from "./mode.js";
 import { openStart } from "./start.js";
 
@@ -60,17 +64,22 @@ const openInbox = (waiting) => {
 export const topbar = (cx) => {
   const strip = ScrollHandle.new();
   // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on,
-  // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown and
-  // forgerdr.mode its mode.
+  // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown,
+  // forgerdr.mode its mode, and forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs.
+  /** @type {Readonly<Record<string, () => void>>} */
+  const handlers = Object.freeze({
+    lanes: toggleLanes,
+    mode: () => modeShown(),
+    motion: toggleMotion,
+    start: () => startShown(),
+    "worktree-new": () => worktreeShown(newWorktreeOn, false),
+    "worktree-remove": () => worktreeShown(removeWorktreeOn, true),
+  });
   const commands = checking()
     ? null
     : cx.spawn(async (cx) => {
         for (;;) {
-          const command = await nextCommand();
-          if (command === "motion") toggleMotion();
-          if (command === "lanes") toggleLanes();
-          if (command === "start") startShown();
-          if (command === "mode") modeShown();
+          handlers[await nextCommand()]?.();
           cx.notify();
         }
       });
@@ -141,6 +150,25 @@ export const topbar = (cx) => {
     const forge = forgeShown();
     if (forge !== undefined)
       openMode({ dir: placeOf(shownIn(forge)), forge: forge.main.name });
+  };
+
+  /**
+   * A worktree dialog of the forge shown, on the space it shows: in git, and Remove only on a worktree's.
+   * @param {(space: import("herdr").SpaceInfo, forge: string) => void} open
+   * @param {boolean} onWorktree
+   */
+  const worktreeShown = (open, onWorktree) => {
+    const forge = forgeShown();
+    const shown = forge === undefined ? undefined : shownIn(forge);
+    const git =
+      shown === undefined ? null : (readSpacesGit()[shown.id] ?? null);
+    if (
+      forge !== undefined &&
+      shown !== undefined &&
+      git !== null &&
+      (git.linked || !onWorktree)
+    )
+      open(shown, forge.main.name);
   };
 
   /**
@@ -227,6 +255,7 @@ export const topbar = (cx) => {
           key,
           main: forge.main.id,
           name: nameOf(key, readNames()),
+          rename: forge.main.id,
           space: shown.id,
         });
       })

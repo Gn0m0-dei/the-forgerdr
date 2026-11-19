@@ -10,6 +10,8 @@ trap 'rm -rf "$sandbox"' EXIT
 # shellcheck source=test/fakes.sh
 . "$root/test/fakes.sh"
 fakes_install "$sandbox"
+# A session dispatched by another runs with its dispatcher's terminal; the hook must not see it here.
+unset FORGE_PARENT_TERMINAL
 
 failures=0
 expect() {

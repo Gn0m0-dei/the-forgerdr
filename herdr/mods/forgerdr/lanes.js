@@ -137,7 +137,7 @@ export const byUrgency = (lanes) =>
  * @param {LaneTerminal} terminal
  * @param {Map<string, LaneTerminal>} byAddress
  */
-const rootOf = (terminal, byAddress) => {
+export const rootOf = (terminal, byAddress) => {
   let at = terminal;
   for (let depth = 0; depth < 8; depth += 1) {
     const up = byAddress.get(parentOf(at) ?? "");

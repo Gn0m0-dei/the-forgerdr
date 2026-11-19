@@ -11,7 +11,9 @@ import { heat } from "./roles/heat.js";
 import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
 import { modeDialog } from "./roles/mode.js";
+import { newWorktree } from "./roles/new-worktree.js";
 import { pane } from "./roles/pane.js";
+import { worktreeRemoval } from "./roles/remove-worktree.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
 import { start } from "./roles/start.js";
@@ -44,6 +46,8 @@ const ROLES = {
   statusbar,
   toast,
   topbar,
+  "worktree-new": newWorktree,
+  "worktree-remove": worktreeRemoval,
 };
 
 /**

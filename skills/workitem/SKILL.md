@@ -72,7 +72,7 @@ An OpenSpec change skips steps 2 and 3: its stage comes next (Flow).
 - A working tree mounted by a running container (watched folders, hot reload) must not be churned by git: check `git diff --stat HEAD origin/<base> -- <mounted-path>` before branching there and warn the user if files would be rewritten.
 - Implement the minimal fix. Verify it in the browser before claiming anything.
 - **No commit without permission.** Gate 3. When granted: Conventional Commits in English, `Closes: #<id>` footer when there is a work item (`Refs: EXT-<id>` for an item of an external backlog), no AI mention of any kind. Pair programming the user names: `Co-authored-by: <colleague>`.
-- Pull request to the base branch, title `#<id> <slug>` (the branch name without a work item), description in English (problem, cause, change, verification), work item linked through the provider; an item of an external backlog gets `EXT-<id> <slug>`, no link and no URL. Gate 4.
+- Pull request to the base branch (a `hotfix/` or `release/` branch: to the production branch, standards "Branch names"), title `#<id> <slug>` (the branch name without a work item), description in English (problem, cause, change, verification), work item linked through the provider; an item of an external backlog gets `EXT-<id> <slug>`, no link and no URL. Gate 4.
 
 ## 5. Comment on the item
 

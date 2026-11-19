@@ -22,6 +22,12 @@ forge_in_herdr() {
   [ -n "${HC_TERMINAL_ID:-}" ]
 }
 
+# Whether the herdr app answers: its spaces can be opened and closed, from one of its terminals or from one of its
+# mods, whose commands run with no terminal of their own.
+forge_app_answers() {
+  forge_app ls >/dev/null 2>&1
+}
+
 # How long forgerdr waits on a terminal or a lock: this many checks, this many seconds apart.
 FORGE_WAIT_TRIES="${FORGE_READY_TRIES:-120}"
 FORGE_WAIT_PAUSE="${FORGE_READY_PAUSE:-0.5}"
@@ -167,15 +173,26 @@ forge_provider() {
   esac
 }
 
-# Branch slug from a title: ascii, lowercase, hyphens, cut at a word boundary under 40 characters.
+# Accented letters a slug spells in ASCII, and how, word for word.
+FORGE_ACCENTED="á à ä â é è ë ê í ì ï î ó ò ö ô ú ù ü û ñ ç Á À Ä Â É È Ë Ê Í Ì Ï Î Ó Ò Ö Ô Ú Ù Ü Û Ñ Ç"
+FORGE_UNACCENTED="a a a a e e e e i i i i o o o o u u u u n c A A A A E E E E I I I I O O O O U U U U N C"
+
+# Branch slug from a title: ascii, lowercase, hyphens, cut at a word boundary under 40 characters. Each accented letter
+# is replaced as a whole string, so it works with no UTF-8 locale, as the herdr app runs its mods' commands (sed's y
+# command would count the letters' bytes there). A second argument "." keeps dots, as a release's version has them
+# (v1.2.0), never two in a row nor at either end, which git refuses.
 forge_slug() {
-  local slug
+  local slug script="" index accented unaccented keep="${2:-}"
+  case "$keep" in ''|.) ;; *) forge_die "forge_slug keeps only dots, not $keep" ;; esac
+  read -r -a accented <<<"$FORGE_ACCENTED"
+  read -r -a unaccented <<<"$FORGE_UNACCENTED"
+  for index in "${!accented[@]}"; do script+="s/${accented[$index]}/${unaccented[$index]}/g;"; done
   slug="$(printf '%s' "$1" \
-    | sed 'y/áàäâéèëêíìïîóòöôúùüûñçÁÀÄÂÉÈËÊÍÌÏÎÓÒÖÔÚÙÜÛÑÇ/aaaaeeeeiiiioooouuuuncAAAAEEEEIIIIOOOOUUUUNC/' \
+    | sed "$script" \
     | tr '[:upper:]' '[:lower:]' \
-    | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//')"
+    | sed -E "s/[^a-z0-9$keep]+/-/g; s/\\.\\.+/./g; s/^[-.]+//; s/[-.]+\$//")"
   [ ${#slug} -le 40 ] && { printf '%s\n' "$slug"; return; }
-  printf '%s' "$slug" | cut -c1-41 | sed -E 's/-?[^-]*$//'
+  printf '%s' "$slug" | cut -c1-41 | sed -E 's/-?[^-]*$//; s/[-.]+$//'
   printf '\n'
 }
 
@@ -223,6 +240,16 @@ forge_url_id() {
   printf '%s' "$1" | sed -nE 's#.*/([0-9]+)/?([?\#].*)?$#\1#p'
 }
 
+# Work item id a human names: the number at the end of its URL, #12, AB#12, EXT-12 or 12; empty for anything else.
+forge_item_id() {
+  local given
+  given="$(printf '%s' "$1" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')"
+  case "$given" in
+    *://*) forge_url_id "$given" ;;
+    *) printf '%s' "$given" | sed -nE 's/^(([Aa][Bb])?#?|[Ee][Xx][Tt]-)([0-9]+)$/\3/p' ;;
+  esac
+}
+
 # Azure organization URL (https://dev.azure.com/<org>, lowercase) from a work item or pull request URL, or from
 # a git remote: https with or without a user, the legacy <org>.visualstudio.com host, or ssh, whose host may be
 # an alias of ~/.ssh/config since only the v3/<org>/ path is read. Empty for anything else.
@@ -235,9 +262,11 @@ forge_azure_org() {
 
 # Whether a work item lives in an external backlog: an Azure DevOps item whose organization is not the one of
 # the repository's remote. Nothing links across organizations, and a #<id> in a commit would link the item with
-# that id in the repository's organization, so the repository refers to it as EXT-<id>.
+# that id in the repository's organization, so the repository refers to it as EXT-<id>; an item a human names
+# EXT-<id> is one already.
 forge_item_external() {
   local url="$1" repo="$2"
+  [[ ! "$url" =~ ^[Ee][Xx][Tt]-[0-9]+$ ]] || return 0
   [ "$(forge_provider "$url")" = azure ] || return 1
   [ "$(forge_azure_org "$url")" != "$(forge_azure_org "$(git -C "$repo" remote get-url origin 2>/dev/null)")" ]
 }
@@ -310,6 +339,22 @@ forge_base_branch() {
   echo main
 }
 
+# The branch a hotfix starts from: the production one, origin's main, else its master, else the remote HEAD.
+forge_production_branch() {
+  local repo="$1" name head
+  for name in main master; do
+    git -C "$repo" show-ref --verify --quiet "refs/remotes/origin/$name" && { printf '%s\n' "$name"; return; }
+  done
+  head="$(git -C "$repo" symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null)" && { printf '%s\n' "${head#origin/}"; return; }
+  echo main
+}
+
+# The branch a kind of branch starts from: a hotfix from production, any other (feature, fix, chore, release) from the
+# base (forge_base_branch).
+forge_base_for_kind() {
+  if [ "$2" = hotfix ]; then forge_production_branch "$1"; else forge_base_branch "$1"; fi
+}
+
 # Ignored env files of a clone, relative paths (unquoted, so non-ASCII names stay copyable), node_modules excluded.
 forge_env_files() {
   git -C "$1" -c core.quotePath=false ls-files --others --ignored --exclude-standard \
@@ -326,9 +371,22 @@ forge_worktree_includes() {
 
 # Copies the files listed on stdin, relative to a clone, into a worktree at the same paths, printing the count.
 forge_copy_listed() {
-  local source="$1" target="$2" file count=0
+  local source="$1" target="$2" file count=0 segment probe linked segments
   while IFS= read -r file; do
     [ -n "$file" ] || continue
+    # A worktree's branch can version a symlink where the clone keeps an ignored file, or in its way: mkdir and cp would
+    # follow it and write the file outside the worktree. Such a file is not copied.
+    probe="$target"
+    linked=""
+    IFS=/ read -r -a segments <<<"$file"
+    for segment in "${segments[@]}"; do
+      probe="$probe/$segment"
+      [ ! -L "$probe" ] || { linked="$probe"; break; }
+    done
+    if [ -n "$linked" ]; then
+      printf 'forgerdr: %s not copied: %s is a symlink\n' "$file" "$linked" >&2
+      continue
+    fi
     mkdir -p "$target/$(dirname "$file")"
     cp "$source/$file" "$target/$file"
     count=$((count + 1))
@@ -454,12 +512,14 @@ forge_start_ref() {
 }
 
 # Existing branch that carries a work item id (<kind>/#<id>-…, <kind>/AB<id>-… or <kind>/EXT-<id>-…), local first,
-# then on origin without its remote prefix; empty when there is none.
+# then on origin without its remote prefix; empty when there is none. With a third argument, own or external, only the
+# branches of that backlog: an external item 12 is not the repository's own item 12.
 forge_branch_for_id() {
-  local repo="$1" id="$2" prefix
+  local repo="$1" id="$2" backlog="${3:-}" prefix marks="#|AB|EXT-"
+  case "$backlog" in own) marks="#|AB" ;; external) marks="EXT-" ;; esac
   for prefix in refs/heads/ refs/remotes/origin/; do
     git -C "$repo" for-each-ref --format='%(refname)' "${prefix%/}" \
-      | sed "s#^$prefix##" | grep -E "^[^/]+/(#|AB|EXT-)$id-" | head -n 1 | grep . && return 0
+      | sed "s#^$prefix##" | grep -E "^[^/]+/($marks)$id-" | head -n 1 | grep . && return 0
   done
   return 0
 }
@@ -494,6 +554,23 @@ forge_dev_command() {
   elif [ -f "$dir/bun.lockb" ] || [ -f "$dir/bun.lock" ]; then echo "bun dev"
   else echo "npm run dev"
   fi
+}
+
+# Whether nothing listens on a TCP port of this machine: lsof sees every address a server is bound to (a dev server
+# often takes ::1 only); without lsof, the two loopbacks are tried.
+forge_port_free() {
+  if command -v lsof >/dev/null 2>&1; then
+    ! lsof -nP -iTCP:"$1" -sTCP:LISTEN -t >/dev/null 2>&1
+  else
+    ! (exec 3<>"/dev/tcp/127.0.0.1/$1") 2>/dev/null && ! (exec 3<>"/dev/tcp/::1/$1") 2>/dev/null
+  fi
+}
+
+# The first port from the one given that nothing listens on.
+forge_free_port() {
+  local port="$1"
+  while ! forge_port_free "$port"; do port=$((port + 1)); done
+  printf '%s\n' "$port"
 }
 
 # The herdr app's folder: its settings, layouts and keys.
@@ -559,13 +636,14 @@ forge_forget_space() {
   [ ! -f "$file" ] || forge_locked "$file" forge_drop_line "$file" "$1"
 }
 
-# Ids of the herdr app spaces open on a folder, the folder named as given or with its symlinks resolved; nothing when the
-# app does not answer.
+# Ids of the herdr app spaces of this machine open on a folder or inside it, the folder named as given or with its
+# symlinks resolved; nothing when the app does not answer. Another machine's folder with the same path is not this one.
 forge_spaces_of() {
   local listed real
   listed="$(forge_app ls 2>/dev/null)" || return 0
   real="$(cd "$1" 2>/dev/null && pwd -P || printf '%s' "$1")"
-  printf '%s' "$listed" | jq -r --arg path "$1" --arg real "$real" '.spaces[]? | select(.folder == $path or .folder == $real) | .id' \
+  printf '%s' "$listed" | jq -r --arg path "$1" --arg real "$real" \
+    '.spaces[]? | select((.machine // null) == null) | select(.folder as $folder | [$path, $real] | any(. as $base | $folder == $base or ($folder | startswith($base + "/")))) | .id' \
     2>/dev/null || true
 }
 

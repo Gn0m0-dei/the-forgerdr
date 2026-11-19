@@ -67,6 +67,16 @@ import {
   runningWindows,
   warningsDue,
 } from "../herdr/mods/forgerdr/usage.js";
+import {
+  closingPanes,
+  folderOf,
+  golemsAtWork,
+  itemArg,
+  spacesOn,
+  stillRemovable,
+  terminalsIn,
+  worktreeArgs,
+} from "../herdr/mods/forgerdr/worktrees.js";
 
 test("a key binding reads as its keycaps", () => {
   strictEqual(keyLabel("cmd-shift-p"), "⌘⇧P");
@@ -836,7 +846,7 @@ const GITLAB = {
   provider: "gitlab",
   repo: "storefront",
 };
-const WAY = { flow: "manual", where: "worktrees" };
+const WAY = { dev: true, flow: "manual", where: "worktrees" };
 
 test("a forge's mode, as the sidebar shows it", () => {
   strictEqual(modeKind("openspec:team-specs"), MODE.openspec);
@@ -1156,7 +1166,7 @@ test("an Azure DevOps forge's work: its work items by URL or id", () => {
   const rows = workRows(
     "1234\nAB#1240\nhttps://dev.azure.com/other/X/_workitems/edit/9\nhttps://github.com/a/b/issues/1",
     { ...SHOP, backlog: "https://dev.azure.com/other/Backlog", mode: "azure" },
-    { flow: "auto", where: "here" },
+    { dev: true, flow: "auto", where: "here" },
   );
   deepStrictEqual(
     rows.map((row) => [row.kind, row.label, row.value ?? row.action]),
@@ -1194,7 +1204,11 @@ test("a review takes pull requests of any provider, whatever the forge's mode", 
 
 test("what starts: one session for the work, one tab of reviews", () => {
   const work = [
-    ...changeRows(["add-inbox"], { flow: "auto", where: "worktrees" }),
+    ...changeRows(["add-inbox"], {
+      dev: true,
+      flow: "auto",
+      where: "worktrees",
+    }),
     ...workRows(
       "#12\nnope",
       { ...FORGNOME, host: "github.com", mode: "github" },
@@ -1210,7 +1224,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
   deepStrictEqual(
     startLaunches(
       [...work, ...reviewRows("https://github.com/Gn0m0-dei/forgnome/pull/42")],
-      { flow: "auto", where: "worktrees" },
+      { dev: true, flow: "auto", where: "worktrees" },
       "/p/bin/forge-prompt.sh",
     ),
     [
@@ -1234,13 +1248,37 @@ test("what starts: one session for the work, one tab of reviews", () => {
   );
   deepStrictEqual(
     startLaunches(
-      changeRows(["a"], { flow: "manual", where: "here" }),
-      { flow: "manual", where: "here" },
+      changeRows(["a"], { dev: true, flow: "manual", where: "here" }),
+      { dev: true, flow: "manual", where: "here" },
       "/p",
     ),
     [{ argv: ["claude", "/forgerdr:workitem a"], name: "forgerdr workitem" }],
   );
   deepStrictEqual(startLaunches([], WAY, "/p"), []);
+});
+
+test("worktrees start their dev servers unless told not to", () => {
+  const off = { dev: false, flow: "auto", where: "worktrees" };
+  deepStrictEqual(
+    changeRows(["a"], off)[0]?.action,
+    "worktree · /forgerdr:worktree --auto --no-dev",
+  );
+  deepStrictEqual(startLaunches(changeRows(["a"], off), off, "/p"), [
+    {
+      argv: ["claude", "/forgerdr:worktree --auto --no-dev a"],
+      name: "forgerdr worktree",
+    },
+  ]);
+  deepStrictEqual(ideaLaunches(["Lanes overflow"], { ...off, spec: false }), [
+    {
+      argv: ["claude", "/forgerdr:worktree --auto --no-dev Lanes overflow"],
+      name: "forgerdr worktree",
+    },
+  ]);
+  const here = { dev: false, flow: "manual", where: "here" };
+  deepStrictEqual(startLaunches(changeRows(["a"], here), here, "/p"), [
+    { argv: ["claude", "/forgerdr:workitem a"], name: "forgerdr workitem" },
+  ]);
 });
 
 test("ideas start a spec session each, or one session that works them", () => {
@@ -1249,7 +1287,12 @@ test("ideas start a spec session each, or one session that works them", () => {
     "Lanes overflow",
   ];
   deepStrictEqual(
-    ideaLaunches(ideas, { flow: "manual", spec: true, where: "here" }),
+    ideaLaunches(ideas, {
+      dev: true,
+      flow: "manual",
+      spec: true,
+      where: "here",
+    }),
     [
       {
         argv: [
@@ -1275,6 +1318,7 @@ test("ideas start a spec session each, or one session that works them", () => {
   );
   deepStrictEqual(
     ideaLaunches(ideas.slice(1), {
+      dev: true,
       flow: "auto",
       spec: false,
       where: "worktrees",
@@ -1287,9 +1331,215 @@ test("ideas start a spec session each, or one session that works them", () => {
     ],
   );
   deepStrictEqual(
-    ideaLaunches(["  "], { flow: "auto", spec: true, where: "here" }),
+    ideaLaunches(["  "], {
+      dev: true,
+      flow: "auto",
+      spec: true,
+      where: "here",
+    }),
     [],
   );
   strictEqual(titleOf("a".repeat(50)), "a".repeat(40));
   strictEqual(titleOf("  short one  "), "short one");
+});
+
+const TREE = "/h/.herdr/worktrees/front/fix-#9-crash";
+
+test("a worktree's spaces are those on its folder or inside it, on this machine", () => {
+  const space = (id, folder, machine = null) => ({ folder, id, machine });
+  deepStrictEqual(
+    spacesOn(TREE, [
+      space("top", TREE),
+      space("in", `${TREE}/src`),
+      space("next", `${TREE}-2`),
+      space("far", TREE, "box"),
+    ]).map((one) => one.id),
+    ["top", "in"],
+  );
+});
+
+test("the panes that close with a worktree: a tab of one by its name, more by each pane's", () => {
+  const spaces = [
+    {
+      id: "sp",
+      tabs: [
+        { id: "t1", name: "1", named: false, panes: 2 },
+        { id: "t2", name: "dev :3001", named: true, panes: 1 },
+      ],
+    },
+  ];
+  const panes = [
+    { pane: "p1", program: ZSH, tab: "t1", terminal: "a", title: "~/x" },
+    { pane: "p2", program: CLAUDE, tab: "t1", terminal: "b", title: "✳ inbox" },
+    { pane: "p3", program: VITE, tab: "t2", terminal: "c", title: "pnpm dev" },
+    { pane: "p4", program: ZSH, tab: "elsewhere", terminal: "d", title: "" },
+  ];
+  deepStrictEqual(closingPanes(spaces, panes), [
+    { id: "p1", kind: "shell", label: "zsh" },
+    { id: "p2", kind: "agent", label: "inbox" },
+    { id: "p3", kind: "program", label: "dev :3001" },
+  ]);
+});
+
+test("the golems at work in a worktree's spaces, theirs and their agents', most urgent first", () => {
+  const terminal = (address, status, labels = {}, parent = null) => ({
+    address,
+    labels,
+    parent,
+    state: "live",
+    status,
+    title: `✳ ${address}`,
+  });
+  const terminals = [
+    terminal("main", "working", { "herdr.space": "sp" }),
+    terminal("helper", "blocked", { "forge.parent": "main" }),
+    terminal("resting", "idle", { "herdr.space": "sp" }),
+    terminal("broken", "idle", {
+      "forge.state": "cracked",
+      "herdr.space": "sp",
+    }),
+    terminal("other", "working", { "herdr.space": "elsewhere" }),
+    {
+      ...terminal("gone", "working", { "herdr.space": "sp" }),
+      state: "finished",
+    },
+  ];
+  deepStrictEqual(golemsAtWork(["sp"], terminals), [
+    { id: "helper", name: "helper", status: "blocked" },
+    { id: "main", name: "main", status: "working" },
+  ]);
+  deepStrictEqual(golemsAtWork(["none"], terminals), []);
+  // An agent another space's session dispatched into the worktree's space works there too (isolation: "worktree").
+  deepStrictEqual(
+    golemsAtWork(
+      ["sp-tree"],
+      [
+        terminal("lead", "idle", { "herdr.space": "sp-main" }),
+        terminal("isolated", "working", {
+          "forge.parent": "lead",
+          "herdr.space": "sp-tree",
+        }),
+      ],
+    ),
+    [{ id: "isolated", name: "isolated", status: "working" }],
+  );
+});
+
+test("the terminals whose pane went into a worktree, wherever their space is", () => {
+  const panes = [
+    { cwd: `${TREE}/src`, terminal: "went" },
+    { cwd: "/h/front", terminal: "stayed" },
+    { cwd: TREE, terminal: null },
+  ];
+  deepStrictEqual(terminalsIn(TREE, panes), ["went"]);
+});
+
+test("a golem keeps a worktree by its own pane there, not by its space's other panes", () => {
+  const terminal = (address, status, labels = {}) => ({
+    address,
+    labels,
+    parent: null,
+    state: "live",
+    status,
+    title: address,
+  });
+  const terminals = [
+    terminal("lead", "working", { "herdr.space": "sp-main" }),
+    terminal("went", "working", { "herdr.space": "sp-main" }),
+  ];
+  deepStrictEqual(golemsAtWork([], terminals, ["went"]), [
+    { id: "went", name: "went", status: "working" },
+  ]);
+});
+
+test("a worktree is removed only as last looked at: no new file, and a plan that answered", () => {
+  const known = { branch: "b", changes: ["a.txt"], path: TREE };
+  strictEqual(stillRemovable({ state: "ready", value: known }, known), true);
+  strictEqual(
+    stillRemovable({ state: "ready", value: { ...known, changes: [] } }, known),
+    true,
+  );
+  strictEqual(
+    stillRemovable(
+      { state: "ready", value: { ...known, changes: ["a.txt", "b.txt"] } },
+      known,
+    ),
+    false,
+  );
+  strictEqual(
+    stillRemovable({ error: "Argument list too long", state: "error" }, known),
+    false,
+  );
+  strictEqual(folderOf(TREE), "/h/.herdr/worktrees/front");
+  strictEqual(folderOf("/top"), "/");
+});
+
+test("the item a worktree is for: an id or a URL of the forge's backlog, or none", () => {
+  const github = {
+    ...FORGNOME,
+    backlog: "",
+    host: "github.com",
+    mode: "github",
+  };
+  deepStrictEqual(itemArg("", github), { value: "" });
+  deepStrictEqual(itemArg(" #12 ", github), {
+    value: "https://github.com/Gn0m0-dei/forgnome/issues/12",
+  });
+  deepStrictEqual(itemArg("https://github.com/someone/else/issues/3", github), {
+    error: "another repository: start it from its forge",
+  });
+  deepStrictEqual(
+    itemArg("https://github.com/Gn0m0-dei/forgnome/pull/4", github),
+    {
+      error: "a pull request: review it in Review",
+    },
+  );
+  const azure = { ...SHOP, backlog: "", host: "dev.azure.com", mode: "azure" };
+  deepStrictEqual(itemArg("AB#77", azure), {
+    value: "https://dev.azure.com/acme/Shop%20Platform/_workitems/edit/77",
+  });
+  // Chat and OpenSpec keep no backlog: an id names the branch as it is.
+  deepStrictEqual(itemArg("#12", { ...FORGNOME, mode: "chat" }), {
+    value: "#12",
+  });
+  // An item of an external backlog, as forgerdr writes its id, in any mode.
+  deepStrictEqual(itemArg("EXT-231", { ...FORGNOME, mode: "chat" }), {
+    value: "EXT-231",
+  });
+  deepStrictEqual(itemArg("ext-231", azure), { value: "ext-231" });
+  deepStrictEqual(itemArg("make it", { ...FORGNOME, mode: "chat" }), {
+    error: "not an id (#12, AB#12, EXT-12, 12) or an issue or work item URL",
+  });
+});
+
+test("what forge-worktree.sh is given for a new worktree", () => {
+  const form = {
+    dev: true,
+    item: "#12",
+    kind: "feature",
+    repo: "/r",
+    title: "Empty state",
+  };
+  deepStrictEqual(worktreeArgs(form, false), [
+    "--repo",
+    "/r",
+    "--no-agent",
+    "--kind",
+    "feature",
+    "--title",
+    "Empty state",
+    "#12",
+  ]);
+  deepStrictEqual(worktreeArgs({ ...form, dev: false }, true), [
+    "--plan",
+    "--repo",
+    "/r",
+    "--no-agent",
+    "--no-dev",
+    "--kind",
+    "feature",
+    "--title",
+    "Empty state",
+    "#12",
+  ]);
 });

@@ -1,6 +1,8 @@
-// A forge's menu, opened by a right click on its tab: Start work and its gnome's dialog, then what the app's own space
-// menu does on the space the tab shows (rename, new, open and remove worktree, close), whose items the app's menu does
-// not let a mod add to. ↑ and ↓ move, Enter runs, Esc closes.
+// A forge's menu, opened by a right click on its tab, on its gnome or on a checkout's row of the sidebar: Start work and
+// its gnome's dialog, then what the app's own space menu does on the space the tab or the row shows (rename, new, open
+// and remove worktree, close), whose items the app's menu does not let a mod add to. New and Remove worktree are
+// forgerdr's own dialogs (roles/new-worktree.js, roles/remove-worktree.js) on this machine, the app's on another, where
+// forgerdr's scripts do not run. ↑ and ↓ move, Enter runs, Esc closes.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { closeOverlay, openOverlay, props, run, spaces } from "herdr";
@@ -15,6 +17,8 @@ import { tokens } from "../kit/tokens.js";
 import { MOD } from "../name.js";
 import { openGnome } from "./gnome.js";
 import { openMode } from "./mode.js";
+import { openNewWorktree } from "./new-worktree.js";
+import { openRemoveWorktree } from "./remove-worktree.js";
 import { openStart } from "./start.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -30,6 +34,8 @@ import { openStart } from "./start.js";
  * @property {string} forge its name
  * @property {string} main its main checkout's space, which bears the forge's name
  * @property {string} space the space its tab shows
+ * @property {string} rename the space Rename renames: the main checkout's, which bears the forge's name, from its tab
+ * and its gnome; a checkout's own from its row
  */
 
 /** @type {() => (Partial<ForgeTarget> & { overlay?: string }) | null} */
@@ -47,13 +53,33 @@ const WORKTREE = Object.freeze({
 });
 
 /** @param {string} space @param {keyof typeof WORKTREE} action */
-const worktree = (space, action) =>
+const appWorktree = (space, action) =>
   openOverlay({
     ...WORKTREE[action],
     kind: "dialog",
     mod: "worktree",
     props: { action, space },
   });
+
+/**
+ * Opens the New worktree dialog of the forge a space is of.
+ * @param {import("herdr").SpaceInfo} space
+ * @param {string} forge its forge's name
+ */
+export const newWorktreeOn = (space, forge) =>
+  space.machine === null
+    ? openNewWorktree({ dir: placeOf(space), forge })
+    : appWorktree(space.id, "new");
+
+/**
+ * Opens the Remove worktree dialog of the worktree a space shows.
+ * @param {import("herdr").SpaceInfo} space
+ * @param {string} forge its forge's name
+ */
+export const removeWorktreeOn = (space, forge) =>
+  space.machine === null
+    ? openRemoveWorktree({ dir: placeOf(space), forge })
+    : appWorktree(space.id, "remove");
 
 /**
  * @typedef {object} MenuItem
@@ -70,6 +96,11 @@ const worktree = (space, action) =>
  */
 const itemsOf = (target) => {
   const git = readSpacesGit()[target.space] ?? null;
+  /** @param {(space: import("herdr").SpaceInfo, forge: string) => void} open */
+  const onShown = (open) => () => {
+    const shown = spaces().find((space) => space.id === target.space);
+    if (shown !== undefined) open(shown, target.forge);
+  };
   return [
     {
       act: () => {
@@ -99,7 +130,7 @@ const itemsOf = (target) => {
       mark: "gnome",
     },
     {
-      act: () => run("space.rename", { id: target.main }),
+      act: () => run("space.rename", { id: target.rename }),
       label: "Rename",
       mark: null,
     },
@@ -107,12 +138,12 @@ const itemsOf = (target) => {
       ? []
       : [
           {
-            act: () => worktree(target.space, "new"),
-            label: "New worktree",
-            mark: ICON.branch,
+            act: onShown(newWorktreeOn),
+            label: "New worktree…",
+            mark: ICON.worktreeAdd,
           },
           {
-            act: () => worktree(target.space, "open"),
+            act: () => appWorktree(target.space, "open"),
             label: "Open worktree",
             mark: ICON.branch,
           },
@@ -120,9 +151,9 @@ const itemsOf = (target) => {
     ...(git?.linked
       ? [
           {
-            act: () => worktree(target.space, "remove"),
-            label: "Remove worktree",
-            mark: ICON.branch,
+            act: onShown(removeWorktreeOn),
+            label: "Remove worktree…",
+            mark: ICON.trash,
           },
         ]
       : []),
@@ -163,6 +194,7 @@ export const forgeMenu = (cx) => {
     key: given.key ?? "",
     main: given.main ?? "",
     name: given.name ?? "",
+    rename: given.rename ?? given.main ?? "",
     space: given.space ?? "",
   };
   const items = itemsOf(target);

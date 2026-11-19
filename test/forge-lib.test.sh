@@ -21,6 +21,12 @@ expect "slug ascii" "search-page-filters-do-not-keep-the" "$(forge_slug 'Search 
 expect "slug accents" "boton-de-accion-no-visible" "$(forge_slug 'Botón de acción no visible')"
 expect "slug trailing" "a-b" "$(forge_slug '--A  b!!')"
 expect "slug short" "short-title" "$(forge_slug 'Short title')"
+expect "a release's slug keeps its version's dots" "v1.2.0" "$(forge_slug 'v1.2.0' .)"
+expect "and still makes the rest a branch name" "spring-release-2.0.1" "$(forge_slug ' Spring release 2.0..1. ' .)"
+expect "a long one cut short never ends in a dot" "abcdefghij-abcdefghij-abcdefghij-v1.2" "$(forge_slug 'abcdefghij abcdefghij abcdefghij v1.2. xyzwvutsr' .)"
+# The herdr app runs its mods' commands with no UTF-8 locale.
+expect "slug of plain words with no UTF-8 locale" "empty-state-on-orders" "$(LC_ALL=C forge_slug 'Empty state on orders' 2>&1)"
+expect "slug accents with no UTF-8 locale" "boton-de-accion-no-visible" "$(LC_ALL=C forge_slug 'Botón de acción no visible' 2>&1)"
 
 expect "provider azure" azure "$(forge_provider 'https://dev.azure.com/org/proj/_workitems/edit/1')"
 expect "provider azure ssh" azure "$(forge_provider 'git@ssh.dev.azure.com:v3/org/proj/repo')"
@@ -127,6 +133,16 @@ expect "exclude added once" 1 "$(grep -cxF '.claude/worktrees/' "$sandbox/worksp
 expect "no worktreeinclude, nothing listed" "" "$(forge_worktree_includes "$sandbox/workspace/front")"
 mkdir -p "$sandbox/listed-target"
 expect "copy listed non-ASCII name" "1" "$(touch "$sandbox/workspace/front/.env.clé" && printf '.env.clé\n' | forge_copy_listed "$sandbox/workspace/front" "$sandbox/listed-target")"
+# A worktree's branch can carry a symlink where the clone keeps an ignored env file: the copy never goes through one.
+mkdir -p "$sandbox/outside" "$sandbox/linked"
+printf 'victim\n' > "$sandbox/outside/victim"
+ln -s "$sandbox/outside/victim" "$sandbox/linked/.env.local"
+ln -s "$sandbox/outside" "$sandbox/linked/apps"
+copied="$(printf '.env.local\napps/a/env/.env.local\n.env.clé\n' | forge_copy_listed "$sandbox/workspace/front" "$sandbox/linked" 2>"$sandbox/skipped")"
+expect "an env file is not copied through a symlink" victim "$(cat "$sandbox/outside/victim")"
+expect "nor into a folder a symlink leads to" no "$([ -e "$sandbox/outside/a" ] && echo yes || echo no)"
+expect "the rest is copied and counted" "1 yes" "$copied $([ -f "$sandbox/linked/.env.clé" ] && echo yes)"
+expect "and what was skipped is named" 2 "$(grep -c 'symlink' "$sandbox/skipped")"
 expect "env files unquoted" yes "$(forge_env_files "$sandbox/workspace/front" | grep -qxF '.env.clé' && echo yes)"
 expect "claude base ref falls back to HEAD without origin" "$(git -C "$sandbox/workspace/front" rev-parse HEAD)" "$(HOME="$sandbox" forge_claude_base_ref "$sandbox/workspace/front" "$sandbox/workspace/front")"
 
@@ -152,6 +168,15 @@ expect "branch azure" "fix/AB1234-login-button" "$(forge_branch_name fix 1234 lo
 expect "branch other project" "feature/#1234-login-button" "$(forge_branch_name feature 1234 login-button other)"
 expect "branch external in azure" "fix/EXT-1234-login-button" "$(forge_branch_name fix 1234 login-button acme external)"
 expect "branch external elsewhere" "feature/EXT-1234-login-button" "$(forge_branch_name feature 1234 login-button other external)"
+
+expect "item id from a URL" 1234 "$(forge_item_id 'https://dev.azure.com/org/proj/_workitems/edit/1234')"
+expect "item id from #12" 12 "$(forge_item_id '#12')"
+expect "item id from AB#12" 12 "$(forge_item_id 'AB#12')"
+expect "item id from ab#12, as typed" 12 "$(forge_item_id 'ab#12')"
+expect "item id from EXT-231, an item of an external backlog" 231 "$(forge_item_id 'EXT-231')"
+expect "item id from a bare number" 12 "$(forge_item_id ' 12 ')"
+expect "no item id in free text" "" "$(forge_item_id 'make the login form')"
+expect "no item id in nothing" "" "$(forge_item_id '')"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'
