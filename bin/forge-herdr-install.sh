@@ -166,7 +166,7 @@ use_sounds() {
   local mod="$1" alert current
   [ -f "$settings" ] || printf '{}\n' > "$settings"
   jq -e 'type == "object"' "$settings" >/dev/null 2>&1 || forge_die "$settings is not valid JSON; fix it first"
-  for alert in blocked done; do
+  for alert in blocked "done"; do
     current="$(jq -r --arg alert "$alert" '.sounds[$alert] // ""' "$settings")"
     case "$current" in
       ""|"mods/$MOD/sounds/"*|"mods/$DEV_MOD/sounds/"*) ;;
@@ -176,6 +176,7 @@ use_sounds() {
           continue
         fi ;;
     esac
+    # shellcheck disable=SC2016 # a jq filter
     forge_json_update "$settings" --arg alert "$alert" --arg sound "$(sound_of "$mod" "$alert")" '.sounds[$alert] = $sound'
   done
 }
@@ -183,6 +184,7 @@ use_sounds() {
 # Takes the alert sounds that point at a copy of the mod away, so the app plays its own again.
 drop_sounds() {
   [ -f "$settings" ] && jq -e 'type == "object"' "$settings" >/dev/null 2>&1 || return 0
+  # shellcheck disable=SC2016 # a jq filter
   forge_json_update "$settings" --arg from "mods/$1/sounds/" \
     'if (.sounds | type) == "object" then .sounds |= with_entries(select((.value | type) != "string" or (.value | startswith($from) | not))) else . end'
 }
