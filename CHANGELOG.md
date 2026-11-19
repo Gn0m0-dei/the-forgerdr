@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.27.0] - 2026-11-19
+
 ### Added
 
 - The forge's mode, at the foot of the sidebar where the forge heat was: Chat, OpenSpec (in the repository, or in another folder registered or made as an OpenSpec store), Azure DevOps, GitHub or GitLab, each with the backlog its work comes from: the origin's project or repository on that provider, else the one named with `Work with another backlog` by any URL of it (issues on GitLab for code on GitHub, work items of another organization). On Azure DevOps the backlog `/azdo:init` keeps in the clone's git config is read, shown filled in and editable, and changed there. The sidebar's foot shows the mode and the backlog's organization or owner, and the code's too, a line each, when the work comes from elsewhere. Its dialog keeps it per project with `bin/forge-config.sh`, whose new `mode` and `backlog` settings set the spec mode the skills read; `Forge mode…` in a forge's menu and `forgerdr.mode` open it too.
