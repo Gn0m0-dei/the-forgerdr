@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.29.0] - 2026-11-19
+
 ### Added
 
 - The forge's sounds: `bin/forge-herdr-install.sh --sounds` makes the app's alerts the hammer working the piece on the anvil (blocked) and the hiss of a quench (done), keeping a sound of the person's own unless `--force`; `--remove` takes them away. The mod sounds a golem's crack when an API error breaks it, while the app's sounds are on. Synthesised by `herdr/tools/sounds.mts`, with no one else's licence, and offered by `/forgerdr:setup`.
