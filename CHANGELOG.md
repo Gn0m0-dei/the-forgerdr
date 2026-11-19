@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.30.0] - 2026-11-20
+
 ### Added
 
 - The approval inbox: a drawer of the forgerdr layout, opened from `INBOX` in the top bar or `forgerdr.inbox`, with what waits on your mark in every session, a card each, by clicks: a tool's permission (`Allow once`, `Deny with reason`), a question (its options, an answer of your own), one of forgerdr's gates (`Stamp`), a plan (`Approve plan` into auto mode or approving each edit, `Revise`), and an agent waiting in its pane. Each card shows its forge's gnome and name, the branch and the session, and every field of what an allow applies, whole; `Discuss` goes to its pane. An answer stamps the card with the gnomemark (gold for a yes, red for a no) and its sound, a rubber stamp synthesised by `herdr/tools/sounds.mts`, drawn by `herdr/tools/sprites.mts`; the card trembles, then slides away. `hooks/inbox.sh` puts the requests there on Claude Code's `PermissionRequest`, for a session in a herdr terminal, and turns the answer into Claude Code's decision; the pane's own dialog stays open and whichever answers first wins, and a card answered in the pane goes. `bin/forge-inbox.sh` lists the requests and writes the answers. A convenience, not a lock: the drawer says so.
