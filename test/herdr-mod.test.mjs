@@ -9,14 +9,19 @@ import {
   forgeState,
   forgeSummary,
   groupForges,
+  knownGit,
   lookKeyOf,
 } from "../herdr/mods/forgerdr/forges.js";
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
 import {
   brotherOf,
+  GNOME_PART,
   gnomeLookOf,
   hatColourOf,
   nameOf,
+  PART_OPTIONS,
+  rerolled,
+  turnPart,
 } from "../herdr/mods/forgerdr/identity.js";
 import {
   byUrgency,
@@ -221,22 +226,36 @@ test("a forge dragged onto another moves as one block, each move counting the on
 });
 
 test("a forge looks the same whichever of its spaces is open", () => {
-  // Its main checkout's folder, so it does not change once git answers.
-  strictEqual(
-    lookKeyOf({
-      key: "/w/api/.git",
-      main: { folder: "/w/api-login", name: "login" },
-    }),
-    "/w/api",
+  // Its repository, whichever checkout is open.
+  strictEqual(lookKeyOf({ key: "/w/api/.git" }), "/w/api");
+  strictEqual(lookKeyOf({ key: "dev-box:/w/api/.git" }), "dev-box:/w/api");
+  // Outside git, its space: the folder the app gives a space is where its new terminals start, not where it is.
+  strictEqual(lookKeyOf({ key: "space:sp7" }), "space:sp7");
+});
+
+test("what git said of each space lasts until git is asked again", () => {
+  const api = {
+    ahead: 0,
+    behind: 0,
+    branch: "main",
+    linked: false,
+    repo: "/w/api/.git",
+  };
+  const login = { ...api, branch: "login", linked: true };
+  // A space asked now takes the answer, null outside git; one not asked yet keeps the last; a new one waits.
+  deepStrictEqual(
+    knownGit(
+      ["sp1", "sp2", "sp3", "sp4"],
+      new Map([
+        ["sp1", login],
+        ["sp2", null],
+      ]),
+      { gone: api, sp1: api, sp2: api, sp3: api },
+    ),
+    { sp1: login, sp2: null, sp3: api },
   );
-  strictEqual(
-    lookKeyOf({ key: "space:7", main: { folder: "/w/notes", name: "notes" } }),
-    "/w/notes",
-  );
-  strictEqual(
-    lookKeyOf({ key: "space:8", main: { folder: "", name: "scratch" } }),
-    "scratch",
-  );
+  // Before the app has its spaces, nothing is forgotten.
+  deepStrictEqual(knownGit([], new Map(), { sp1: api }), { sp1: api });
 });
 
 const CLAUDE = {
@@ -630,4 +649,60 @@ test("a forge's gnome is whole from its key, and the human can rename it", () =>
     "Brother Vulcan",
   );
   strictEqual(nameOf("/w/api", { "/w/api": "  " }), brotherOf("/w/api"));
+});
+
+test("the human picks a gnome's parts over the ones its key rolls", () => {
+  const rolled = gnomeLookOf("/w/api");
+  // No choice, or an empty one, is the key's gnome.
+  deepStrictEqual(gnomeLookOf("/w/api", {}), rolled);
+  deepStrictEqual(gnomeLookOf("/w/api", { roll: 0 }), rolled);
+  // A picked part wins; the others stay the key's.
+  const other = PART_OPTIONS.hat.find((hat) => hat !== rolled.hat);
+  deepStrictEqual(gnomeLookOf("/w/api", { hat: other }), {
+    ...rolled,
+    hat: other,
+  });
+  // A part this version does not know is the key's.
+  deepStrictEqual(
+    gnomeLookOf("/w/api", { hat: "crown", roll: Number.NaN }),
+    rolled,
+  );
+});
+
+test("a part turns through its options and back round", () => {
+  for (const part of Object.values(GNOME_PART)) {
+    const options = PART_OPTIONS[part];
+    let choice = {};
+    const seen = [];
+    for (let turn = 0; turn < options.length; turn += 1) {
+      choice = turnPart("/w/api", choice, part, 1);
+      seen.push(gnomeLookOf("/w/api", choice)[part]);
+    }
+    deepStrictEqual(seen.toSorted(), [...options].toSorted());
+    strictEqual(seen.at(-1), gnomeLookOf("/w/api")[part]);
+  }
+  const back = turnPart("/w/api", {}, GNOME_PART.colour, -1);
+  const options = PART_OPTIONS.colour;
+  const at = options.indexOf(gnomeLookOf("/w/api").colour);
+  strictEqual(back.colour, options[(at + options.length - 1) % options.length]);
+});
+
+test("a re-roll is a new whole gnome, and the human's picks go with the old one", () => {
+  const keys = ["/a", "/b", "/c", "/d", "/e", "/f", "/g", "/h"];
+  for (const key of keys) {
+    const picked = turnPart(key, {}, GNOME_PART.accessory, 1);
+    const next = rerolled(key, picked);
+    deepStrictEqual(Object.keys(next), ["roll"]);
+    strictEqual(next.roll > 0, true);
+    strictEqual(
+      JSON.stringify(gnomeLookOf(key, next)) !==
+        JSON.stringify(gnomeLookOf(key, picked)),
+      true,
+    );
+    deepStrictEqual(gnomeLookOf(key, next), gnomeLookOf(key, next));
+  }
+  strictEqual(
+    rerolled("/a", rerolled("/a", {})).roll > rerolled("/a", {}).roll,
+    true,
+  );
 });

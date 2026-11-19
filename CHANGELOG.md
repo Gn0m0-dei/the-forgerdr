@@ -6,6 +6,16 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The gnome's dialog, so each project keeps a face of its own: its name, each part (hat, colour, eyes, beard, accessory) turned by hand through its options with a live preview, a re-roll for a whole new gnome and the way back to the one its repository rolls. What you keep lasts across restarts, by the repository (by the space outside git). A double click on the sidebar's gnome opens it.
+- A forge's menu, on a right click on its tab or on the sidebar's gnome: `Edit gnome…`, then what the app's space menu does: rename the forge (as a double click on its tab), new, open and remove worktree, close.
+
+### Fixed
+
+- Gnomes no longer show a passing face after a restart: the sidebar no longer forgets what git said of each space before the app has loaded them, and keeps it until git answers again, so every forge shows its own gnome from the first frame. A new space is asked about at once instead of at the next poll.
+- A forge outside git takes its gnome from its space, not from the folder the app gives the space, which is where its new terminals start and not where it is.
+
 ## [0.25.0] - 2026-11-19
 
 ### Added

@@ -2,33 +2,29 @@
 // lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
 // the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
 // A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
-// else its main checkout's): a click shows it, a right click opens the app's own space menu (rename, worktrees, close),
-// its ✕ or a middle click closes it (the app confirms). A double click renames the forge, which bears its main
-// checkout's name, and dragging a forge onto another moves its spaces there together. When the tabs do not fit, the
-// strip scrolls under the trackpad and with the arrows beside it.
+// else its main checkout's): a click shows it, its ✕ or a middle click closes it (the app confirms), and a right click
+// opens its menu: the dialog of its gnome (roles/gnome.js), then what the app's space menu does (rename, worktrees,
+// close). A double click renames the forge, which bears its main checkout's name, and dragging a forge onto another
+// moves its spaces there together. When the tabs do not fit, the strip scrolls under the trackpad and with the arrows
+// beside it.
 import { h_flex, ScrollHandle } from "gpui-base";
-import {
-  agents,
-  checking,
-  keys,
-  nextCommand,
-  openOverlay,
-  run,
-  spaces,
-} from "herdr";
+import { agents, checking, keys, nextCommand, run, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
+import { readGnomes } from "../bridges/gnomes.js";
 import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
+import { readNames } from "../bridges/names.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
-import { gnomeLookOf } from "../identity.js";
+import { gnomeLookOf, nameOf } from "../identity.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, icon } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
 import { scrollTarget, stripState } from "../strip.js";
+import { openForgeMenu } from "./forge-menu.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -40,14 +36,6 @@ import { scrollTarget, stripState } from "../strip.js";
 
 // Room for macOS's window buttons, which the layout draws over at traffic_lights.
 const WINDOW_BUTTONS = 84;
-
-// The app's own space menu, as its space list opens it.
-const SPACE_MENU = Object.freeze({
-  height: 260,
-  kind: "popup",
-  mod: "menu",
-  width: 200,
-});
 
 const ADD_TAB = "forge-add";
 
@@ -148,6 +136,7 @@ export const topbar = (cx) => {
     );
     const shown = shownIn(forge);
     const active = shown.active;
+    const key = lookKeyOf(forge);
     const close = control(
       icon(ICON.close, tokens().muted),
       `forge-close-${forge.key}`,
@@ -161,7 +150,7 @@ export const topbar = (cx) => {
       active,
       badge: state.badge,
       close: active ? close : undefined,
-      look: { ...gnomeLookOf(lookKeyOf(forge)), mood: state.mood },
+      look: { ...gnomeLookOf(key, readGnomes()[key]), mood: state.mood },
       name: forge.main.name,
     })
       .id(`forge-${forge.key}`)
@@ -208,9 +197,12 @@ export const topbar = (cx) => {
       })
       .on_mouse_down("right", (_event, cx) => {
         cx.stop_propagation();
-        openOverlay({
-          ...SPACE_MENU,
-          props: { tab: "space", target: { id: shown.id } },
+        openForgeMenu({
+          forge: forge.main.name,
+          key,
+          main: forge.main.id,
+          name: nameOf(key, readNames()),
+          space: shown.id,
         });
       })
       .on_click((event) =>

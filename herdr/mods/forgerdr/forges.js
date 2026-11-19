@@ -77,14 +77,32 @@ export const groupForges = (spaces, git) => {
 };
 
 /**
- * What a forge's gnome and brother are drawn from, the same whichever of its spaces is open: its main checkout's
- * folder (the one the app gives its space before git answers), else its one space's folder, else its name.
- * @param {{ key: string, main: { folder: string, name: string } }} forge
+ * What a forge's gnome, its brother and what the human chose for them are kept by, the same whichever of its spaces is
+ * open: its repository; outside git, its one space (the folder the app gives a space is where its new terminals
+ * start, not where it is).
+ * @param {{ key: string }} forge
  */
-export const lookKeyOf = ({ key, main }) =>
-  key.startsWith("space:")
-    ? main.folder || main.name
-    : key.replace(/\/\.git$/, "");
+export const lookKeyOf = ({ key }) => key.replace(/\/\.git$/, "");
+
+/**
+ * What git says of each space, to publish: the answer for a space asked now (null outside git), else the last one
+ * known, so a start or a slow git never shows a forge without its repository; a space never asked has none yet.
+ * Before the app has its spaces, everything known stays.
+ * @param {string[]} ids the spaces', now
+ * @param {Map<string, PlaceGit | null>} fresh by space id, the ones asked
+ * @param {Record<string, PlaceGit | null>} known the last published
+ * @returns {Record<string, PlaceGit | null>}
+ */
+export const knownGit = (ids, fresh, known) =>
+  ids.length === 0
+    ? known
+    : Object.fromEntries(
+        ids.flatMap((id) => {
+          const answer = fresh.get(id);
+          if (answer !== undefined) return [[id, answer]];
+          return id in known ? [[id, known[id]]] : [];
+        }),
+      );
 
 /**
  * The moves that drop one forge where another is, its spaces together, its main checkout first: as space.move takes

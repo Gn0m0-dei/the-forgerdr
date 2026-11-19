@@ -89,19 +89,129 @@ const ACCESSORIES = Object.freeze([
   ACCESSORY.headphones,
 ]);
 
-/**
- * A forge's gnome, whole: its hat and the hat's colour, its beard, its eyes and what it wears over them, all from the
- * forge's key, so a forge looks the same on every start and every machine.
- * @param {string} key a project's
- * @returns {Required<Pick<GnomeLook, "accessory" | "beard" | "colour" | "eyes" | "hat">>}
- */
-export const gnomeLookOf = (key) => ({
-  accessory: pick(key, "accessory", ACCESSORIES),
-  beard: pick(key, "beard", Object.values(BEARD)),
-  colour: hatColourOf(key),
-  eyes: pick(key, "eyes", Object.values(EYES)),
-  hat: pick(key, "hat", Object.values(HAT)),
+// The parts a gnome is made of, which the human can pick one by one.
+export const GNOME_PART = Object.freeze({
+  accessory: "accessory",
+  beard: "beard",
+  colour: "colour",
+  eyes: "eyes",
+  hat: "hat",
 });
+
+/** @typedef {typeof GNOME_PART[keyof typeof GNOME_PART]} GnomePart */
+
+// The parts as the dialog lists them, from the top of the head down.
+/** @type {readonly GnomePart[]} */
+export const PARTS_DOWN = Object.freeze([
+  GNOME_PART.hat,
+  GNOME_PART.colour,
+  GNOME_PART.eyes,
+  GNOME_PART.beard,
+  GNOME_PART.accessory,
+]);
+/** @typedef {Required<Pick<GnomeLook, GnomePart>>} WholeLook */
+
+// Each part's options, in the order the human turns through them.
+/** @satisfies {{ [P in GnomePart]: readonly WholeLook[P][] }} */
+export const PART_OPTIONS = Object.freeze({
+  accessory: Object.freeze(Object.values(ACCESSORY)),
+  beard: Object.freeze(Object.values(BEARD)),
+  colour: Object.freeze(HAT_ORDER),
+  eyes: Object.freeze(Object.values(EYES)),
+  hat: Object.freeze(Object.values(HAT)),
+});
+
+/**
+ * What the human chose for a forge's gnome: a roll other than the key's first (a re-roll), and parts picked by hand
+ * over the rolled ones.
+ * @typedef {Partial<WholeLook> & { roll?: number }} GnomeChoice
+ */
+
+/**
+ * A key's gnome at a roll; roll 0 is the one the key has always had.
+ * @param {string} key
+ * @param {number} roll
+ * @returns {WholeLook}
+ */
+const rolled = (key, roll) => {
+  const seed = roll === 0 ? key : `${key}\u0000${roll}`;
+  return {
+    accessory: pick(seed, "accessory", ACCESSORIES),
+    beard: pick(seed, "beard", PART_OPTIONS.beard),
+    colour: hatColourOf(seed),
+    eyes: pick(seed, "eyes", PART_OPTIONS.eyes),
+    hat: pick(seed, "hat", PART_OPTIONS.hat),
+  };
+};
+
+/**
+ * @param {GnomeChoice} choice
+ * @returns {number}
+ */
+const rollOf = (choice) =>
+  Number.isInteger(choice.roll) && (choice.roll ?? 0) > 0
+    ? (choice.roll ?? 0)
+    : 0;
+
+/**
+ * A forge's gnome, whole: its hat and the hat's colour, its beard, its eyes and what it wears over them. Rolled from
+ * the forge's key, so a forge looks the same on every start and every machine, with what the human chose on top; a
+ * part this version does not know is the rolled one.
+ * @param {string} key a project's
+ * @param {GnomeChoice} [choice] the human's
+ * @returns {WholeLook}
+ */
+export const gnomeLookOf = (key, choice = {}) => {
+  const look = rolled(key, rollOf(choice));
+  /**
+   * @template {GnomePart} P
+   * @param {P} part
+   */
+  const chosen = (part) => {
+    const option = choice[part];
+    /** @type {readonly unknown[]} */
+    const options = PART_OPTIONS[part];
+    return option !== undefined && options.includes(option)
+      ? option
+      : look[part];
+  };
+  return {
+    accessory: chosen(GNOME_PART.accessory),
+    beard: chosen(GNOME_PART.beard),
+    colour: chosen(GNOME_PART.colour),
+    eyes: chosen(GNOME_PART.eyes),
+    hat: chosen(GNOME_PART.hat),
+  };
+};
+
+/**
+ * The choice with one part turned to its next option (step 1) or its previous one (step -1), round at the ends.
+ * @param {string} key
+ * @param {GnomeChoice} choice
+ * @param {GnomePart} part
+ * @param {1 | -1} step
+ * @returns {GnomeChoice}
+ */
+export const turnPart = (key, choice, part, step) => {
+  /** @type {readonly string[]} */
+  const options = PART_OPTIONS[part];
+  const at = options.indexOf(gnomeLookOf(key, choice)[part]);
+  const next = options[(at + step + options.length) % options.length];
+  return { ...choice, [part]: next };
+};
+
+/**
+ * A whole new gnome for the key: the next roll that looks different, without the parts picked by hand.
+ * @param {string} key
+ * @param {GnomeChoice} choice
+ * @returns {GnomeChoice}
+ */
+export const rerolled = (key, choice) => {
+  const now = JSON.stringify(gnomeLookOf(key, choice));
+  let roll = rollOf(choice) + 1;
+  while (JSON.stringify(rolled(key, roll)) === now) roll += 1;
+  return { roll };
+};
 
 /**
  * A forge's gnome's name: the one the human gave it, else its brother's.

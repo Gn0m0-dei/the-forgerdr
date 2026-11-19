@@ -1,7 +1,8 @@
 // The forge's sidebar (design 04): its gnome, the tree of the forge the window shows (the repository, its main
 // checkout and worktrees, the golems at work in each and their subagents) and the forge's heat at its foot. Narrower
-// than a rail, it shows the golems alone (design 04b). It also asks git about every space's place, which the app does
-// not tell, and publishes it for the top bar (bridges/git.js).
+// than a rail, it shows the golems alone (design 04b). A double click on the gnome opens its dialog (roles/gnome.js), a
+// right click the forge's menu, as on its tab. It also asks git about every space's place, which the app does not
+// tell, and publishes it for the top bar (bridges/git.js), keeping what it knew until git answers again.
 import { v_flex } from "gpui-base";
 import {
   agents,
@@ -14,6 +15,7 @@ import {
   terminals,
 } from "herdr";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
+import { readGnomes } from "../bridges/gnomes.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
 import { readTerminals } from "../bridges/terminals.js";
@@ -23,6 +25,7 @@ import {
   forgeState,
   forgeSummary,
   groupForges,
+  knownGit,
   lookKeyOf,
 } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
@@ -32,7 +35,8 @@ import { gnome, golem, ICON, icon } from "../kit/sprites.js";
 import { TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
 import { parentOf } from "../lanes.js";
-import { MOD } from "../name.js";
+import { openForgeMenu } from "./forge-menu.js";
+import { openGnome } from "./gnome.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -42,7 +46,8 @@ import { MOD } from "../name.js";
 /** @typedef {import("../forges.js").PlaceGit} PlaceGit */
 /** @typedef {import("./role.js").Role} Role */
 
-const TIMING = Object.freeze({ fresh: 30_000, poll: 5_000 });
+// A space git has not answered for yet (a new one) is asked at the next step, not the next poll.
+const TIMING = Object.freeze({ fresh: 30_000, poll: 5_000, step: 250 });
 
 // Places asked about together (four git runs each), as the app's space list does.
 const AT_ONCE = 6;
@@ -64,9 +69,6 @@ const MOOD_SIGN = Object.freeze({
   needs: SIGN.needs,
   working: SIGN.flame,
 });
-
-// The dialog that renames a forge's gnome (roles/rename.js).
-const RENAME = Object.freeze({ height: 190, kind: "dialog", width: 420 });
 
 /**
  * Where a space is now: its first terminal's live folder, else where its terminals start.
@@ -140,9 +142,14 @@ const spaceRow = (element, id, spaceId) =>
 export const sidebar = (cx) => {
   /** @type {Map<string, { git: PlaceGit | null, at: number }>} */
   const places = new Map();
+  /** @type {Set<string>} the places git was asked about, answered or not */
+  const tried = new Set();
   /** @type {Record<string, { used: number, at: number }>} each golem's session context, by its terminal */
   let contexts = {};
   let width = Number.POSITIVE_INFINITY;
+
+  /** @param {{ on: string | null, where: string }} place */
+  const keyOf = ({ on, where }) => `${on ?? ""}|${where}`;
 
   // Asks git about the places that are new or not asked for a while, a few at a time as the app's space list does (all
   // at once, many spaces run out of open files or past a machine's running commands), then publishes every space's.
@@ -153,8 +160,6 @@ export const sidebar = (cx) => {
       on: space.machine,
       where: placeOf(space),
     }));
-    /** @param {{ on: string | null, where: string }} place */
-    const keyOf = ({ on, where }) => `${on ?? ""}|${where}`;
     const due = all.filter((place) => {
       const known = places.get(keyOf(place));
       return (
@@ -165,6 +170,7 @@ export const sidebar = (cx) => {
     for (let start = 0; start < due.length; start += AT_ONCE) {
       await Promise.all(
         due.slice(start, start + AT_ONCE).map(async (place) => {
+          tried.add(keyOf(place));
           try {
             places.set(keyOf(place), {
               at: now,
@@ -179,12 +185,28 @@ export const sidebar = (cx) => {
     // Places no space is in any more are forgotten.
     const current = new Set(all.map(keyOf));
     for (const key of places.keys()) if (!current.has(key)) places.delete(key);
+    for (const key of tried) if (!current.has(key)) tried.delete(key);
+    /** @type {Map<string, PlaceGit | null>} */
+    const fresh = new Map();
+    for (const place of all) {
+      const known = places.get(keyOf(place));
+      if (known !== undefined) fresh.set(place.id, known.git);
+    }
     publishSpacesGit(
-      Object.fromEntries(
-        all.map((place) => [place.id, places.get(keyOf(place))?.git ?? null]),
+      knownGit(
+        all.map((place) => place.id),
+        fresh,
+        readSpacesGit(),
       ),
     );
   };
+
+  // Whether a space waits for git: one in a place git was never asked about (a new space, or one that moved).
+  const waiting = () =>
+    spaces().some((space) => {
+      const where = placeOf(space);
+      return where !== "" && !tried.has(keyOf({ on: space.machine, where }));
+    });
 
   const task = checking()
     ? null
@@ -193,7 +215,12 @@ export const sidebar = (cx) => {
           await refresh();
           contexts = await readContexts(agents().map((agent) => agent.address));
           cx.notify();
-          await cx.sleep(TIMING.poll);
+          for (
+            let slept = 0;
+            slept < TIMING.poll && !waiting();
+            slept += TIMING.step
+          )
+            await cx.sleep(TIMING.step);
         }
       });
 
@@ -319,7 +346,7 @@ export const sidebar = (cx) => {
       status: cracked.has(agent.address) ? "cracked" : agent.status,
     }));
     const state = forgeState(golems);
-    const look = { ...gnomeLookOf(key), mood: state.mood };
+    const look = { ...gnomeLookOf(key, readGnomes()[key]), mood: state.mood };
     const name = nameOf(key, readNames());
 
     if (width < RAIL) {
@@ -362,13 +389,19 @@ export const sidebar = (cx) => {
         })
           .id("gnome-header")
           .relative()
-          // A double click on the gnome renames it.
           .on_click((event) => {
-            if (event.click_count !== 2) return;
-            openOverlay({
-              ...RENAME,
-              mod: MOD,
-              props: { key, role: "rename", value: name },
+            if (event.click_count === 2)
+              openGnome({ forge: forge.main.name, key, name });
+          })
+          .on_mouse_down("right", (_event, cx) => {
+            cx.stop_propagation();
+            openForgeMenu({
+              forge: forge.main.name,
+              key,
+              main: forge.main.id,
+              name,
+              space: (forge.spaces.find((space) => space.active) ?? forge.main)
+                .id,
             });
           })
           .child(

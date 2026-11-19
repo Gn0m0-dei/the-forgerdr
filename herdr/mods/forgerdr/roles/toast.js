@@ -4,6 +4,7 @@
 // three 90 ms steps; a click runs its action and it steps out the same way. It never takes the keyboard.
 import { agents, checking, closeOverlay, props, run, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
+import { readGnomes } from "../bridges/gnomes.js";
 import { readNames } from "../bridges/names.js";
 import { groupForges, lookKeyOf } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
@@ -104,7 +105,7 @@ export const toast = (cx) => {
       toastPiece({
         from,
         look: {
-          ...(forge === undefined ? {} : gnomeLookOf(key)),
+          ...(forge === undefined ? {} : gnomeLookOf(key, readGnomes()[key])),
           mood: level.mood,
         },
         message,
