@@ -33,4 +33,4 @@ Then `AskUserQuestion` (multiSelect, one option per confirmed finding, at most 4
 
 One finding at a time: the regression test the finding names first, failing today (a request that should be rejected, an input that should be escaped), then the smallest fix at the last trusted decision point, then the test green. Secrets found anywhere: remove, add the ignore rule, and tell the user to rotate them; never claim history is clean after a removal.
 
-No commit without permission. Re-run the auditor on the fixed scope and report the delta. `mem_save` the findings accepted and discarded.
+No commit without a commit gate (standards, Gates). Re-run the auditor on the fixed scope and report the delta. `mem_save` the findings accepted and discarded.

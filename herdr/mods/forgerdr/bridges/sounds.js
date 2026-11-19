@@ -1,12 +1,13 @@
-// The forge's own sound, which the app has no alert for: the crack of a golem an API error broke. It plays the mod's
-// sounds/cracked.mp3 (herdr/tools/sounds.mts), as the app plays its alerts, unless the person turned sounds off in
-// settings.json ("sounds": { "enabled": false }).
+// The forge's own sounds, which the app has no alert for: the crack of a golem an API error broke, and the stamp
+// coming down when the human answers a card of the inbox. It plays the mod's sounds (herdr/tools/sounds.mts), as the
+// app plays its alerts, unless the person turned sounds off in settings.json ("sounds": { "enabled": false }).
 import { appHome, playSound, readTextFile } from "herdr";
 import { MOD } from "../name.js";
 
 const SOUND = Object.freeze({
   cracked: `mods/${MOD}/sounds/cracked.mp3`,
   settings: "settings.json",
+  stamp: `mods/${MOD}/sounds/stamp.mp3`,
 });
 
 /** @returns {Promise<boolean>} whether the person lets the app play sounds; yes when settings.json does not say */
@@ -37,4 +38,9 @@ const soundsOn = async () => {
 /** Plays a golem's crack, when the person lets sounds play. */
 export const playCracked = async () => {
   if (await soundsOn()) playSound(SOUND.cracked);
+};
+
+/** Plays the stamp coming down, when the person lets sounds play. */
+export const playStamp = async () => {
+  if (await soundsOn()) playSound(SOUND.stamp);
 };

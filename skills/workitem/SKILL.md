@@ -40,7 +40,7 @@ In the manual flow, an OpenSpec change stops after the brief and names the comma
 
 ## Gates
 
-Stop and wait for the user after: the analysis and verdict (gate 1), the proposed solution (gate 2), before every commit (gate 3), before the pull request (gate 4), before publishing a comment (gate 5), before any state or assignment change (gate 6). Never skip a gate because the step looks obvious.
+Stop and wait for the user after: the analysis and verdict (gate 1), the proposed solution (gate 2), before every commit (gate 3), before the pull request (gate 4), before publishing a comment (gate 5), before any state or assignment change (gate 6). Gates 3 to 6 are asked as the standards say (Gates). Never skip a gate because the step looks obvious.
 
 ## 1. Analysis
 

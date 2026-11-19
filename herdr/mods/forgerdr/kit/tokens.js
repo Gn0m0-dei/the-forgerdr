@@ -69,6 +69,17 @@ export const tokens = () => {
 };
 
 /**
+ * A theme colour seen through: the same colour at an opacity from 0 to 1.
+ * @param {Color} colour #rrggbb, as the app gives every theme colour
+ * @param {number} opacity
+ * @returns {Color}
+ */
+export const withAlpha = (colour, opacity) =>
+  `#${colour.slice(1, 7)}${Math.round(opacity * 255)
+    .toString(16)
+    .padStart(2, "0")}`;
+
+/**
  * @param {Tone} tone
  * @returns {Color}
  */

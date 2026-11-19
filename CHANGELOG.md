@@ -6,6 +6,15 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The approval inbox: a drawer of the forgerdr layout, opened from `INBOX` in the top bar or `forgerdr.inbox`, with what waits on your mark in every session, a card each, by clicks: a tool's permission (`Allow once`, `Deny with reason`), a question (its options, an answer of your own), one of forgerdr's gates (`Stamp`), a plan (`Approve plan` into auto mode or approving each edit, `Revise`), and an agent waiting in its pane. Each card shows its forge's gnome and name, the branch and the session, and every field of what an allow applies, whole; `Discuss` goes to its pane. An answer stamps the card with the gnomemark (gold for a yes, red for a no) and its sound, a rubber stamp synthesised by `herdr/tools/sounds.mts`, drawn by `herdr/tools/sprites.mts`; the card trembles, then slides away. `hooks/inbox.sh` puts the requests there on Claude Code's `PermissionRequest`, for a session in a herdr terminal, and turns the answer into Claude Code's decision; the pane's own dialog stays open and whichever answers first wins, and a card answered in the pane goes. `bin/forge-inbox.sh` lists the requests and writes the answers. A convenience, not a lock: the drawer says so.
+
+### Changed
+
+- The gates on what leaves the machine (a commit, a push, a pull request, a comment or a reply to publish, a work item's state or assignment) are asked with `AskUserQuestion`, headed `Gate <kind>` with the draft beside the yes, so they reach the inbox; the gates of understanding stay in the chat (standards, Gates).
+- `INBOX` in the top bar counts what waits in the inbox and opens it, instead of going to the first agent waiting.
+
 ### Fixed
 
 - The sidebar's tree listed only two levels: a session and the agents it dispatched. An agent dispatched by an agent, and the subagents inside an agent's session (a Task, a background shell), were missing; the golem lanes showed them. The tree now goes as deep as they do, a step further in each level.

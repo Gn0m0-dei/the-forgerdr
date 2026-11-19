@@ -129,6 +129,19 @@ const stack = (width, height, layers) =>
       layers.map((layer) => layer.absolute().top(0).left(0).w(width).h(height)),
     );
 
+// The GNOMEMARK stamp's art (design 05b), its size as herdr/tools/sprites.mts draws it, already tilted.
+export const STAMP_ART = Object.freeze({ height: 80, width: 192 });
+
+/**
+ * The GNOMEMARK stamp's two layers, to stack at the size its holder gives: its body and its ink.
+ * @param {Color} ink
+ * @param {Color} body dark and see-through, so the card shows under it
+ */
+export const stampLayers = (ink, body) => [
+  svg(asset("img/stamp/body.svg")).text_color(body),
+  svg(asset("img/stamp/ink.svg")).text_color(ink),
+];
+
 /**
  * @param {IconName} name
  * @param {Color} colour

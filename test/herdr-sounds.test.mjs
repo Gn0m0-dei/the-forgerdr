@@ -1,6 +1,6 @@
 // The forge's sounds as herdr/tools/sounds.mts makes them, under Node's own runner: the same on every run, never
-// clipping, two clinks for blocked, a hiss that dies down for done, a crack and its grit for cracked, and the MP3s the
-// mod ships.
+// clipping, two clinks for blocked, a hiss that dies down for done, a crack and its grit for cracked, the clack and
+// thud of a rubber stamp for stamp, and the MP3s the mod ships.
 // Run: node --test test/herdr-sounds.test.mjs
 import { ok, strictEqual } from "node:assert";
 import { existsSync, statSync } from "node:fs";
@@ -11,6 +11,7 @@ import {
   cracked,
   done,
   RATE,
+  stamp,
   wav,
 } from "../herdr/tools/sounds.mts";
 
@@ -26,7 +27,7 @@ const peakOf = (samples) =>
   samples.reduce((top, sample) => Math.max(top, Math.abs(sample)), 0);
 
 test("each sound is the same on every run, and never clips", () => {
-  for (const make of [blocked, done, cracked]) {
+  for (const make of [blocked, done, cracked, stamp]) {
     const sound = make();
     const again = make();
     strictEqual(sound.length, again.length);
@@ -81,6 +82,29 @@ test("done is a hiss that flares and dies down", () => {
   ok(crossings / 0.2 > 3000);
 });
 
+test("stamp is the stamp's clack, then a short low thud on the desk, then quiet", () => {
+  const sound = stamp();
+  ok(sound.length < RATE * 0.6);
+  // The thud is the loud part, and dies within a few tenths of a second.
+  ok(rms(sound, 0.03, 0.09) > 6 * rms(sound, 0.3, 0.4));
+  // The clack comes first and is bright; the thud is dark: few zero crossings.
+  const crossings = (from, to) => {
+    const part = sound.subarray(Math.round(RATE * from), Math.round(RATE * to));
+    return (
+      part.reduce(
+        (count, sample, at) =>
+          at > 0 && Math.sign(sample) !== Math.sign(part[at - 1])
+            ? count + 1
+            : count,
+        0,
+      ) /
+      (to - from)
+    );
+  };
+  ok(crossings(0, 0.008) > 4 * crossings(0.05, 0.12));
+  ok(crossings(0.05, 0.12) < 900);
+});
+
 test("a sound is written as a 16-bit mono WAV, as the encoder takes it", () => {
   const file = wav(new Float32Array([0, 1, -1, 0.5]));
   strictEqual(file.toString("ascii", 0, 4), "RIFF");
@@ -91,8 +115,8 @@ test("a sound is written as a 16-bit mono WAV, as the encoder takes it", () => {
   strictEqual(file.length, 44 + 8);
 });
 
-test("the mod ships its three sounds as MP3", () => {
-  for (const name of ["blocked", "cracked", "done"]) {
+test("the mod ships its four sounds as MP3", () => {
+  for (const name of ["blocked", "cracked", "done", "stamp"]) {
     const file = new URL(
       `../herdr/mods/forgerdr/sounds/${name}.mp3`,
       import.meta.url,

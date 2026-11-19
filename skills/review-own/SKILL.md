@@ -26,8 +26,8 @@ Then `AskUserQuestion` (multiSelect, one option per thread) for the ones to act 
 
 ## 3. Act
 
-Fixes: one thread at a time, test first when the change is testable, suite green. Commit with permission (one commit per logical group, work item footer kept, `Closes:` or `Refs:`), `git push`. Replies: the draft shown first, in the reply language (a team that states another language overrides it), short, no preamble, naming the commit hash when a fix was pushed.
+Fixes: one thread at a time, test first when the change is testable, suite green. Commit after a commit gate (standards, Gates; one commit per logical group, work item footer kept, `Closes:` or `Refs:`), `git push` after a push gate. Replies: the draft shown first, in the reply language (a team that states another language overrides it), short, no preamble, naming the commit hash when a fix was pushed.
 
 ## 4. Close the loop
 
-Publish the replies on an explicit yes, then resolve the threads whose fix was pushed (provider commands: Azure `status: fixed`, GitHub `resolveReviewThread`, GitLab `resolved=true`). Leave open the threads that wait for the reviewer. Table at the end: thread, action, commit, status. `mem_save` the rules the reviewer applied, so future code follows them before review.
+Publish the replies on the yes of a comment gate, then resolve the threads whose fix was pushed (provider commands: Azure `status: fixed`, GitHub `resolveReviewThread`, GitLab `resolved=true`). Leave open the threads that wait for the reviewer. Table at the end: thread, action, commit, status. `mem_save` the rules the reviewer applied, so future code follows them before review.

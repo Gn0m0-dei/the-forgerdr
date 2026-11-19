@@ -95,7 +95,7 @@ One location, one problem, one fix. No preambles, no praise, no rationale essays
 
 ## Step 6: publish
 
-Ask, in the reply language, whether to publish these N comments on the pull request. Only on an explicit yes, publish one thread per id through the provider CLI (a grouped option `[3-4-5]` publishes three threads with the same text and its own path and line). Skip any that duplicates an existing thread and say so. No vote, no status change, no description edit, no completion. Report one line per published thread with its id, plus anything that failed and why.
+Ask, in the reply language, with a comment gate (standards, Gates) whether to publish these N comments on the pull request. Only on its yes, publish one thread per id through the provider CLI (a grouped option `[3-4-5]` publishes three threads with the same text and its own path and line). Skip any that duplicates an existing thread and say so. No vote, no status change, no description edit, no completion. Report one line per published thread with its id, plus anything that failed and why.
 
 ## Memory
 

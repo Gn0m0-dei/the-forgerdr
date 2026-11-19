@@ -277,4 +277,103 @@ for (const [title, glyph] of Object.entries(GLYPHS)) {
   );
 }
 
+// The GNOMEMARK stamp (design 05b, after the mark), tilted as the design lays it, in two layers: its body, which the mod
+// tints dark and see-through, and its ink, which it tints gold for a yes and red for a no: a double frame, the gnome
+// (the default head at twice its size, its outline, eyes, band and shades left as paper) and GNOMEMARK over MARKED BY THE MASTER in the
+// stamp's own letters (design/stamp-letters.txt). Tilted, it is drawn smooth, not in crisp pixels.
+const STAMP = Object.freeze({ height: 46, tilt: -10, width: 184 });
+const STAMP_INK = new Set(["H", "S", "s", "C", "W"]);
+
+/** The stamp's letters by name, 5x5 each. */
+function stampLetters(text: string): Map<string, Grid> {
+  const found = new Map<string, Grid>();
+  const lines = text.split("\n").map((line) => line.trimEnd());
+  lines.forEach((line, at) => {
+    const rows = lines.slice(at + 1, at + 6);
+    if (/^[A-Z]$/.test(line) && rows.every((row) => /^[.#]{5}$/.test(row)))
+      found.set(line, rows);
+  });
+  return found;
+}
+
+const letters = stampLetters(
+  readFileSync(join(design, "stamp-letters.txt"), "utf8"),
+);
+const paper = Array.from({ length: STAMP.height }, () =>
+  Array.from({ length: STAMP.width }, () => false),
+);
+const ink = (x: number, y: number, width = 1, height = 1) => {
+  for (let row = y; row < y + height; row++)
+    for (let column = x; column < x + width; column++)
+      paper[row][column] = true;
+};
+/** A frame of a thickness, its outer corner at (x, y). */
+const frame = (
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  thick: number,
+) => {
+  ink(x, y, width, thick);
+  ink(x, y + height - thick, width, thick);
+  ink(x, y, thick, height);
+  ink(x + width - thick, y, thick, height);
+};
+/** Words in the stamp's letters, each pixel `scale` square, `gap` paper between letters and 4 for a space. */
+const words = (
+  text: string,
+  x: number,
+  y: number,
+  scale: number,
+  gap: number,
+) => {
+  let left = x;
+  for (const letter of text) {
+    if (letter === " ") {
+      left += 4 * scale;
+      continue;
+    }
+    need(letters.get(letter), `stamp letter ${letter}`).forEach((row, dy) => {
+      [...row].forEach((cell, dx) => {
+        if (cell === "#") ink(left + dx * scale, y + dy * scale, scale, scale);
+      });
+    });
+    left += 5 * scale + gap;
+  }
+};
+frame(0, 0, STAMP.width, STAMP.height, 3);
+frame(5, 5, STAMP.width - 10, STAMP.height - 10, 1);
+head.forEach((row, y) => {
+  [...row].forEach((cell, x) => {
+    if (STAMP_INK.has(cell)) ink(10 + x * 2, 7 + y * 2, 2, 2);
+  });
+});
+words("GNOMEMARK", 50, 13, 2, 4);
+words("MARKED BY THE MASTER", 50, 28, 1, 1);
+
+const tilted = (body: string) => {
+  const turn = (Math.abs(STAMP.tilt) * Math.PI) / 180;
+  const width =
+    Math.ceil(STAMP.width * Math.cos(turn) + STAMP.height * Math.sin(turn)) + 2;
+  const height =
+    Math.ceil(STAMP.width * Math.sin(turn) + STAMP.height * Math.cos(turn)) + 2;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}"><g transform="translate(${width / 2} ${height / 2}) rotate(${STAMP.tilt}) translate(${-STAMP.width / 2} ${-STAMP.height / 2})">${body}</g></svg>\n`;
+};
+write(
+  "stamp/body.svg",
+  tilted(
+    `<rect fill="#000000" width="${STAMP.width}" height="${STAMP.height}"/>`,
+  ),
+);
+write(
+  "stamp/ink.svg",
+  tilted(
+    svg(
+      paper.map((row) => row.map((cell) => (cell ? "#" : ".")).join("")),
+      (cell) => (cell === "#" ? "#000000" : undefined),
+    ).replace(/^<svg[^>]*>|<\/svg>\n$/g, ""),
+  ),
+);
+
 process.stdout.write(`sprites: ${written.length} files in ${out}\n`);

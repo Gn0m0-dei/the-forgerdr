@@ -617,6 +617,12 @@ forge_append_line() {
   printf '%s\n' "$2" >> "$1"
 }
 
+# The approval inbox: a request per file, <id>.json, that hooks/inbox.sh writes for a Claude Code permission dialog,
+# and its answer, <id>.answer.json, that the forgerdr mod writes through bin/forge-inbox.sh. FORGE_INBOX_DIR moves it.
+forge_inbox_dir() {
+  printf '%s\n' "${FORGE_INBOX_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/inbox}"
+}
+
 # Opens a worktree as a herdr app space that does not take the focus: named, its first tab named when a name is given,
 # running the argv given as JSON or a shell. Records it and prints what herdr-app made: {"space", "tab", "terminal"}.
 forge_open_space() {

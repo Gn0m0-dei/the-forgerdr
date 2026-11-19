@@ -1,5 +1,16 @@
 {
   "hooks": {
+    "PermissionRequest": [
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/inbox.sh\" ask",
+            "timeout": 86400,
+            "type": "command"
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "hooks": [
@@ -10,6 +21,28 @@
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/inbox.sh\" settle",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "hooks": [
+          {
+            "async": true,
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/inbox.sh\" settle",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
       }
     ],
     "PreToolUse": [

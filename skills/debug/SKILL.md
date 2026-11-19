@@ -35,4 +35,4 @@ Load the project skills for the area before writing the fix (standards, "Project
 3. Revert the fix, run the test: red again. Restore. Only now is the test proven.
 4. Report: cause in one sentence, why it was introduced (blame), the fix, the evidence (the three test runs), what else the same cause touched.
 
-No commit without permission. `mem_save` the cause and the fix.
+No commit without a commit gate (standards, Gates). `mem_save` the cause and the fix.

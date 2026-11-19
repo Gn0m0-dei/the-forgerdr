@@ -8,6 +8,7 @@ import { forgeMenu } from "./roles/forge-menu.js";
 import { gallery } from "./roles/gallery.js";
 import { gnomeDialog } from "./roles/gnome.js";
 import { heat } from "./roles/heat.js";
+import { inbox } from "./roles/inbox.js";
 import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
 import { modeDialog } from "./roles/mode.js";
@@ -36,6 +37,7 @@ const ROLES = {
   gallery,
   gnome: gnomeDialog,
   heat,
+  inbox,
   lanes,
   manual,
   mode: modeDialog,

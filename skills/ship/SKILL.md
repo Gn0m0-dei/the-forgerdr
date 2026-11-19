@@ -27,7 +27,7 @@ Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec a
 
 ## 5. Commit
 
-Uncommitted work: ask permission for the commit, Conventional Commits in English, `Closes: #<id>` when the work has a work item (the branch's id, or the one the OpenSpec change references), `Refs: EXT-<id>` when that item is of an external backlog (`${CLAUDE_PLUGIN_ROOT}/references/items.md`). Permission covers that commit only.
+Uncommitted work: ask permission for the commit with a commit gate (standards, Gates), Conventional Commits in English, `Closes: #<id>` when the work has a work item (the branch's id, or the one the OpenSpec change references), `Refs: EXT-<id>` when that item is of an external backlog (`${CLAUDE_PLUGIN_ROOT}/references/items.md`). Permission covers that commit only.
 
 ## 6. Archive the OpenSpec change
 
@@ -35,7 +35,7 @@ Spec mode `openspec` or `openspec:<store>`, with a change for this work (the cha
 
 ## 7. Push and pull request
 
-`git push -u origin HEAD`. Then the pull request through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): base = `<base>` (for a `hotfix/` or `release/` branch the production branch, then a second pull request from it back into `<base>` when they differ, standards "Branch names"), title `#<id> <slug>` (or the branch name without id), description in English with Problem, Cause, Change, Verification (the commands and their results from step 1), and the work item (the branch's id, or the one the OpenSpec change references) linked through the provider's relation. An item of an external backlog is never linked: title `EXT-<id> <slug>` and `EXT-<id>` in the description, with no URL. Show the title and the description as a draft first; publish on an explicit yes. No AI mention anywhere.
+A push gate, then `git push -u origin HEAD`. Then the pull request through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): base = `<base>` (for a `hotfix/` or `release/` branch the production branch, then a second pull request from it back into `<base>` when they differ, standards "Branch names"), title `#<id> <slug>` (or the branch name without id), description in English with Problem, Cause, Change, Verification (the commands and their results from step 1), and the work item (the branch's id, or the one the OpenSpec change references) linked through the provider's relation. An item of an external backlog is never linked: title `EXT-<id> <slug>` and `EXT-<id>` in the description, with no URL. The title and the description are the draft of a PR gate; publish on its yes. No AI mention anywhere.
 
 Report the pull request URL. The work item's state changes only when the user says.
 

@@ -83,13 +83,18 @@ Do it once per area per session, at the first step that touches code; when the w
 
 - Living documentation (stories, docs, examples) is updated in the same change as the code it describes.
 
+## Gates
+
+- A yes on an action that leaves the working tree or the machine (a commit, a push, a pull request, a comment or a reply to publish, a work item's state or assignment) is a gate: ask it with `AskUserQuestion`, never as a question typed in the chat, so it reaches the herdr app's inbox as well as the session. Header `Gate <kind>`: `Gate commit`, `Gate push`, `Gate PR`, `Gate comment`, `Gate state`. The question names the action; the first option is the yes (`Commit`, `Push`, `Open it`, `Publish`, `Apply`) with the draft in its `preview` (the commit message and the files it takes, the pull request's title and description, the comment, the change), the second holds it (`Not yet`). An answer typed instead (Other) changes the draft: apply it and ask again. A yes covers that gate only.
+- The gates of understanding (an analysis and its verdict, a proposed solution, a design or a plan to approve) stay in the chat, where they are discussed.
+
 ## Git
 
 - **Create feature branches with no upstream**: `git switch -c <branch> --no-track origin/<base>`. Never `git checkout -b <branch> origin/<base>`, which silently makes the new branch track the shared branch, so the Push button of an IDE lands the commits straight on it.
 - After creating a branch, **verify the upstream**: `git rev-parse --abbrev-ref @{upstream}` must fail with "no upstream" or name the branch itself. If it names the base, fix it before committing: `git branch --unset-upstream`.
 - **A branch's first push sets its own upstream**: `git push -u origin HEAD`. Never push a refspec whose target is a different branch.
 - **Work locally and rebase deliberately.** A feature branch never tracks, merges or follows its base automatically: when the base moves on, rebase as a separate, explicit step.
-- **Never create commits without the user's explicit permission.** Permission covers that commit only: work produced afterwards needs asking again, even in the same session.
+- **Never create commits without the user's explicit permission**, asked as a commit gate (Gates). Permission covers that commit only: work produced afterwards needs asking again, even in the same session.
 - **To undo a commit, uncommit it**: `git reset --soft HEAD~<n>`. It drops the commit and leaves every change staged. Never `--mixed` (unstages everything silently), never `--hard` (destroys the work). Check `git status` afterwards.
 - **Update the base branch before branching off it**: `git fetch origin`, then confirm `git log --oneline <base>..origin/<base>` is empty.
 - Branch names follow the project's spec mode. A work item branch is `fix/#<id>-<slug>` for a bug, `feature/#<id>-<slug>` for a backlog item or a "bug" that turns out to be new behaviour. Slug: short, lowercase, hyphenated.

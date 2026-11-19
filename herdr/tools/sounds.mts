@@ -1,7 +1,8 @@
 // Generates the forge's sounds, which the herdr app plays for its alerts (settings.json "sounds"): blocked, when a golem
 // needs the human, is the hammer working the piece on the anvil, clink… clink; done, when one finishes, is the hiss of
 // a quench, hot metal into water; cracked, which the mod plays when an API error breaks a golem, is its stone
-// splitting. Synthesised here rather than recorded, so they carry no one else's licence, from a
+// splitting; stamp, which it plays when the human answers a card of the inbox, is a rubber stamp coming down on the
+// desk, ka-thunk. Synthesised here rather than recorded, so they carry no one else's licence, from a
 // seeded noise so every run makes the same sound; encoded to MP3, which the app plays, with lame (or ffmpeg).
 // Run: node herdr/tools/sounds.mts [--out <folder>]
 import { execFileSync } from "node:child_process";
@@ -268,6 +269,36 @@ export const cracked = () => {
   );
 };
 
+/**
+ * Stamp: the GNOMEMARK stamp coming down on the desk: the clack of its handle, then the low thud of rubber on paper
+ * over wood, in a small room.
+ */
+export const stamp = () => {
+  const random = noise(0x57a4);
+  const length = Math.round(RATE * 0.45);
+  const clack = bandPass(3400, 1.1);
+  const body = lowPass(700);
+  const LAND = 0.022;
+  return finish(
+    room(
+      Float32Array.from({ length }, (_, at) => {
+        const t = at / RATE;
+        const white = random();
+        const click = 0.5 * clack(white) * Math.exp(-t / 0.004);
+        const since = t - LAND;
+        if (since < 0) return click;
+        // The pitch falls as the rubber gives: from about 150 Hz down to 55.
+        const pitch = 55 + 95 * Math.exp(-since / 0.02);
+        const thud =
+          Math.exp(-since / 0.055) * Math.sin(2 * Math.PI * pitch * since);
+        const slap = 1.4 * body(white) * Math.exp(-since / 0.02);
+        return click + thud + slap;
+      }),
+      0.12,
+    ),
+  );
+};
+
 /** A sound as a 16-bit mono WAV file. */
 export const wav = (samples: Float32Array) => {
   const data = Buffer.alloc(samples.length * 2);
@@ -328,6 +359,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
       ["blocked", blocked],
       ["done", done],
       ["cracked", cracked],
+      ["stamp", stamp],
     ] as const) {
       const source = join(scratch, `${name}.wav`);
       writeFileSync(source, wav(make()));
@@ -336,5 +368,7 @@ if (import.meta.url === pathToFileURL(process.argv[1] ?? "").href) {
   } finally {
     rmSync(scratch, { force: true, recursive: true });
   }
-  console.log(`sounds: blocked.mp3, done.mp3 and cracked.mp3 in ${out}`);
+  console.log(
+    `sounds: blocked.mp3, done.mp3, cracked.mp3 and stamp.mp3 in ${out}`,
+  );
 }

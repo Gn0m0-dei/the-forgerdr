@@ -192,6 +192,20 @@
           "id": "work",
           "resizable": false,
           "type": "column"
+        },
+        {
+          "content": {
+            "mod": "forgerdr",
+            "props": {
+              "role": "inbox"
+            }
+          },
+          "hidden": true,
+          "id": "inbox",
+          "size": {
+            "px": 480
+          },
+          "type": "block"
         }
       ],
       "divider": {

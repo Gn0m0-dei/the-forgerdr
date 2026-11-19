@@ -1,6 +1,7 @@
 // The window's top bar (design 04): a forge tab per repository (its main checkout and its worktrees, which the sidebar
 // lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
-// the inbox of what waits on the human and the command palette. The bar drags the window; its controls do not.
+// the inbox of what waits on the human, which opens its drawer (roles/inbox.js), and the command palette. The bar
+// drags the window; its controls do not.
 // A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
 // else its main checkout's): a click shows it, its ✕ or a middle click closes it (the app confirms), and a right click
 // opens its menu: the dialog of its gnome (roles/gnome.js), then what the app's space menu does (rename, worktrees,
@@ -11,6 +12,7 @@ import { h_flex, ScrollHandle } from "gpui-base";
 import { agents, checking, keys, nextCommand, run, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
+import { followInbox, toggleInbox } from "../bridges/inbox.js";
 import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
 import { readNames } from "../bridges/names.js";
@@ -27,6 +29,7 @@ import {
 } from "../forges.js";
 import { keyLabel } from "../format.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
+import { cardsOf, quietAfter, quietNow } from "../inbox.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, iconButton } from "../kit/sprites.js";
@@ -57,15 +60,6 @@ const ADD_TAB = "forge-add";
 /** @param {string} id */
 const closeSpace = (id) => run("space.close", { id });
 
-// The first agent that waits on the human: its pane, or a peek at it when it has none.
-/** @param {AgentInfo[]} waiting */
-const openInbox = (waiting) => {
-  const [first] = waiting;
-  if (first === undefined) return;
-  if (first.pane) run("pane.focus", { terminal: first.address });
-  else run("terminal.peek", { terminal: first.address });
-};
-
 /**
  * @param {AsyncContext} cx
  * @returns {Role}
@@ -74,9 +68,11 @@ export const topbar = (cx) => {
   const strip = ScrollHandle.new();
   // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on,
   // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown,
-  // forgerdr.mode its mode, and forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs.
+  // forgerdr.mode its mode, forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs, and forgerdr.inbox
+  // opens or closes the inbox's drawer.
   /** @type {Readonly<Record<string, () => void>>} */
   const handlers = Object.freeze({
+    inbox: toggleInbox,
     lanes: toggleLanes,
     mode: () => modeShown(),
     motion: toggleMotion,
@@ -96,6 +92,18 @@ export const topbar = (cx) => {
   // before this copy started, do not.
   /** @type {Set<string> | null} */
   let crackedBefore = null;
+  // What waits in the inbox (hooks/inbox.sh), which INBOX counts with the agents waiting in their panes.
+  /** @type {import("../inbox.js").InboxRequest[]} */
+  let requests = [];
+  // Sessions whose request just went are not counted as waiting while the app catches up (inbox.js quietAfter).
+  /** @type {Map<string, number>} */
+  let quiet = new Map();
+  const inbox = checking()
+    ? null
+    : followInbox(cx, (read) => {
+        quiet = quietAfter(quiet, requests, read, Date.now());
+        requests = read;
+      });
   const cracks = checking()
     ? null
     : cx.timer.every(1000, () => {
@@ -298,7 +306,9 @@ export const topbar = (cx) => {
     const everyone = agents();
     // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
     const cracked = crackedOf(readTerminals());
-    const waiting = everyone.filter((agent) => agent.status === "blocked");
+    const waiting = cardsOf(requests, readTerminals(), {
+      quiet: quietNow(quiet, Date.now()),
+    }).length;
     const palette = keys().find((binding) => binding.action === "app.palette");
     const order = [...forges.map((forge) => forge.key), ADD_TAB];
     const activeAt = forges.findIndex((forge) =>
@@ -391,11 +401,7 @@ export const topbar = (cx) => {
           .h_full()
           .items_center()
           .gap(8)
-          .child(
-            control(inboxButton(waiting.length), "inbox", () =>
-              openInbox(waiting),
-            ),
-          )
+          .child(control(inboxButton(waiting), "inbox", () => toggleInbox()))
           .when(palette !== undefined, (el) =>
             el.child(
               control(paletteHint(keyLabel(palette.keys)), "palette", () =>
@@ -410,6 +416,7 @@ export const topbar = (cx) => {
     close: () => {
       commands?.cancel();
       cracks?.cancel();
+      inbox?.cancel();
       strip.release();
     },
     render,
