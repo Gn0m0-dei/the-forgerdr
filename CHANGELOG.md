@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- The sidebar's tree listed only two levels: a session and the agents it dispatched. An agent dispatched by an agent, and the subagents inside an agent's session (a Task, a background shell), were missing; the golem lanes showed them. The tree now goes as deep as they do, a step further in each level.
+
 ## [0.29.0] - 2026-11-19
 
 ### Added

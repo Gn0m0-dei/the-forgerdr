@@ -249,7 +249,8 @@ export const sidebar = (cx) => {
       });
 
   /**
-   * The golems of one space: its agents, each with its subagents under it.
+   * The golems of one space: its agents, each with what works under it at any depth: the agents it dispatched, theirs
+   * in turn, and the subagents inside each one's session (Claude Code's records: a Task, a background shell).
    * @param {SpaceInfo} space
    * @param {AgentInfo[]} everyone
    * @param {Map<string, string | null>} parents
@@ -270,6 +271,57 @@ export const sidebar = (cx) => {
     const leads = mine.filter(
       (agent) => !agentAddresses.has(parents.get(agent.address) ?? ""),
     );
+    /**
+     * The subagents inside an agent's session: no terminal of their own, so a click goes to the agent.
+     * @param {AgentInfo} owner
+     * @param {number} depth
+     */
+    const inside = (owner, depth) =>
+      Object.entries(records.get(owner.address) ?? {}).map(([id, record]) =>
+        clickable(
+          subagentRow({
+            depth,
+            name: record.title || "subagent",
+            role: "clay",
+            tone: toneOf(
+              /** @type {import("herdr").Status} */ (record.state ?? "working"),
+            ),
+          }),
+          `subagent-${owner.address}-${id}`,
+          () => openAgent(owner),
+        ),
+      );
+    /**
+     * What works under an agent, a step further in each level: the agents it dispatched, each with what works under it
+     * in turn (an agent can dispatch agents of its own), then the subagents inside its session.
+     * @param {AgentInfo} owner
+     * @param {number} depth
+     * @param {Set<string>} seen the agents already in the tree above, so two that name each other end
+     * @returns {NativeElement[]}
+     */
+    const under = (owner, depth, seen) => [
+      ...everyone
+        .filter(
+          (agent) =>
+            parents.get(agent.address) === owner.address &&
+            !seen.has(agent.address),
+        )
+        .flatMap((sub) => [
+          clickable(
+            subagentRow({
+              context: contexts[sub.address]?.used,
+              depth,
+              name: agentName(sub),
+              role: "stone",
+              tone: toneOfAgent(sub),
+            }),
+            `agent-${sub.address}`,
+            () => openAgent(sub),
+          ),
+          ...under(sub, depth + 1, new Set([...seen, sub.address])),
+        ]),
+      ...inside(owner, depth),
+    ];
     return leads.flatMap((lead) => [
       clickable(
         agentRow({
@@ -282,34 +334,7 @@ export const sidebar = (cx) => {
         `agent-${lead.address}`,
         () => openAgent(lead),
       ),
-      ...everyone
-        .filter((agent) => parents.get(agent.address) === lead.address)
-        .map((sub) =>
-          clickable(
-            subagentRow({
-              context: contexts[sub.address]?.used,
-              name: agentName(sub),
-              role: "stone",
-              tone: toneOfAgent(sub),
-            }),
-            `agent-${sub.address}`,
-            () => openAgent(sub),
-          ),
-        ),
-      // Its subagents inside its session have no terminal of their own: a click goes to the session.
-      ...Object.entries(records.get(lead.address) ?? {}).map(([id, record]) =>
-        clickable(
-          subagentRow({
-            name: record.title || "subagent",
-            role: "clay",
-            tone: toneOf(
-              /** @type {import("herdr").Status} */ (record.state ?? "working"),
-            ),
-          }),
-          `subagent-${lead.address}-${id}`,
-          () => openAgent(lead),
-        ),
-      ),
+      ...under(lead, 0, new Set([lead.address])),
     ]);
   };
 

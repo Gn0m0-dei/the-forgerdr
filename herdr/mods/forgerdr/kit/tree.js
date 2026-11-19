@@ -124,14 +124,24 @@ export const agentRow = ({
  * @property {number} [context] its session's context used, in percent
  * @property {import("./sprites.js").GolemRole} [role] stone for an agent in a terminal of its own (a teammate), clay
  *   for a subagent inside its session
+ * @property {number} [depth] how far under its session: 1 for one inside an agent that is itself under the session
  */
 
+// How far a row of the tree steps in for each level under its session.
+const TREE_STEP = 16;
+
 /** @param {SubagentRowProps} props */
-export const subagentRow = ({ name, tone, context, role = "clay" }) =>
+export const subagentRow = ({
+  name,
+  tone,
+  context,
+  role = "clay",
+  depth = 0,
+}) =>
   h_flex()
     .items_center()
     .gap(8)
-    .pl(40)
+    .pl(40 + depth * TREE_STEP)
     .pr(8)
     .py(5)
     .child(contextLabel(context))
