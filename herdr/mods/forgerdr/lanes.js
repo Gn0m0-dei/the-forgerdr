@@ -3,6 +3,11 @@
 // of its own, tied to the session that dispatched it (parentOf), and a subagent running inside a session, which Claude
 // Code reports as one of its terminal's records. Pure: Node tests it (test/herdr-mod.test.mjs).
 
+// A lane's golem: stone for an agent in a terminal of its own (a teammate), clay for a subagent inside its session.
+export const GOLEM_KIND = Object.freeze({ clay: "clay", stone: "stone" });
+
+/** @typedef {typeof GOLEM_KIND[keyof typeof GOLEM_KIND]} GolemKind */
+
 /**
  * What the lanes read of a terminal (herdr's terminals()).
  * @typedef {object} LaneTerminal
@@ -27,6 +32,7 @@
  * @property {number | undefined} since when it started, in ms
  * @property {number | undefined} until when it stopped working, in ms; undefined while it works
  * @property {string} status working, blocked, done, idle or cracked
+ * @property {GolemKind} golem its golem (GOLEM_KIND)
  */
 
 /**
@@ -73,6 +79,7 @@ export const lanesOf = (lead, terminals, contexts, seen) => [
     .map((terminal) => ({
       activity: terminal.report?.msg ?? "",
       context: contexts[terminal.address]?.used,
+      golem: GOLEM_KIND.stone,
       id: terminal.address,
       name: terminal.title || terminal.address,
       since: labelMs(terminal, "forge.started") ?? terminal.created_ms,
@@ -87,6 +94,7 @@ export const lanesOf = (lead, terminals, contexts, seen) => [
     return {
       activity: "",
       context: undefined,
+      golem: GOLEM_KIND.clay,
       id,
       name: record.title || "subagent",
       since: seen[id],

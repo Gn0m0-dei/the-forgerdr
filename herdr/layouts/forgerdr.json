@@ -208,6 +208,7 @@
   "terminal_padding": [14, 12],
   "theme": "forge-night",
   "titlebar": "none",
+  "toast": "forgerdr",
   "traffic_lights": [12, 16],
   "type": "column",
   "ui_font": "Pixelify Sans"

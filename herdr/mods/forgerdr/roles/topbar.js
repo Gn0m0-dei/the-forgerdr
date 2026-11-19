@@ -19,9 +19,10 @@ import {
 import { readSpacesGit } from "../bridges/git.js";
 import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
+import { readTerminals } from "../bridges/terminals.js";
 import { forgeMoves, forgeState, groupForges, lookKeyOf } from "../forges.js";
 import { keyLabel } from "../format.js";
-import { hatColourOf } from "../identity.js";
+import { gnomeLookOf } from "../identity.js";
 import { inboxButton, paletteHint } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, icon } from "../kit/sprites.js";
@@ -134,10 +135,17 @@ export const topbar = (cx) => {
    * @param {Forge[]} forges
    * @param {AgentInfo[]} everyone
    * @param {string[]} order the spaces' ids, in the app's order
+   * @param {Set<string>} cracked the terminals of the golems an API error cracked
    */
-  const forgeOf = (forge, forges, everyone, order) => {
+  const forgeOf = (forge, forges, everyone, order, cracked) => {
     const ids = new Set(forge.spaces.map((space) => space.id));
-    const state = forgeState(everyone.filter((agent) => ids.has(agent.space)));
+    const state = forgeState(
+      everyone
+        .filter((agent) => ids.has(agent.space))
+        .map((agent) => ({
+          status: cracked.has(agent.address) ? "cracked" : agent.status,
+        })),
+    );
     const shown = shownIn(forge);
     const active = shown.active;
     const close = control(
@@ -153,7 +161,7 @@ export const topbar = (cx) => {
       active,
       badge: state.badge,
       close: active ? close : undefined,
-      look: { colour: hatColourOf(lookKeyOf(forge)), mood: state.mood },
+      look: { ...gnomeLookOf(lookKeyOf(forge)), mood: state.mood },
       name: forge.main.name,
     })
       .id(`forge-${forge.key}`)
@@ -217,6 +225,12 @@ export const topbar = (cx) => {
     const all = spaces();
     const forges = groupForges(all, readSpacesGit());
     const everyone = agents();
+    // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
+    const cracked = new Set(
+      readTerminals()
+        .filter((terminal) => terminal.labels?.["forge.state"] === "cracked")
+        .map((terminal) => terminal.address),
+    );
     const waiting = everyone.filter((agent) => agent.status === "blocked");
     const palette = keys().find((binding) => binding.action === "app.palette");
     const order = [...forges.map((forge) => forge.key), ADD_TAB];
@@ -291,6 +305,7 @@ export const topbar = (cx) => {
                 forges,
                 everyone,
                 all.map((space) => space.id),
+                cracked,
               ),
             ),
           )

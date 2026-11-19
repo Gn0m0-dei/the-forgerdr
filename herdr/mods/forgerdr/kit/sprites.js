@@ -3,6 +3,7 @@
 // scale by whole numbers.
 import { div, image, svg } from "gpui-kit";
 import { asset } from "../assets.js";
+import { ACCESSORY, BEARD, EYES, HAT, MOOD } from "../parts.js";
 import { crucible } from "./motion.js";
 import { TONE, toneColour } from "./tokens.js";
 
@@ -40,36 +41,7 @@ export const ICON = Object.freeze({
 
 /** @typedef {typeof ICON[keyof typeof ICON]} IconName */
 
-export const HAT = Object.freeze({
-  cap: "cap",
-  floppy: "floppy",
-  pointed: "pointed",
-});
-export const BEARD = Object.freeze({
-  forked: "forked",
-  full: "full",
-  stubble: "stubble",
-});
-export const EYES = Object.freeze({
-  brows: "brows",
-  plain: "plain",
-  squint: "squint",
-});
-export const ACCESSORY = Object.freeze({
-  eyepatch: "eyepatch",
-  goggles: "goggles",
-  headphones: "headphones",
-  monocle: "monocle",
-  none: "none",
-});
-export const MOOD = Object.freeze({
-  asleep: "asleep",
-  done: "done",
-  error: "error",
-  idle: "idle",
-  needs: "needs",
-  working: "working",
-});
+export { ACCESSORY, BEARD, EYES, HAT, MOOD };
 
 /** @typedef {typeof HAT[keyof typeof HAT]} Hat */
 /** @typedef {typeof BEARD[keyof typeof BEARD]} Beard */

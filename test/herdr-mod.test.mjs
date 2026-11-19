@@ -12,7 +12,12 @@ import {
   lookKeyOf,
 } from "../herdr/mods/forgerdr/forges.js";
 import { keyLabel } from "../herdr/mods/forgerdr/format.js";
-import { brotherOf, hatColourOf } from "../herdr/mods/forgerdr/identity.js";
+import {
+  brotherOf,
+  gnomeLookOf,
+  hatColourOf,
+  nameOf,
+} from "../herdr/mods/forgerdr/identity.js";
 import {
   byUrgency,
   elapsed,
@@ -95,7 +100,7 @@ test("golems at work are counted, then a finished one shows", () => {
 });
 
 test("a forge with nothing going on has no badge", () => {
-  deepStrictEqual(forgeState([]), { badge: undefined, mood: "idle" });
+  deepStrictEqual(forgeState([]), { badge: undefined, mood: "asleep" });
   deepStrictEqual(forgeState([{ status: "idle" }]), {
     badge: undefined,
     mood: "idle",
@@ -588,4 +593,41 @@ test("a lane's time is its current task's, from the hook's labels, and stops whe
     {},
   );
   strictEqual(working.until, undefined);
+});
+
+test("a cracked golem breaks its forge's mood after one waiting on the human; a forge with none sleeps", () => {
+  deepStrictEqual(forgeState([{ status: "working" }, { status: "cracked" }]), {
+    badge: { content: "×", tone: "failed" },
+    mood: "error",
+  });
+  strictEqual(
+    forgeState([{ status: "cracked" }, { status: "blocked" }]).mood,
+    "needs",
+  );
+  strictEqual(forgeMood([{ status: "cracked" }]), "cracked · 1 golem");
+  strictEqual(forgeMood([]), "asleep · 0 golems");
+});
+
+test("a forge's gnome is whole from its key, and the human can rename it", () => {
+  const look = gnomeLookOf("/w/api");
+  deepStrictEqual(gnomeLookOf("/w/api"), look);
+  deepStrictEqual(Object.keys(look).toSorted(), [
+    "accessory",
+    "beard",
+    "colour",
+    "eyes",
+    "hat",
+  ]);
+  strictEqual(look.colour, hatColourOf("/w/api"));
+  const keys = ["/a", "/b", "/c", "/d", "/e", "/f", "/g", "/h"];
+  strictEqual(
+    new Set(keys.map((key) => JSON.stringify(gnomeLookOf(key)))).size > 4,
+    true,
+  );
+  strictEqual(nameOf("/w/api", {}), brotherOf("/w/api"));
+  strictEqual(
+    nameOf("/w/api", { "/w/api": "Brother Vulcan" }),
+    "Brother Vulcan",
+  );
+  strictEqual(nameOf("/w/api", { "/w/api": "  " }), brotherOf("/w/api"));
 });

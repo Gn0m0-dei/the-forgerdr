@@ -9,15 +9,17 @@ import { heat } from "./roles/heat.js";
 import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
 import { pane } from "./roles/pane.js";
+import { rename } from "./roles/rename.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
 import { statusbar } from "./roles/statusbar.js";
+import { toast } from "./roles/toast.js";
 import { topbar } from "./roles/topbar.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("./roles/role.js").Role} Role */
-/** @typedef {{ role?: string }} ForgerdrProps */
+/** @typedef {{ role?: string, title?: string, overlay?: string }} ForgerdrProps */
 
 /** @type {() => ForgerdrProps} */
 const readProps = props;
@@ -30,10 +32,24 @@ const ROLES = {
   lanes,
   manual,
   pane,
+  rename,
   sessions,
   sidebar,
   statusbar,
+  toast,
   topbar,
+};
+
+/**
+ * The role a copy plays: the one its props name; the toast when the app opens it to show a notification (the layout's
+ * "toast"), whose props are the notification's, with no role.
+ * @param {ForgerdrProps | null} given
+ */
+const roleOf = (given) => {
+  if (given?.role !== undefined) return given.role;
+  return given?.overlay !== undefined && given.title !== undefined
+    ? "toast"
+    : "";
 };
 
 // herdr asks for a class extending View as the mod's default export. A copy makes its role once and hands it every
@@ -45,7 +61,7 @@ export default class Forgerdr extends View {
    */
   init(_props, cx) {
     /** @type {Role | undefined} */
-    this.role = ROLES[readProps()?.role ?? ""]?.(cx);
+    this.role = ROLES[roleOf(readProps())]?.(cx);
   }
 
   /** @param {Context} cx */

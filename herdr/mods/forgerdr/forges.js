@@ -12,15 +12,19 @@
  */
 
 /**
- * Someone waiting on the human wins, then the golems at work, counted, then a finished one.
- * @param {{ status: Status }[]} agents the forge's
+ * Someone waiting on the human wins, then a golem cracked by an API error, then the golems at work, counted, then a
+ * finished one; a forge with no golem sleeps.
+ * @param {{ status: string }[]} agents the forge's, cracked ones with status "cracked" (hooks/golem-state.sh)
  * @returns {ForgeState}
  */
 export const forgeState = (agents) => {
-  const count = (/** @type {Status} */ status) =>
+  const count = (/** @type {string} */ status) =>
     agents.filter((agent) => agent.status === status).length;
+  if (agents.length === 0) return { badge: undefined, mood: "asleep" };
   if (count("blocked") > 0)
     return { badge: { content: "!", tone: "needs" }, mood: "needs" };
+  if (count("cracked") > 0)
+    return { badge: { content: "×", tone: "failed" }, mood: "error" };
   const working = count("working");
   if (working > 0)
     return {
@@ -140,11 +144,17 @@ export const forgeSummary = (agents) => {
 
 /**
  * The line under a forge's gnome: its mood and how many golems it has, as "working · 3 golems".
- * @param {{ status: Status }[]} agents the forge's
+ * @param {{ status: string }[]} agents the forge's
  */
 export const forgeMood = (agents) => {
   const { mood } = forgeState(agents);
   const word =
-    { done: "done", needs: "needs you", working: "working" }[mood] ?? "idle";
+    {
+      asleep: "asleep",
+      done: "done",
+      error: "cracked",
+      needs: "needs you",
+      working: "working",
+    }[mood] ?? "idle";
   return `${word} · ${agents.length} ${agents.length === 1 ? "golem" : "golems"}`;
 };

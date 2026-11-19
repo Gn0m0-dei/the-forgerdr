@@ -68,6 +68,7 @@ export const lanes = (cx) => {
         activity: lane.activity || (lane.status === "done" ? "finished" : ""),
         context: lane.context,
         name: lane.name,
+        role: lane.golem,
         ruled,
         time: elapsed(lane.since, lane.until ?? now),
         tone: toneOfLane(lane.status),

@@ -36,6 +36,7 @@ export const lanesHead = ({ count, open }) => {
  * @property {string} time how long it has been at it
  * @property {number} [context] its session's context used, in percent: its crucible, its bar and the percent beside it
  * @property {boolean} [ruled] a line above it, between rows; none when it sits in the head of folded lanes
+ * @property {import("./sprites.js").GolemRole} [role] its golem: stone for a teammate, clay for a subagent
  */
 
 /** @param {LaneRowProps} props */
@@ -46,6 +47,7 @@ export const laneRow = ({
   time,
   context,
   ruled = true,
+  role = "clay",
 }) => {
   const k = tokens();
   return h_flex()
@@ -55,7 +57,7 @@ export const laneRow = ({
     .px(16)
     .h(34)
     .when(ruled, (el) => el.border_t(1).border_color(k.line))
-    .child(golem("clay", tone, 2, context))
+    .child(golem(role, tone, 2, context))
     .child(
       div()
         .flex_none()

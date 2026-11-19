@@ -15,6 +15,7 @@ import {
 } from "herdr";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
+import { readNames } from "../bridges/names.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
 import {
@@ -24,13 +25,14 @@ import {
   groupForges,
   lookKeyOf,
 } from "../forges.js";
-import { brotherOf, hatColourOf } from "../identity.js";
+import { gnomeLookOf, nameOf } from "../identity.js";
 import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeHeat, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon } from "../kit/sprites.js";
 import { TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
 import { parentOf } from "../lanes.js";
+import { MOD } from "../name.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -56,10 +58,15 @@ const SPACE_MENU = Object.freeze({
 // The sign beside the forge's gnome, by its mood; a forge with no golem sleeps.
 /** @type {Partial<Record<import("../kit/sprites.js").Mood, import("../kit/motion.js").SignName>>} */
 const MOOD_SIGN = Object.freeze({
+  asleep: SIGN.zz,
   done: SIGN.spark,
+  error: SIGN.smoke,
   needs: SIGN.needs,
   working: SIGN.flame,
 });
+
+// The dialog that renames a forge's gnome (roles/rename.js).
+const RENAME = Object.freeze({ height: 190, kind: "dialog", width: 420 });
 
 /**
  * Where a space is now: its first terminal's live folder, else where its terminals start.
@@ -197,8 +204,16 @@ export const sidebar = (cx) => {
    * @param {Map<string, string | null>} parents
    * @param {string | null} looking the terminal that has the keyboard
    * @param {(agent: AgentInfo) => import("../kit/tokens.js").Tone} toneOfAgent
+   * @param {Map<string, Record<string, { state?: string, title?: string }>>} records each session's subagents inside it
    */
-  const golemsOf = (space, everyone, parents, looking, toneOfAgent) => {
+  const golemsOf = (
+    space,
+    everyone,
+    parents,
+    looking,
+    toneOfAgent,
+    records,
+  ) => {
     const mine = everyone.filter((agent) => agent.space === space.id);
     const agentAddresses = new Set(everyone.map((agent) => agent.address));
     const leads = mine.filter(
@@ -223,12 +238,27 @@ export const sidebar = (cx) => {
             subagentRow({
               context: contexts[sub.address]?.used,
               name: agentName(sub),
+              role: "stone",
               tone: toneOfAgent(sub),
             }),
             `agent-${sub.address}`,
             () => openAgent(sub),
           ),
         ),
+      // Its subagents inside its session have no terminal of their own: a click goes to the session.
+      ...Object.entries(records.get(lead.address) ?? {}).map(([id, record]) =>
+        clickable(
+          subagentRow({
+            name: record.title || "subagent",
+            role: "clay",
+            tone: toneOf(
+              /** @type {import("herdr").Status} */ (record.state ?? "working"),
+            ),
+          }),
+          `subagent-${lead.address}-${id}`,
+          () => openAgent(lead),
+        ),
+      ),
     ]);
   };
 
@@ -277,8 +307,20 @@ export const sidebar = (cx) => {
       cracked.has(agent.address) ? TONE.failed : toneOf(agent.status);
     const looking = focused()?.terminal ?? null;
     const key = lookKeyOf(forge);
-    const state = forgeState(forgeAgents);
-    const look = { colour: hatColourOf(key), mood: state.mood };
+    /** @type {Map<string, Record<string, { state?: string, title?: string }>>} */
+    const records = new Map(
+      readTerminals().map((terminal) => [
+        terminal.address,
+        terminal.records ?? {},
+      ]),
+    );
+    // The forge's golems as the forge counts them, a cracked one as cracked.
+    const golems = forgeAgents.map((agent) => ({
+      status: cracked.has(agent.address) ? "cracked" : agent.status,
+    }));
+    const state = forgeState(golems);
+    const look = { ...gnomeLookOf(key), mood: state.mood };
+    const name = nameOf(key, readNames());
 
     if (width < RAIL) {
       return root
@@ -296,7 +338,7 @@ export const sidebar = (cx) => {
           forgeAgents.map((agent) =>
             clickable(
               golem(
-                parents.get(agent.address) ? "clay" : "iron",
+                parents.get(agent.address) ? "stone" : "iron",
                 toneOfAgent(agent),
                 2,
                 contexts[agent.address]?.used,
@@ -313,12 +355,22 @@ export const sidebar = (cx) => {
         gnomeHeader({
           forge: forge.main.name,
           look,
-          mood: forgeMood(forgeAgents),
-          name: brotherOf(key),
-          sign: forgeAgents.length === 0 ? SIGN.zz : MOOD_SIGN[state.mood],
+          mood: forgeMood(golems),
+          name,
+          sign: MOOD_SIGN[state.mood],
           tone: state.badge?.tone ?? "quiet",
         })
+          .id("gnome-header")
           .relative()
+          // A double click on the gnome renames it.
+          .on_click((event) => {
+            if (event.click_count !== 2) return;
+            openOverlay({
+              ...RENAME,
+              mod: MOD,
+              props: { key, role: "rename", value: name },
+            });
+          })
           .child(
             clickable(
               icon(ICON.chevronLeft, k.muted),
@@ -362,20 +414,19 @@ export const sidebar = (cx) => {
                     ];
               return [
                 ...checkout,
-                ...golemsOf(space, everyone, parents, looking, toneOfAgent),
+                ...golemsOf(
+                  space,
+                  everyone,
+                  parents,
+                  looking,
+                  toneOfAgent,
+                  records,
+                ),
               ];
             }),
           ),
       )
-      .child(
-        forgeHeat(
-          forgeSummary(
-            forgeAgents.map((agent) => ({
-              status: cracked.has(agent.address) ? "cracked" : agent.status,
-            })),
-          ),
-        ),
-      );
+      .child(forgeHeat(forgeSummary(golems)));
   };
 
   return { close: () => task?.cancel(), render };

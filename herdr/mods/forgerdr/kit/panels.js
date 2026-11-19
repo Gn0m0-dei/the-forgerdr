@@ -146,25 +146,27 @@ export const emptyState = ({ caption, title, sub, look = {}, action }) => {
  * @property {string} from the gnome and its forge
  * @property {string} message
  * @property {GnomeLook} [look]
+ * @property {Tone} [tone] how much it matters: its border and its sender
  */
 
 /** @param {ToastProps} props */
-export const toast = ({ from, message, look = {} }) => {
+export const toast = ({ from, message, look = {}, tone = "needs" }) => {
   const k = tokens();
+  const colour = toneColour(tone);
   return h_flex()
     .items_center()
     .gap(12)
     .p(12)
     .bg(k.bg2)
     .border(2)
-    .border_color(k.needs)
+    .border_color(colour)
     .child(gnome({ ...look, scale: 2 }))
     .child(
       v_flex()
         .flex_1()
         .min_w(0)
         .gap(3)
-        .child(text(from.toUpperCase(), "display", 9, k.needs))
+        .child(text(from.toUpperCase(), "display", 9, colour))
         .child(fill(message, "ui", 13, k.fg)),
     );
 };

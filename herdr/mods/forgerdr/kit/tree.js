@@ -116,10 +116,12 @@ export const agentRow = ({
  * @property {string} name
  * @property {Tone} tone
  * @property {number} [context] its session's context used, in percent
+ * @property {import("./sprites.js").GolemRole} [role] stone for an agent in a terminal of its own (a teammate), clay
+ *   for a subagent inside its session
  */
 
 /** @param {SubagentRowProps} props */
-export const subagentRow = ({ name, tone, context }) =>
+export const subagentRow = ({ name, tone, context, role = "clay" }) =>
   h_flex()
     .items_center()
     .gap(8)
@@ -127,7 +129,7 @@ export const subagentRow = ({ name, tone, context }) =>
     .pr(8)
     .py(5)
     .child(contextLabel(context))
-    .child(golem("clay", tone, 2, context))
+    .child(golem(role, tone, 2, context))
     .child(fill(name, "ui", 13, tokens().fg))
     .child(agentChip(tone));
 

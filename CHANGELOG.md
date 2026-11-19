@@ -6,6 +6,13 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Each forge's gnome is whole from the forge's key: its hat and the hat's colour, its beard, its eyes and what it wears over them, the same on every start and machine. A double click on the sidebar's gnome renames it; an empty name gives it back its brother's.
+- The gnome's moods follow its golems: needs you, cracked (with smoke beside it), working, done, idle, and asleep with no golem.
+- The forge's own notifications (the layout's `toast`): the gnome of the forge a notification is about tells it, in its level's colour and mood, coming in three 90 ms steps and leaving the same way when clicked, never taking the keyboard.
+- Golems by kind: iron for a session, stone for an agent in a terminal of its own, clay for a subagent inside its session, which the tree now lists under it too.
+
 ## [0.24.0] - 2026-11-19
 
 ### Added
