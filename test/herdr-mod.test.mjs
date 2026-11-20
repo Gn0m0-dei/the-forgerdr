@@ -763,11 +763,11 @@ test("a re-roll is a new whole gnome, and the human's picks go with the old one"
   );
 });
 
-const FORGNOME = {
+const ORDERS = {
   org: undefined,
-  project: "Gn0m0-dei/forgnome",
+  project: "northwind/orders",
   provider: "github",
-  repo: "forgnome",
+  repo: "orders",
 };
 const SHOP = {
   azure_project: "Shop Platform",
@@ -777,21 +777,21 @@ const SHOP = {
 };
 
 test("a pasted line is a pull request, an item or skipped", () => {
-  deepStrictEqual(linkOf(" https://github.com/Gn0m0-dei/forgnome/pull/42 "), {
+  deepStrictEqual(linkOf(" https://github.com/northwind/orders/pull/42 "), {
     id: "42",
     kind: "pr",
-    project: "Gn0m0-dei/forgnome",
+    project: "northwind/orders",
     provider: "github",
-    repo: "forgnome",
-    url: "https://github.com/Gn0m0-dei/forgnome/pull/42",
+    repo: "orders",
+    url: "https://github.com/northwind/orders/pull/42",
   });
   strictEqual(
-    linkOf("https://github.com/Gn0m0-dei/forgnome/issues/31#top").kind,
+    linkOf("https://github.com/northwind/orders/issues/31#top").kind,
     "item",
   );
   strictEqual(
-    linkOf("https://github.com/Gn0m0-dei/forgnome/issues/31#top").url,
-    "https://github.com/Gn0m0-dei/forgnome/issues/31",
+    linkOf("https://github.com/northwind/orders/issues/31#top").url,
+    "https://github.com/northwind/orders/issues/31",
   );
   deepStrictEqual(
     linkOf("https://gitlab.example.com/shop/web/storefront/-/merge_requests/9"),
@@ -838,11 +838,11 @@ test("a pasted line is a pull request, an item or skipped", () => {
 test("a link belongs to the forge of its repository; a work item to any Azure forge", () => {
   const link = (url) => linkOf(url);
   strictEqual(
-    belongsTo(link("https://github.com/gn0m0-dei/FORGNOME/issues/1"), FORGNOME),
+    belongsTo(link("https://github.com/NorthWind/ORDERS/issues/1"), ORDERS),
     true,
   );
   strictEqual(
-    belongsTo(link("https://github.com/Gn0m0-dei/other/issues/1"), FORGNOME),
+    belongsTo(link("https://github.com/northwind/other/issues/1"), ORDERS),
     false,
   );
   strictEqual(
@@ -866,7 +866,7 @@ test("a link belongs to the forge of its repository; a work item to any Azure fo
     true,
   );
   strictEqual(
-    belongsTo(link("https://dev.azure.com/acme/X/_workitems/edit/4"), FORGNOME),
+    belongsTo(link("https://dev.azure.com/acme/X/_workitems/edit/4"), ORDERS),
     false,
   );
 });
@@ -896,14 +896,14 @@ test("a forge's mode, as the sidebar shows it", () => {
     name: "OpenSpec",
   });
   deepStrictEqual(
-    modeLabel({ ...FORGNOME, host: "github.com", mode: "github" }),
+    modeLabel({ ...ORDERS, host: "github.com", mode: "github" }),
     {
-      detail: "Gn0m0-dei/forgnome",
+      detail: "northwind/orders",
       name: "GitHub",
     },
   );
   deepStrictEqual(
-    modeLabel({ ...FORGNOME, host: "github.com", mode: "gitlab" }),
+    modeLabel({ ...ORDERS, host: "github.com", mode: "gitlab" }),
     {
       detail: "no project yet",
       name: "GitLab",
@@ -912,21 +912,21 @@ test("a forge's mode, as the sidebar shows it", () => {
   // Work that comes from elsewhere than the code shows both, as the mode dialog does.
   deepStrictEqual(
     modeLabel({
-      ...FORGNOME,
+      ...ORDERS,
       backlog: "https://gitlab.com/team/issues",
       host: "github.com",
       mode: "gitlab",
     }),
-    { code: "Gn0m0-dei/forgnome", detail: "team/issues", name: "GitLab" },
+    { code: "northwind/orders", detail: "team/issues", name: "GitLab" },
   );
   deepStrictEqual(
     modeLabel({
-      ...FORGNOME,
-      backlog: "https://github.com/Gn0m0-dei/forgnome",
+      ...ORDERS,
+      backlog: "https://github.com/northwind/orders",
       host: "github.com",
       mode: "github",
     }),
-    { detail: "Gn0m0-dei/forgnome", name: "GitHub" },
+    { detail: "northwind/orders", name: "GitHub" },
   );
   deepStrictEqual(modeLabel({ ...SHOP, backlog: "", mode: "azure" }), {
     detail: "acme/Shop Platform",
@@ -963,13 +963,10 @@ test("the sidebar's foot keeps the first part of each place, its organization or
     }),
     { code: "acme", detail: "other", name: "Azure DevOps" },
   );
-  deepStrictEqual(
-    shortLabel({ detail: "Gn0m0-dei/forgnome", name: "GitHub" }),
-    {
-      detail: "Gn0m0-dei",
-      name: "GitHub",
-    },
-  );
+  deepStrictEqual(shortLabel({ detail: "northwind/orders", name: "GitHub" }), {
+    detail: "northwind",
+    name: "GitHub",
+  });
   deepStrictEqual(
     shortLabel({ detail: "store team-specs", name: "OpenSpec" }),
     {
@@ -995,16 +992,16 @@ test("a forge's work comes from its backlog, else from its origin on the mode's 
   );
   // GitHub and GitLab: the origin's repository when it is on that provider.
   strictEqual(
-    backlogOf({ ...FORGNOME, backlog: "", host: "github.com", mode: "github" }),
-    "https://github.com/Gn0m0-dei/forgnome",
+    backlogOf({ ...ORDERS, backlog: "", host: "github.com", mode: "github" }),
+    "https://github.com/northwind/orders",
   );
   strictEqual(
-    backlogOf({ ...FORGNOME, backlog: "", host: "github.com", mode: "gitlab" }),
+    backlogOf({ ...ORDERS, backlog: "", host: "github.com", mode: "gitlab" }),
     "",
   );
   strictEqual(
     backlogOf({
-      ...FORGNOME,
+      ...ORDERS,
       backlog: "https://gitlab.com/team/issues/",
       host: "github.com",
       mode: "gitlab",
@@ -1045,17 +1042,17 @@ test("a forge's work comes from its backlog, else from its origin on the mode's 
   });
   strictEqual(
     backlogOf({
-      ...FORGNOME,
+      ...ORDERS,
       azdospec_backlog: "https://dev.azure.com/contoso/X",
       host: "github.com",
       mode: "github",
     }),
-    "https://github.com/Gn0m0-dei/forgnome",
+    "https://github.com/northwind/orders",
   );
 });
 
 test("the backlog typed in the mode dialog, as a URL", () => {
-  const github = { ...FORGNOME, host: "github.com" };
+  const github = { ...ORDERS, host: "github.com" };
   strictEqual(
     backlogTyped(MODE.github, "team/issues", github),
     "https://github.com/team/issues",
@@ -1132,29 +1129,17 @@ test("the backlog typed in the mode dialog, as a URL", () => {
 
 test("a GitHub or GitLab forge's work: its issues by URL or number", () => {
   const rows = workRows(
-    "https://github.com/Gn0m0-dei/forgnome/issues/12\n#15\n  20 \n\nhttps://github.com/Gn0m0-dei/forgnome/pull/42\nhttps://github.com/x/y/issues/1\nfix the login",
-    { ...FORGNOME, host: "github.com", mode: "github" },
+    "https://github.com/northwind/orders/issues/12\n#15\n  20 \n\nhttps://github.com/northwind/orders/pull/42\nhttps://github.com/x/y/issues/1\nfix the login",
+    { ...ORDERS, host: "github.com", mode: "github" },
     WAY,
   );
   deepStrictEqual(
     rows.map((row) => [row.kind, row.label, row.value ?? row.action]),
     [
-      [
-        "item",
-        "forgnome#12",
-        "https://github.com/Gn0m0-dei/forgnome/issues/12",
-      ],
-      [
-        "item",
-        "forgnome#15",
-        "https://github.com/Gn0m0-dei/forgnome/issues/15",
-      ],
-      [
-        "item",
-        "forgnome#20",
-        "https://github.com/Gn0m0-dei/forgnome/issues/20",
-      ],
-      ["skip", "forgnome#42", "a pull request: review it in Review"],
+      ["item", "orders#12", "https://github.com/northwind/orders/issues/12"],
+      ["item", "orders#15", "https://github.com/northwind/orders/issues/15"],
+      ["item", "orders#20", "https://github.com/northwind/orders/issues/20"],
+      ["skip", "orders#42", "a pull request: review it in Review"],
       ["skip", "y#1", "another repository: start it from its forge"],
       ["skip", "fix the login", "not an issue URL or number"],
     ],
@@ -1166,9 +1151,9 @@ test("a GitHub or GitLab forge's work: its issues by URL or number", () => {
   );
   // Issues on GitLab for code on GitHub: numbers go to the GitLab project, a GitHub issue is another repository's.
   const split = workRows(
-    "#7\nhttps://github.com/Gn0m0-dei/forgnome/issues/3",
+    "#7\nhttps://github.com/northwind/orders/issues/3",
     {
-      ...FORGNOME,
+      ...ORDERS,
       backlog: "https://gitlab.example.com/shop/web/storefront",
       host: "github.com",
       mode: "gitlab",
@@ -1185,8 +1170,8 @@ test("a GitHub or GitLab forge's work: its issues by URL or number", () => {
   // An issue given twice starts once.
   strictEqual(
     workRows(
-      "#15\nhttps://github.com/Gn0m0-dei/forgnome/issues/15",
-      { ...FORGNOME, host: "github.com", mode: "github" },
+      "#15\nhttps://github.com/northwind/orders/issues/15",
+      { ...ORDERS, host: "github.com", mode: "github" },
       WAY,
     ).length,
     1,
@@ -1242,7 +1227,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
     }),
     ...workRows(
       "#12\nnope",
-      { ...FORGNOME, host: "github.com", mode: "github" },
+      { ...ORDERS, host: "github.com", mode: "github" },
       WAY,
     ),
   ];
@@ -1254,7 +1239,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
   });
   deepStrictEqual(
     startLaunches(
-      [...work, ...reviewRows("https://github.com/Gn0m0-dei/forgnome/pull/42")],
+      [...work, ...reviewRows("https://github.com/northwind/orders/pull/42")],
       { dev: true, flow: "auto", where: "worktrees" },
       "/p/bin/forge-prompt.sh",
     ),
@@ -1262,7 +1247,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
       {
         argv: [
           "claude",
-          "/forgerdr:worktree --auto add-inbox | https://github.com/Gn0m0-dei/forgnome/issues/12",
+          "/forgerdr:worktree --auto add-inbox | https://github.com/northwind/orders/issues/12",
         ],
         name: "forgerdr worktree",
       },
@@ -1271,7 +1256,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
           "bash",
           "/p/bin/forge-prompt.sh",
           "review",
-          "https://github.com/Gn0m0-dei/forgnome/pull/42",
+          "https://github.com/northwind/orders/pull/42",
         ],
         name: "forgerdr review",
       },
@@ -1507,20 +1492,20 @@ test("a worktree is removed only as last looked at: no new file, and a plan that
 
 test("the item a worktree is for: an id or a URL of the forge's backlog, or none", () => {
   const github = {
-    ...FORGNOME,
+    ...ORDERS,
     backlog: "",
     host: "github.com",
     mode: "github",
   };
   deepStrictEqual(itemArg("", github), { value: "" });
   deepStrictEqual(itemArg(" #12 ", github), {
-    value: "https://github.com/Gn0m0-dei/forgnome/issues/12",
+    value: "https://github.com/northwind/orders/issues/12",
   });
   deepStrictEqual(itemArg("https://github.com/someone/else/issues/3", github), {
     error: "another repository: start it from its forge",
   });
   deepStrictEqual(
-    itemArg("https://github.com/Gn0m0-dei/forgnome/pull/4", github),
+    itemArg("https://github.com/northwind/orders/pull/4", github),
     {
       error: "a pull request: review it in Review",
     },
@@ -1530,15 +1515,15 @@ test("the item a worktree is for: an id or a URL of the forge's backlog, or none
     value: "https://dev.azure.com/acme/Shop%20Platform/_workitems/edit/77",
   });
   // Chat and OpenSpec keep no backlog: an id names the branch as it is.
-  deepStrictEqual(itemArg("#12", { ...FORGNOME, mode: "chat" }), {
+  deepStrictEqual(itemArg("#12", { ...ORDERS, mode: "chat" }), {
     value: "#12",
   });
   // An item of an external backlog, as forgerdr writes its id, in any mode.
-  deepStrictEqual(itemArg("EXT-231", { ...FORGNOME, mode: "chat" }), {
+  deepStrictEqual(itemArg("EXT-231", { ...ORDERS, mode: "chat" }), {
     value: "EXT-231",
   });
   deepStrictEqual(itemArg("ext-231", azure), { value: "ext-231" });
-  deepStrictEqual(itemArg("make it", { ...FORGNOME, mode: "chat" }), {
+  deepStrictEqual(itemArg("make it", { ...ORDERS, mode: "chat" }), {
     error: "not an id (#12, AB#12, EXT-12, 12) or an issue or work item URL",
   });
 });
@@ -2002,7 +1987,7 @@ test("how long a card has waited: minutes and seconds, then hours", () => {
 test("a card comes from its forge: its gnome and name, then the branch and the session", () => {
   const main = {
     id: "sp1",
-    name: "forgnome",
+    name: "orders",
     tabs: [{ id: "tb1", name: "claude · main" }],
   };
   const worktree = {
@@ -2019,7 +2004,7 @@ test("a card comes from its forge: its gnome and name, then the branch and the s
     tabs: [{ id: "tb4", name: "claude · fix" }],
   };
   const forges = [
-    { key: "/code/forgnome/.git", main, spaces: [main, worktree] },
+    { key: "/code/orders/.git", main, spaces: [main, worktree] },
     { key: "space:sp3", main: dotfiles, spaces: [dotfiles] },
   ];
   const panes = [
@@ -2033,14 +2018,14 @@ test("a card comes from its forge: its gnome and name, then the branch and the s
     return [forge?.key ?? null, path];
   };
   deepStrictEqual(origin("t6"), [
-    "/code/forgnome/.git",
-    ["forgnome", "feature/#12-approval-inbox", "claude · inbox"],
+    "/code/orders/.git",
+    ["orders", "feature/#12-approval-inbox", "claude · inbox"],
   ]);
-  deepStrictEqual(origin("t8"), ["/code/forgnome/.git", ["forgnome", "3"]]);
+  deepStrictEqual(origin("t8"), ["/code/orders/.git", ["orders", "3"]]);
   deepStrictEqual(origin("t2"), ["space:sp3", ["dotfiles", "claude · fix"]]);
   deepStrictEqual(
     origin("t9", [{ address: "t9", parent: "t5", title: "explore" }]),
-    ["/code/forgnome/.git", ["forgnome", "main", "claude · main", "explore"]],
+    ["/code/orders/.git", ["orders", "main", "claude · main", "explore"]],
   );
   deepStrictEqual(origin("t3"), [null, ["t3"]]);
   // Two pane-less agents that name each other as their session do not send it round for ever.

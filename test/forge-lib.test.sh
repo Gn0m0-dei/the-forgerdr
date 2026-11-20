@@ -18,7 +18,7 @@ expect() {
 }
 
 expect "slug ascii" "search-page-filters-do-not-keep-the" "$(forge_slug 'Search page - filters do not keep the selection after navigating back')"
-expect "slug accents" "boton-de-accion-no-visible" "$(forge_slug 'Botón de acción no visible')"
+expect "slug accents" "cafe-menu-hides-the-jalapeno-badge" "$(forge_slug 'Café menu hides the jalapeño badge')"
 expect "slug trailing" "a-b" "$(forge_slug '--A  b!!')"
 expect "slug short" "short-title" "$(forge_slug 'Short title')"
 expect "a release's slug keeps its version's dots" "v1.2.0" "$(forge_slug 'v1.2.0' .)"
@@ -26,7 +26,7 @@ expect "and still makes the rest a branch name" "spring-release-2.0.1" "$(forge_
 expect "a long one cut short never ends in a dot" "abcdefghij-abcdefghij-abcdefghij-v1.2" "$(forge_slug 'abcdefghij abcdefghij abcdefghij v1.2. xyzwvutsr' .)"
 # The herdr app runs its mods' commands with no UTF-8 locale.
 expect "slug of plain words with no UTF-8 locale" "empty-state-on-orders" "$(LC_ALL=C forge_slug 'Empty state on orders' 2>&1)"
-expect "slug accents with no UTF-8 locale" "boton-de-accion-no-visible" "$(LC_ALL=C forge_slug 'Botón de acción no visible' 2>&1)"
+expect "slug accents with no UTF-8 locale" "cafe-menu-hides-the-jalapeno-badge" "$(LC_ALL=C forge_slug 'Café menu hides the jalapeño badge' 2>&1)"
 
 expect "provider azure" azure "$(forge_provider 'https://dev.azure.com/org/proj/_workitems/edit/1')"
 expect "provider azure ssh" azure "$(forge_provider 'git@ssh.dev.azure.com:v3/org/proj/repo')"
@@ -113,7 +113,7 @@ git -C "$sandbox/workspace/back" remote set-url origin git@ssh.dev.azure.com:v3/
 expect "agent name from an id" "item-1234-front" "$(forge_agent_name item 1234 front)"
 long_one="$(forge_agent_name item "feature/add-search-filters-to-results-page" "a-very-long-repository-name")"
 long_two="$(forge_agent_name item "feature/add-search-filters-to-results-api" "a-very-long-repository-name")"
-expect "agent names hc accepts" "" "$(printf '%s\n' "$long_one" "$long_two" "$(forge_agent_name session '#12 Botón de acción no visible en la cabecera')" | grep -vE '^[a-z][a-z0-9_-]{0,31}$' || true)"
+expect "agent names hc accepts" "" "$(printf '%s\n' "$long_one" "$long_two" "$(forge_agent_name session '#12 Café menu hides the jalapeño badge on the résumé page')" | grep -vE '^[a-z][a-z0-9_-]{0,31}$' || true)"
 expect "agent names differ on a shared prefix" yes "$([ "$long_one" != "$long_two" ] && echo yes)"
 expect "branch checked out in a worktree" "$sandbox/elsewhere/front-feature" "$(forge_checked_out_at "$sandbox/workspace/front" feature)"
 expect "branch free" "" "$(forge_checked_out_at "$sandbox/workspace/front" "fix/AB42-render-again")"
