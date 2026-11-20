@@ -30,7 +30,7 @@ local_bin_missing=""
 has_tty=""
 log=""
 animate=""
-bold="" dim="" reset="" green="" red="" yellow="" cyan="" pink=""
+bold="" dim="" reset="" green="" red="" amber="" accent="" ember="" white_hot=""
 
 main() {
   case "${1:-}" in
@@ -110,10 +110,10 @@ run_install() {
     note "Fix it and run this again: what is here is skipped."
     exit 1
   fi
-  printf '\n   %s▸%s Open the herdr app: %sctrl-shift-l%s switches to the forgerdr layout.\n' "$pink" "$reset" "$bold" "$reset"
-  printf '   %s▸%s Start Claude Code in one of its terminals.\n' "$pink" "$reset"
-  printf '   %s▸%s %s/forgerdr:setup%s checks every piece whenever you want.\n' "$pink" "$reset" "$bold" "$reset"
-  printf '   %s▸%s The log: %s\n\n' "$pink" "$reset" "$(tilde "$log")"
+  printf '\n   %s▸%s Open the herdr app: %sctrl-shift-l%s switches to the forgerdr layout.\n' "$ember" "$reset" "$bold" "$reset"
+  printf '   %s▸%s Start Claude Code in one of its terminals.\n' "$ember" "$reset"
+  printf '   %s▸%s %s/forgerdr:setup%s checks every piece whenever you want.\n' "$ember" "$reset" "$bold" "$reset"
+  printf '   %s▸%s The log: %s\n\n' "$ember" "$reset" "$(tilde "$log")"
 }
 
 check_prerequisites() {
@@ -143,7 +143,7 @@ install_piece() {
     devops) az extension add --name azure-devops ;;
     engram) if [ "$os" = mac ]; then brew_engram; else github_binary Gentleman-Programming/engram engram; fi ;;
     openspec) npm_global install @fission-ai/openspec ;;
-    codebase-memory) curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config ;;
+    codebase-memory) fetch https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config ;;
     font) if [ "$os" = mac ]; then brew install --cask font-maple-mono-nf; else linux_font; fi ;;
     forgerdr) plugin_add the-forgerdr Gn0m0-dei/the-forgerdr forgerdr@the-forgerdr ;;
     azdo) plugin_add azdospec Gn0m0-dei/azdospec azdo@azdospec ;;
@@ -261,7 +261,7 @@ run_uninstall() {
     piece="${PIECES[index]}"
     case " ${picked[*]} " in *" $piece "*) ;; *) continue ;; esac
     if removal_asks "$piece"; then
-      printf '   %s▸%s %s: zypper asks before it removes anything\n' "$pink" "$reset" "$(name "$piece")"
+      printf '   %s▸%s %s: zypper asks before it removes anything\n' "$ember" "$reset" "$(name "$piece")"
       remove_piece "$piece" || true
     else
       quietly "removing $(name "$piece")" remove_piece "$piece" || true
@@ -297,7 +297,7 @@ checklist() {
   for piece in "$@"; do
     index=$((index + 1))
     mark=" "
-    case "$ticked" in *" $piece "*) mark="${pink}x${reset}" ;; esac
+    case "$ticked" in *" $piece "*) mark="${ember}x${reset}" ;; esac
     printf '   [%s] %2d  %-24s %s%s%s\n' "$mark" "$index" "$(name "$piece")" "$dim" "$(about "$piece")" "$reset"
   done
 }
@@ -382,7 +382,7 @@ present() {
     node) have node && npm --version >/dev/null 2>&1 ;;
     devops) have az && az extension show --name azure-devops >/dev/null 2>&1 ;;
     codebase-memory) [ -x "$LOCAL_BIN/codebase-memory-mcp" ] ;;
-    font) if [ "$os" = mac ]; then brew list --cask font-maple-mono-nf >/dev/null 2>&1; else fc-list 2>/dev/null | grep -q "Maple Mono NF"; fi ;;
+    font) if [ "$os" = mac ]; then brew list --cask font-maple-mono-nf >/dev/null 2>&1; else fc-list 2>/dev/null | grep "Maple Mono NF" >/dev/null; fi ;;
     forgerdr) plugin_installed forgerdr@the-forgerdr ;;
     azdo) plugin_installed azdo@azdospec ;;
     look) [ -f "$LOOK_MANIFEST" ] ;;
@@ -402,6 +402,9 @@ any_uses_sudo() {
 # --- how ----------------------------------------------------------------------------------------------------------------
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# A download that fails says why, in the log.
+fetch() { curl --fail --silent --show-error --location "$@"; }
 
 package_install() {
   if [ "$os" = mac ]; then brew install "$@"; else sudo zypper --non-interactive install "$@"; fi
@@ -425,7 +428,7 @@ npm_global() {
 # sudo asked once, before the spinners, and kept fresh until the end.
 keep_sudo() {
   sudo -n true 2>/dev/null && return 0
-  printf '\n   %s▸%s zypper needs sudo: asked once now.\n' "$pink" "$reset"
+  printf '\n   %s▸%s zypper needs sudo: asked once now.\n' "$ember" "$reset"
   local keeper
   sudo -v || die "Without sudo, zypper cannot install or remove anything."
   while sleep 50; do sudo -n true 2>/dev/null || exit 0; done &
@@ -454,8 +457,9 @@ rc_without_local_bin() {
   { grep -vxF "$PATH_LINE" "$rc" || true; } > "$rc.forgerdr" && cat "$rc.forgerdr" > "$rc" && rm -f "$rc.forgerdr"
 }
 
-marketplace_added() { claude plugin marketplace list --json 2>/dev/null | grep -Eq "\"name\": *\"$1\""; }
-plugin_installed() { claude plugin list --json 2>/dev/null | grep -q "\"$1\""; }
+# grep reads the whole list: grep -q would stop at the match, and under pipefail the writer's SIGPIPE fails the check.
+marketplace_added() { claude plugin marketplace list --json 2>/dev/null | grep -E "\"name\": *\"$1\"" >/dev/null; }
+plugin_installed() { claude plugin list --json 2>/dev/null | grep "\"$1\"" >/dev/null; }
 
 # A plugin from its marketplace on GitHub, for the user.
 plugin_add() {
@@ -478,7 +482,7 @@ linux_font() {
   have unzip || sudo zypper --non-interactive install unzip || return
   have fc-cache || sudo zypper --non-interactive install fontconfig || return
   tmp="$(mktemp -d)"
-  curl -fsSL https://github.com/subframe7536/maple-font/releases/latest/download/MapleMono-NF.zip -o "$tmp/font.zip" \
+  fetch https://github.com/subframe7536/maple-font/releases/latest/download/MapleMono-NF.zip -o "$tmp/font.zip" \
     && mkdir -p "$LINUX_FONT_DIR" && unzip -oq "$tmp/font.zip" '*.ttf' -d "$LINUX_FONT_DIR" && fc-cache -f "$LINUX_FONT_DIR"
   status=$?
   rm -rf "$tmp"
@@ -489,10 +493,10 @@ linux_font() {
 github_binary() {
   local repo="$1" name="$2" arch tag url tmp status
   case "$(uname -m)" in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) printf 'no build for %s\n' "$(uname -m)"; return 1 ;; esac
-  tag="$(curl -fsSL "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name')"
+  tag="$(fetch "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name')"
   url="https://github.com/$repo/releases/download/$tag/${name}_${tag#v}_linux_${arch}.tar.gz"
   tmp="$(mktemp -d)"
-  curl -fsSL "$url" | tar -xz -C "$tmp" && install -m 755 "$(find "$tmp" -type f -name "$name" | head -n 1)" "$LOCAL_BIN/$name"
+  fetch "$url" | tar -xz -C "$tmp" && install -m 755 "$(find "$tmp" -type f -name "$name" | head -n 1)" "$LOCAL_BIN/$name"
   status=$?
   rm -rf "$tmp"
   return "$status"
@@ -500,20 +504,33 @@ github_binary() {
 
 # --- the screen ----------------------------------------------------------------------------------------------------------
 
-# Colours and the spinner only on a terminal that wants them (no-color.org).
+# Colours and the spinner only on a terminal that wants them (no-color.org). The colours are forgerdr's: the forge's
+# from its brand, the states' from its forge-night theme; in true colour when the terminal says it has it, else the
+# nearest of the 256.
 paint() {
   if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != dumb ]; then
-    bold=$'\033[1m' dim=$'\033[2m' reset=$'\033[0m'
-    green=$'\033[38;5;114m' red=$'\033[38;5;204m' yellow=$'\033[38;5;221m' cyan=$'\033[38;5;80m' pink=$'\033[38;5;205m'
+    bold=$'\033[1m' reset=$'\033[0m'
+    dim="$(tint 110 104 118 242)" green="$(tint 143 207 122 114)" red="$(tint 240 96 122 204)"
+    amber="$(tint 245 180 60 215)" accent="$(tint 111 168 255 75)" ember="$(tint 255 107 26 202)"
+    white_hot="$(tint 255 243 214 230)"
     animate=1
   fi
 }
 
+tint() {
+  case "${COLORTERM:-}" in
+    truecolor|24bit) printf '\033[38;2;%s;%s;%sm' "$1" "$2" "$3" ;;
+    *) printf '\033[38;5;%sm' "$4" ;;
+  esac
+}
+
 banner() {
-  local shades=(141 177 205 204 209 221) row=0 line
+  # The logo cools from white-hot to deep ember, row by row.
+  local heat=("255 243 214 230" "244 211 94 221" "255 179 71 215" "229 169 59 179" "255 107 26 202" "184 56 12 130") row=0 line
   printf '\n'
   while IFS= read -r line; do
-    if [ -n "$reset" ]; then printf '  \033[38;5;%sm%s%s\n' "${shades[row]}" "$line" "$reset"; else printf '  %s\n' "$line"; fi
+    # shellcheck disable=SC2086 # the row's heat is four numbers for tint
+    if [ -n "$reset" ]; then printf '  %s%s%s\n' "$(tint ${heat[row]})" "$line" "$reset"; else printf '  %s\n' "$line"; fi
     row=$((row + 1))
   done <<'LOGO'
 ███████╗ ██████╗ ██████╗  ██████╗ ███████╗██████╗ ██████╗ ██████╗
@@ -524,15 +541,18 @@ banner() {
 ╚═╝      ╚═════╝ ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝╚═════╝ ╚═╝  ╚═╝
 LOGO
   printf '  %s░▒▓█%s %sFORGE ONCE. HERD MANY.%s %s█▓▒░%s   %s%s%s\n' \
-    "$pink" "$reset" "$bold$cyan" "$reset" "$pink" "$reset" "$dim" "the-forgerdr · $mode" "$reset"
+    "$ember" "$reset" "$bold$white_hot" "$reset" "$ember" "$reset" "$dim" "the-forgerdr · $mode" "$reset"
 }
 
-step() { printf '\n  %s━━▶%s %s%s%s\n' "$pink" "$reset" "$bold" "$1" "$reset"; }
-rule() { printf '   %s════════════════════════════════════════════════════════════%s\n' "$pink" "$reset"; }
-line() { printf '   %s%s%s %-24s %s%s%s\n' "$1" "$2" "$reset" "$3" "$4" "$5" "$reset"; }
+step() { printf '\n  %s━━▶%s %s%s%s\n' "$ember" "$reset" "$bold" "$1" "$reset"; }
+rule() { printf '   %s════════════════════════════════════════════════════════════%s\n' "$ember" "$reset"; }
+line() {
+  printf '   %s%s%s %-24s %s%s%s\n' "$1" "$2" "$reset" "$3" "$4" "$5" "$reset"
+  [ -z "$log" ] || printf '=> %s %s: %s\n' "$2" "$3" "$5" >> "$log"
+}
 ok() { line "$green" "✓" "$1" "$dim" "${2:-}"; }
 bad() { line "$red" "✗" "$1" "$red" "${2:-}"; }
-todo() { line "$yellow" "•" "$1" "$yellow" "${2:-}"; }
+todo() { line "$amber" "•" "$1" "$amber" "${2:-}"; }
 note() { printf '   %s%s%s\n' "$dim" "$1" "$reset"; }
 die() { printf '\n   %s✗ %s%s\n\n' "$red" "$1" "$reset" >&2; exit 1; }
 join() { local IFS=,; printf '%s' "$*" | sed 's/,/, /g'; }
@@ -550,7 +570,7 @@ quietly() {
   "$@" >> "$log" 2>&1 &
   pid=$!
   while kill -0 "$pid" 2>/dev/null; do
-    printf '\r   %s%s%s %s…' "$cyan" "${frames:frame:1}" "$reset" "$title"
+    printf '\r   %s%s%s %s…' "$ember" "${frames:frame:1}" "$reset" "$title"
     frame=$(((frame + 1) % 4))
     sleep 0.1
   done
@@ -558,16 +578,18 @@ quietly() {
   wait "$pid"
 }
 
-# The last lines a failed piece left in the log.
+# The last lines the failed piece's own commands left in the log, after its ### header.
 show_failure() {
-  tail -n 3 "$log" | while IFS= read -r line; do printf '       %s%s%s\n' "$dim" "$line" "$reset"; done
+  # shellcheck disable=SC2016 # a sed script: $ is its last line
+  sed -n '/^### /{h;d;};H;${x;p;}' "$log" | grep -v -e '^### ' -e '^=> ' -e '^ *$' | tail -n 3 \
+    | while IFS= read -r line; do printf '       %s%s%s\n' "$dim" "$line" "$reset"; done
 }
 
 tty_ok() { [ -n "$has_tty" ]; }
 
 ask() {
   local answer=""
-  printf '\n   %s?%s %s ' "$cyan" "$reset" "$1" >&2
+  printf '\n   %s?%s %s ' "$accent" "$reset" "$1" >&2
   read -r answer <&3 || true
   printf '%s' "$answer"
 }

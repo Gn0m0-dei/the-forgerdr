@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
-# Smallest check that fails if install.sh and uninstall.sh break on macOS: what a fresh machine gets, that another run
+# Smallest check that fails if install.sh and uninstall.sh break: on macOS, what a fresh machine gets, that another run
 # changes nothing, that Claude Code, the herdr app and git are prerequisites they never touch, and that uninstalling
-# removes only what is ticked and names what it could not remove. Every command they run is a fake on a PATH of its own
-# (brew, npm, az, claude, curl and the tools they install), and the answers come from a file (FORGE_TTY). openSUSE's
-# path is checked by hand in an opensuse/tumbleweed container.
+# removes only what is ticked and names what it could not remove; on openSUSE, the same round trip through zypper and
+# sudo. Every command they run is a fake on a PATH of its own (brew, zypper, sudo, npm, az, claude, curl, fc-list and
+# the tools they install), and the answers come from a file (FORGE_TTY). The real thing is checked by hand in an
+# opensuse/tumbleweed container.
 # Run: bash test/install.test.sh
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -15,7 +16,7 @@ export PLUGIN_ROOT="$sandbox/plugin" REAL_JQ
 REAL_JQ="$(command -v jq)"
 sys="$sandbox/sys"
 mkdir -p "$FAKES" "$TEMPLATES" "$STATE" "$sys" "$PLUGIN_ROOT/bin"
-for tool in bash cat chmod cp grep head tail ln mkdir mktemp mv rm sed seq sleep basename dirname touch tr env; do
+for tool in bash cat chmod cp find grep gzip head tail install ln mkdir mktemp mv rm sed seq sleep tar basename dirname touch tr env; do
   ln -s "$(command -v "$tool")" "$sys/$tool"
 done
 
@@ -29,7 +30,7 @@ echo "$(basename "$0") $*" >> "$CALLS"
 SH
 cat > "$TEMPLATES/uname" <<'SH'
 #!/usr/bin/env bash
-case "$1" in -s) echo Darwin ;; -m) echo arm64 ;; esac
+case "$1" in -s) echo "${FAKE_OS:-Darwin}" ;; -m) echo arm64 ;; esac
 SH
 # brew: installs a formula as its command, a cask as a mark; FAKE_BREW_FAIL names formulae it cannot install,
 # FAKE_BREW_STUCK the ones it refuses to uninstall.
@@ -64,9 +65,9 @@ cat > "$TEMPLATES/npm" <<'SH'
 #!/usr/bin/env bash
 echo "npm $*" >> "$CALLS"
 case "$1" in
-  config) echo "$STATE" ;;
-  install) [ "$3" != @fission-ai/openspec ] || { cp "$TEMPLATES/tool" "$FAKES/openspec"; chmod 755 "$FAKES/openspec"; } ;;
-  uninstall) [ "$3" != @fission-ai/openspec ] || rm -f "$FAKES/openspec" ;;
+  config) echo "${FAKE_NPM_PREFIX:-$STATE}" ;;
+  install) cp "$TEMPLATES/tool" "$FAKES/${3#@fission-ai/}"; chmod 755 "$FAKES/${3#@fission-ai/}" ;;
+  uninstall) rm -f "$FAKES/${3#@fission-ai/}" ;;
 esac
 SH
 cat > "$TEMPLATES/az" <<'SH'
@@ -108,6 +109,9 @@ cat > "$TEMPLATES/curl" <<'SH'
 echo "curl $*" >> "$CALLS"
 case "$*" in
   *codebase-memory-mcp*) printf 'cp "$TEMPLATES/cbm" "$HOME/.local/bin/codebase-memory-mcp"\n' ;;
+  *api.github.com/repos/Gentleman-Programming/engram*) printf '{"tag_name": "v1.0.0"}\n' ;;
+  *engram_1.0.0_linux_arm64.tar.gz*) cat "$TEMPLATES/engram.tar.gz" ;;
+  *MapleMono-NF.zip*) touch "${*: -1}" ;;
   *) exit 22 ;;
 esac
 SH
@@ -116,6 +120,50 @@ cat > "$TEMPLATES/cbm" <<'SH'
 echo "codebase-memory-mcp $*" >> "$CALLS"
 [ "$*" != "uninstall -y" ] || rm -f "$0"
 SH
+# zypper: installs a package as its commands and removes them; flags are ignored.
+cat > "$TEMPLATES/zypper" <<'SH'
+#!/usr/bin/env bash
+echo "zypper $*" >> "$CALLS"
+make() { cp "$TEMPLATES/${2:-tool}" "$FAKES/$1"; chmod 755 "$FAKES/$1"; }
+action=""
+for word in "$@"; do
+  case "$action:$word" in
+    *:-*) ;;
+    :install|:remove) action="$word" ;;
+    install:jq) ln -sf "$REAL_JQ" "$FAKES/jq" ;;
+    install:nodejs-default) make node ;;
+    install:npm-default) make npm npm ;;
+    install:azure-cli) make az az ;;
+    install:unzip) make unzip unzip ;;
+    install:*) make "$word" ;;
+    remove:nodejs-default) rm -f "$FAKES/node" ;;
+    remove:npm-default) rm -f "$FAKES/npm" ;;
+    remove:azure-cli) rm -f "$FAKES/az" ;;
+    remove:*) rm -f "$FAKES/$word" ;;
+  esac
+done
+SH
+# sudo: runs what it is given, with no password to ask.
+cat > "$TEMPLATES/sudo" <<'SH'
+#!/usr/bin/env bash
+echo "sudo $*" >> "$CALLS"
+case "$1" in -n|-v) exit 0 ;; esac
+exec "$@"
+SH
+# A desktop's fonts: the Maple Mono NF files once there, then thousands of others, one a line, as fc-list prints them.
+cat > "$TEMPLATES/fc-list" <<'SH'
+#!/usr/bin/env bash
+for font in "$HOME/.local/share/fonts/maple-mono-nf"/*.ttf; do
+  [ ! -e "$font" ] || printf '%s: Maple Mono NF:style=Regular\n' "$font"
+done
+for number in $(seq 1 20000); do printf '/usr/share/fonts/font-%s.ttf: Font %s:style=Regular\n' "$number" "$number"; done
+SH
+cat > "$TEMPLATES/unzip" <<'SH'
+#!/usr/bin/env bash
+echo "unzip $*" >> "$CALLS"
+touch "${*: -1}/MapleMono-NF-Regular.ttf"
+SH
+
 # The plugin's own installers: the look leaves its manifest, the status line its command in Claude Code's settings and a
 # copy of itself, which takes it away again.
 cat > "$PLUGIN_ROOT/bin/forge-herdr-install.sh" <<'SH'
@@ -134,6 +182,9 @@ case "$1" in
 esac
 SH
 chmod 755 "$PLUGIN_ROOT/bin/"* "$TEMPLATES/"*
+mkdir -p "$sandbox/release"
+cp "$TEMPLATES/tool" "$sandbox/release/engram"
+tar -czf "$TEMPLATES/engram.tar.gz" -C "$sandbox/release" engram
 
 failures=0
 expect() {
@@ -150,6 +201,7 @@ run() {
   status=0
   out="$(env -i HOME="$HOME" SHELL=/bin/zsh PATH="$FAKES:$sys" FAKES="$FAKES" TEMPLATES="$TEMPLATES" STATE="$STATE" \
     CALLS="$CALLS" PLUGIN_ROOT="$PLUGIN_ROOT" REAL_JQ="$REAL_JQ" FAKE_BREW_STUCK="${FAKE_BREW_STUCK:-}" FAKE_BREW_FAIL="${FAKE_BREW_FAIL:-}" \
+    FAKE_OS="${FAKE_OS:-}" FAKE_NPM_PREFIX="${FAKE_NPM_PREFIX:-}" \
     FORGE_TTY="$sandbox/answers" bash "$root/$script" "$@" 2>&1)" || status=$?
 }
 
@@ -226,6 +278,31 @@ unset FAKE_BREW_STUCK
 answers ''
 run uninstall.sh
 expect "only what is still there is listed" "yes no" "$(contains "$out" " 1  GitHub CLI (gh)") $(contains "$out" " 2  ")"
+
+# A fresh openSUSE desktop: zypper, sudo, its fonts, git, Claude Code and the herdr app; npm's prefix is the system's.
+export HOME="$sandbox/suse" FAKE_OS=Linux FAKE_NPM_PREFIX=/usr
+rm -rf "$FAKES" "$STATE"
+mkdir -p "$HOME" "$FAKES" "$STATE"
+for fake in uname zypper sudo curl claude fc-list; do stub "$fake" "$fake"; done
+for fake in herdr-app hc git fc-cache; do stub tool "$fake"; done
+answers ''
+
+run install.sh
+expect "openSUSE: a fresh machine gets everything" "0 yes yes" "$status $(contains "$out" "16 installed") $(contains "$out" "0 failed")"
+expect "through zypper, node and npm in one go, unzip for the font" "6 1" "$(called '^zypper .*install') $(called '^zypper .*install .*nodejs-default npm-default')"
+expect "the global npm packages through sudo" "1 1" "$(called '^sudo npm install -g pnpm') $(called '^sudo npm install -g @fission-ai/openspec')"
+expect "engram from its release, the font into the fonts folder" "yes yes" \
+  "$(exists "$HOME/.local/bin/engram") $(exists "$HOME/.local/share/fonts/maple-mono-nf/MapleMono-NF-Regular.ttf")"
+expect "and the font is seen among thousands" yes "$(contains "$out" "Maple Mono NF font       installed")"
+
+run install.sh
+expect "openSUSE: another run installs nothing" "0 yes 0 0" "$status $(contains "$out" "16 already here") $(called '^zypper .*install') $(called '^curl')"
+
+answers 'all\ny\n'
+run uninstall.sh
+expect "openSUSE: everything ticked goes" "0 yes yes" "$status $(contains "$out" "16 removed") $(contains "$out" "0 still installed")"
+expect "zypper takes its packages back" "1 1" "$(called '^zypper remove --clean-deps azure-cli') $(called '^zypper remove --clean-deps nodejs-default npm-default')"
+expect "and the font goes" no "$(exists "$HOME/.local/share/fonts/maple-mono-nf")"
 
 [ "$failures" = 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all passed\n'
