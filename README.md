@@ -30,23 +30,32 @@ A Claude Code plugin for the [herdr](https://herdr.dev) desktop app that carries
 
 ## Install
 
-Fresh machine, macOS or openSUSE Tumbleweed:
+First, [Claude Code](https://claude.com/claude-code), the [herdr app](https://herdr.dev/download/), which brings herdr-core (`hc`), and git, plus [Homebrew](https://brew.sh) on macOS. forgerdr lives in them: it never installs or removes them.
+
+Then, on macOS or openSUSE Tumbleweed:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 ```
 
-That puts the tools on the machine, each step skipped when the tool is already there: git, jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [herdr app](https://herdr.dev/download/) with herdr-core, Claude Code, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary and the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI. Another distro: install those by hand.
+It checks the prerequisites, shows every piece as here or to install and asks before it starts. Then it installs what is missing, a line a piece with a spinner meanwhile, and ends with a summary. What is here is left as it is, so running it again changes nothing. The pieces:
 
-Then open the herdr app, start Claude Code in one of its terminals, and run:
+- the tools: jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI and the Maple Mono NF font the forgerdr layout uses, with `~/.local/bin` put on the PATH in your shell's rc when it was not there;
+- the plugins `forgerdr@the-forgerdr` and `azdo@azdospec`, with their marketplaces;
+- forgerdr's look in the herdr app (the layout, the forge-night theme, the mod and the forge's alert sounds) and its status line, brought up to date on every run;
+- the sign-ins it finds missing (`az login`, `gh auth login`, `glab auth login`), each asked first.
 
+A piece that fails does not stop the rest: the summary names it, with the last lines it left in the log (`~/.local/state/forgerdr/install.log`, where the commands' own output goes). On openSUSE, sudo is asked once at the start, when zypper needs it. `NO_COLOR` turns the colours off. Another distro: install the pieces by hand.
+
+Then open the herdr app (`ctrl-shift-l` switches to the forgerdr layout) and start Claude Code in one of its terminals. `/forgerdr:setup` checks every piece whenever you want and reports a table: engram server, the MCP servers reaching through the plugin, the herdr app and its optional keys, provider sign-ins, Claude Code settings, and the leftovers the plugin now replaces, the herdr TUI's forgerdr plugin among them.
+
+To take it away:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/uninstall.sh | bash
 ```
-/plugin marketplace add Gn0m0-dei/the-forgerdr
-/plugin install forgerdr@the-forgerdr
-/forgerdr:setup
-```
 
-`/forgerdr:setup` completes the rest and reports a table: engram server, the MCP servers reaching through the plugin, the herdr app and its optional keys, provider sign-ins (yours to run), Claude Code settings, and the leftovers the plugin now replaces, the herdr TUI's forgerdr plugin among them.
+It lists the pieces that are on the machine now, a tool you had before among them, and removes only the ones you tick; then it names whatever could not be removed. Claude Code, the herdr app, git and your data stay: `~/.claude`, engram's memories in `~/.engram`, forgerdr's settings, the app's settings and the sign-ins. `uninstall.sh` runs `install.sh --uninstall`, the one place that knows the pieces.
 
 Local checkout instead of the marketplace: `claude --plugin-dir /path/to/the-forgerdr`.
 
