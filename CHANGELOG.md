@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.31.0] - 2026-11-20
+
 ### Fixed
 
 - `install.sh` stopped halfway when a tool could not be installed: zypper failing on `azure-cli` was only noted, and the azure-devops extension step then failed on the missing `az` and ended the run. A failed step is now noted and the rest still run, a step that needs a missing tool is skipped, and the run ends by checking every piece, naming what is still missing and failing. On openSUSE, Node.js comes from `nodejs-default` and `npm-default` together, since Tumbleweed no longer ships `nodejs22` and `nodejs-default` alone brings an `npm` that does not run; the global npm packages go through `sudo`, since npm's prefix there is `/usr`; and the Maple Mono NF font comes from its release, which openSUSE does not package. `~/.local/bin` is added to the PATH in the login shell's rc instead of a note asking for it.
