@@ -5,13 +5,14 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 # Setup
 
-`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash`) puts the tools on the machine. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask before anything that needs credentials or a package manager. Run it again any time.
+`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash`) puts the tools, the plugins, the herdr look and the status line on the machine, and `uninstall.sh` takes the ones ticked away. Claude Code, the herdr app and git are prerequisites they never install or remove. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask before anything that needs credentials or a package manager. Run it again any time.
 
 ## Tools (from install.sh)
 
 | Piece | Check | Missing |
 |---|---|---|
-| git, jq, node, pnpm, az, gh, glab, engram, herdr-app, hc, claude | `command -v <tool>` | run `install.sh`; on another distro, install them by hand (README lists them) |
+| jq, node, pnpm, az, gh, glab, engram, openspec | `command -v <tool>` | run `install.sh`; on another distro, install them by hand (README lists them) |
+| herdr-app, hc, claude, git | `command -v <tool>` | prerequisites: the user installs Claude Code, the herdr app and git (README links them) |
 | azure-devops extension | `az extension show --name azure-devops` | `az extension add --name azure-devops` |
 | codebase-memory-mcp binary | `test -x ~/.local/bin/codebase-memory-mcp` | `curl -fsSL https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh \| bash -s -- --skip-config` |
 
