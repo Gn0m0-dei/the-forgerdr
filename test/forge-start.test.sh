@@ -47,8 +47,8 @@ export PATH="$sandbox/bin:$tools:/usr/bin:/bin"
 info() { bash "$bin" info "$1" | jq -r "$2"; }
 
 # The origin, whatever its form.
-github="$(repo github https://github.com/Gn0m0-dei/forgnome.git)"
-expect "github origin" "github Gn0m0-dei/forgnome forgnome" "$(info "$github" '"\(.provider) \(.project) \(.repo)"')"
+github="$(repo github https://github.com/northwind/orders.git)"
+expect "github origin" "github northwind/orders orders" "$(info "$github" '"\(.provider) \(.project) \(.repo)"')"
 gitlab="$(repo gitlab git@gitlab.example.com:shop/web/storefront.git)"
 expect "gitlab origin with groups" "gitlab gitlab.example.com shop/web/storefront" \
   "$(info "$gitlab" '"\(.provider) \(.host) \(.project)"')"
@@ -82,18 +82,18 @@ expect "a checkout's root from a folder inside it" "$(cd "$github" && pwd -P)" \
 mkdir -p "$sandbox/plain"
 expect "outside git" "" "$(info "$sandbox/plain" '.root')"
 expect "the spec mode is chat by default" chat "$(info "$github" '.spec')"
-printf '[spec.projects]\nforgnome = "openspec"\n' > "$FORGERDR_CONFIG"
-mv "$github" "$sandbox/forgnome"
-github="$sandbox/forgnome"
+printf '[spec.projects]\norders = "openspec"\n' > "$FORGERDR_CONFIG"
+mv "$github" "$sandbox/orders"
+github="$sandbox/orders"
 expect "and the project's own when set" openspec "$(info "$github" '.spec')"
 
 # The forge's mode and backlog.
-expect "a forge's mode, its spec mode and no backlog" "forgnome openspec openspec " \
+expect "a forge's mode, its spec mode and no backlog" "orders openspec openspec " \
   "$(info "$github" '"\(.key) \(.mode) \(.spec) \(.backlog)"')"
-printf '[mode.projects]\nazure = "azure"\n[spec.projects]\nazure = "azure"\nforgnome = "openspec"\n[backlog.projects]\nazure = "https://dev.azure.com/other/Backlog"\n' > "$FORGERDR_CONFIG"
+printf '[mode.projects]\nazure = "azure"\n[spec.projects]\nazure = "azure"\norders = "openspec"\n[backlog.projects]\nazure = "https://dev.azure.com/other/Backlog"\n' > "$FORGERDR_CONFIG"
 expect "an Azure DevOps forge with a backlog of its own" "azure https://dev.azure.com/other/Backlog" \
   "$(info "$azure" '"\(.mode) \(.backlog)"')"
-printf '[mode.projects]\ngitlab = "gitlab"\n[spec.projects]\ngitlab = "chat"\nforgnome = "openspec"\n' > "$FORGERDR_CONFIG"
+printf '[mode.projects]\ngitlab = "gitlab"\n[spec.projects]\ngitlab = "chat"\norders = "openspec"\n' > "$FORGERDR_CONFIG"
 expect "a GitLab forge keeps its design in the chat" "gitlab chat" "$(info "$gitlab" '"\(.mode) \(.spec)"')"
 
 # The OpenSpec changes, of the repository or of its store.
@@ -103,10 +103,10 @@ expect "the changes with their tasks" "fix-scroll 0/0 no-tasks|add-inbox 2/3 in-
   "$(bash "$bin" changes "$github" | jq -r 'map("\(.name) \(.done)/\(.total) \(.status)") | join("|")')"
 expect "read in the repository" "openspec list --changes --sort name --json" "$(tail -n 1 "$calls")"
 expect "not in OpenSpec mode" "this forge's mode is gitlab, not OpenSpec" "$(bash "$bin" changes "$gitlab" | jq -r '.error')"
-printf '[spec.projects]\nforgnome = "openspec:team-specs"\n' > "$FORGERDR_CONFIG"
+printf '[spec.projects]\norders = "openspec:team-specs"\n' > "$FORGERDR_CONFIG"
 bash "$bin" changes "$github" >/dev/null
 expect "of a store" "openspec list --changes --sort name --store team-specs --json" "$(tail -n 1 "$calls")"
-printf '[spec.projects]\nforgnome = "openspec:gone"\n' > "$FORGERDR_CONFIG"
+printf '[spec.projects]\norders = "openspec:gone"\n' > "$FORGERDR_CONFIG"
 expect "a store OpenSpec does not know says why and how" "Unknown store gone.|Pass a registered store id." \
   "$(bash "$bin" changes "$github" | jq -r '"\(.error)|\(.fix)"')"
 
