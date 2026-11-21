@@ -7,15 +7,17 @@
 #           (bin/forge-inbox.sh answer). An answer the request takes becomes Claude Code's decision; any other is thrown
 #           away, since anything running as the user can write there. The decision comes from the request as Claude
 #           Code sent it, kept by the hook: its file only shows it, and rewriting the file changes nothing it runs.
-#           Answered in the pane, the request is settled (below), or Claude Code ends this hook (Esc, No, the timeout),
-#           which takes the request away: either way it leaves with no decision and the pane's answer stands.
+#           Answered in the pane, the request is settled (below), Claude Code ends this hook (Esc, No, the timeout),
+#           which takes the request away, or the session's next stop sweeps it (Chat about this, which does neither):
+#           in every case it leaves with no decision and the pane's answer stands.
 #   settle  PostToolUse, PostToolUseFailure: the tool ran, so the pane answered: the oldest request of this session for
 #           the same call goes, and its waiting hook leaves with no decision. Claude Code reports a call with what the
 #           pane added to it (a question's answers) or without its input (a plan), so the same call is the same tool
 #           with the same values in the fields both sides carry.
-#   stop    Stop: a turn that ends on a question typed in the chat, which the inbox never sees, goes back once to ask it
-#           with AskUserQuestion. Only the final message is read, never the transcript. An agent forgerdr dispatched
-#           (FORGE_REPORT_TO) asks the session that dispatched it instead: hooks/agent-state.sh.
+#   stop    Stop: first the session's main thread waits on no dialog, so what it still asks goes, and the waiting hook
+#           with it. Then a turn that ends on a question typed in the chat, which the inbox never sees, goes back once
+#           to ask it with AskUserQuestion. Only the final message is read, never the transcript. An agent forgerdr
+#           dispatched (FORGE_REPORT_TO) asks the session that dispatched it instead: hooks/agent-state.sh.
 # Outside herdr it does nothing: the pane's dialog is the only one.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
@@ -39,6 +41,7 @@ readonly REQUEST_FILTER='{
   terminal: $terminal,
   session_id: (.session_id // ""),
   agent_type: (.agent_type // ""),
+  agent_id: (.agent_id // ""),
   cwd: (.cwd // ""),
   tool_name,
   tool_input: (.tool_input // {}),
@@ -175,10 +178,31 @@ readonly ASKING_FILTER='
       test("[" + asks + "][\\s" + closes + "]*$")))
   | {decision: "block", reason: $reason}'
 
+# The requests a stop sweeps, of the inbox's requests: this session's in this terminal, asked by its main thread (a
+# subagent's carry its agent_id, and one may still be asking).
+# shellcheck disable=SC2016 # a jq filter
+readonly SWEPT_FILTER='select(.session_id == $session and .terminal == $terminal and (.agent_id // "") == "") | .id'
+
+# Stop's input must be one JSON object naming its session; anything else sweeps nothing.
+sweep() {
+  local session swept id
+  compgen -G "$inbox/????????????????.json" >/dev/null || return 0
+  session="$(jq -rs 'select(length == 1) | .[0] | select(type == "object") | .session_id | select(type == "string")' \
+    <<<"$1" 2>/dev/null)" || return 0
+  [ -n "$session" ] || return 0
+  swept="$(requests | jq -r --arg session "$session" --arg terminal "$HC_TERMINAL_ID" "$SWEPT_FILTER")" || return 0
+  while IFS= read -r id; do
+    [[ "$id" =~ ^[0-9a-f]{16}$ ]] || continue
+    rm -f "$inbox/$id.json"
+  done <<<"$swept"
+}
+
 stop() {
-  local decision
+  local input decision
+  input="$(cat)"
+  sweep "$input"
   [ -z "${FORGE_REPORT_TO:-}" ] || return 0
-  decision="$(jq -cs --arg reason "$ASK_IT_REASON" "$ASKING_FILTER")" || return 0
+  decision="$(printf '%s' "$input" | jq -cs --arg reason "$ASK_IT_REASON" "$ASKING_FILTER")" || return 0
   [ -z "$decision" ] || printf '%s\n' "$decision"
 }
 

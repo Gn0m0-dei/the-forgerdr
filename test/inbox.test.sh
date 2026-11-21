@@ -327,6 +327,35 @@ expect "a question between long inline code and more inline code still asks" "bl
   "$(stopping "\`$code\` Which one? \`x\`" | jq -r '.decision')"
 expect "and a question inside long inline code asks nothing" "" "$(stopping "\`$code Which one? \`x\`" | jq -r '.decision')"
 
+# "Chat about this" in the pane rejects a question without ending its hook, and no tool runs to settle it: the session's
+# next stop takes away what its main thread still asks, a session started with --agent included (agent_type and no
+# agent_id), so that hook leaves without a decision. What a subagent of the session asks, and what another session
+# asks, stays.
+waiting_in_inbox() { find "$inbox" -name '????????????????.json' | wc -l | tr -d ' '; }
+asking "$(jq -c '.agent_id = "a1" | .agent_type = "Explore"' <<<"$push")"
+subagent="${pids[asked]}"
+asking "$(jq -c '.session_id = "s2"' <<<"$push")"
+other="${pids[asked]}"
+asking "$(jq -c '.agent_type = "forgerdr:reviewer"' <<<"$question")"
+requests 3 >/dev/null
+printf '' | HC_TERMINAL_ID=t7 bash "$hook" stop
+expect "a stop with no input sweeps nothing" 3 "$(waiting_in_inbox)"
+stop_input 'Ready.' | HC_TERMINAL_ID=t8 bash "$hook" stop
+expect "nor the same session's stop in another terminal" 3 "$(waiting_in_inbox)"
+{ stop_input 'Ready.'; stop_input 'Ready.'; } | HC_TERMINAL_ID=t7 bash "$hook" stop
+expect "nor two inputs at once" 3 "$(waiting_in_inbox)"
+stopping 'Ready.' >/dev/null
+expect "the session's next stop takes away what its main thread still asks, and its hook leaves" "no" "$(still_waiting)"
+expect "saying nothing" "" "$(decision)"
+expect "what a subagent of it asks stays, and so does another session's" "s1 a1|s2 " \
+  "$(jq -rs 'sort_by(.session_id) | map("\(.session_id) \(.agent_id)") | join("|")' "$inbox"/????????????????.json)"
+kill -TERM "$subagent" "$other"
+wait "$subagent" "$other" || true
+asking "$question"
+requests >/dev/null
+stop_input 'Ready.' | HC_TERMINAL_ID=t7 FORGE_REPORT_TO=uds:/tmp/parent.sock bash "$hook" stop >/dev/null
+expect "an agent forgerdr dispatched sweeps at its stop too" "no" "$(still_waiting)"
+
 # The mod's side: bin/forge-inbox.sh lists what waits and writes its answers.
 cli="$root/bin/forge-inbox.sh"
 rm -rf "$inbox"
