@@ -1,18 +1,19 @@
 // The approval inbox (design 05): a drawer at the window's right, under the top bar, with what waits on the human's
 // mark, a card each (inbox.js), the newest first: a tool's permission, a question, one of forgerdr's gates, a plan, or
 // an agent waiting in its pane. Each card shows the gnome and the name of the forge it comes from, then the branch and
-// the session. A click opens a card: Allow once and Deny with reason for a permission; the options, an answer of one's
-// own and Answer (Stamp on a gate) for a question; the plan, the mode its session takes after it, Approve and Revise for
-// a plan; and Discuss on every card, which goes to the agent's pane and leaves the card open. Everything is a click; the
-// text field alone takes Enter. An answer goes through bin/forge-inbox.sh to the hook that waits on it
-// (hooks/inbox.sh); the pane's own dialog stays open meanwhile, whichever answers first wins, and a card answered in the
-// pane goes. An answer stamps its card with the gnomemark (design 05b, after the mark), gold for a yes and red for a
-// no: it comes down with a thump and the stamp's sound, stays a moment and slides off right with the card; with the motion
+// the session. A click opens a card, or one above a stamp still showing once the stamp goes: Allow once and Deny with
+// reason for a permission; the options, an answer of one's own and Answer (Stamp on a gate) for a question; the plan,
+// the mode its session takes after it, Approve and Revise for a plan; and Discuss on every card, which goes to the
+// agent's pane and leaves the card open. Everything is a click; the text field alone takes Enter. An answer goes
+// through bin/forge-inbox.sh to the hook that waits on it (hooks/inbox.sh); the pane's own dialog stays open meanwhile,
+// whichever answers first wins, and a card answered in the pane goes. An answer stamps its card with the gnomemark
+// (design 05b, after the mark), gold for a yes and red for a no, over what showed of the card when it was clicked: it
+// comes down with a thump and the stamp's sound, stays a moment and slides off right with the card; with the motion
 // off the card just goes, to the same sound. Anything running as the user could write an answer too, as it could type
 // in a pane: the foot says so.
 import { h_flex, Input, InputState, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { checking, panes, run, spaces } from "herdr";
+import { checking, panes, run, settings, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import {
@@ -37,11 +38,13 @@ import {
   FILTER,
   FILTER_ORDER,
   headingOf,
+  heldShut,
   INBOX_KIND,
   MARK,
   markedAt,
   markOf,
   openCardOf,
+  openedNow,
   originOf,
   PLAN_MODE,
   permissionAnswer,
@@ -54,6 +57,7 @@ import {
   reviewAskOf,
   reviewTabOf,
   shownIn,
+  stampTop,
   summaryOf,
   visible,
   waitedFor,
@@ -76,6 +80,7 @@ import { motionOn, NONE, tokens, withAlpha } from "../kit/tokens.js";
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("gpui-kit").MouseButtonEvent} MouseButtonEvent */
 /** @typedef {import("../inbox.js").InboxAnswer} InboxAnswer */
 /** @typedef {import("../inbox.js").InboxCard} InboxCard */
 /** @typedef {import("../inbox.js").InboxFilter} InboxFilter */
@@ -86,6 +91,7 @@ import { motionOn, NONE, tokens, withAlpha } from "../kit/tokens.js";
 /** @typedef {import("../inbox.js").OtherAnswers} OtherAnswers */
 /** @typedef {import("../inbox.js").Picks} Picks */
 /** @typedef {import("../inbox.js").PlanMode} PlanMode */
+/** @typedef {import("../inbox.js").WindowBox} WindowBox */
 /** @typedef {import("../kit/buttons.js").KeyButtonKind} KeyButtonKind */
 /** @typedef {import("../kit/sprites.js").IconName} IconName */
 /** @typedef {import("./role.js").Role} Role */
@@ -117,6 +123,9 @@ const STAMP = Object.freeze({
   veiled: 0.78,
 });
 
+// The landed stamp's height: where it lands is worked out with it (stampTop), and the band it lands in is this tall.
+const STAMP_HEIGHT = STAMP_ART.height * STAMP.scale;
+
 const STAMP_PHASE = Object.freeze({
   closing: "closing",
   landed: "landed",
@@ -139,6 +148,15 @@ const CARD_GAP = 10;
  * @property {number} at when it was answered, in ms
  * @property {StampPhase} phase
  * @property {string | null} words in its text field, when it was answered from it
+ * @property {number | null} top how far down the card its stamp lands, when it was answered with a click on it
+ *   (inbox.js stampTop); null lands it in the card's middle
+ */
+
+/**
+ * The open card as the last press on it found it: which card, and where its frame was drawn then.
+ * @typedef {object} Pressed
+ * @property {string} id
+ * @property {WindowBox | null} card in the window; null when it had not been drawn yet
  */
 
 /** @type {Readonly<Record<InboxKind, IconName>>} */
@@ -192,6 +210,32 @@ const FOOT =
   "A convenience, not a lock: anything running as you can answer here, as it can type in a pane.";
 
 /**
+ * Window px per layout px: the app's zoom, which settings() carries; a press gives window px, a stamp is placed in
+ * layout ones.
+ * @returns {number}
+ */
+const zoomOf = () => {
+  const { zoom } = settings();
+  return typeof zoom === "number" ? zoom : 1;
+};
+
+/**
+ * Where a press's element was drawn, in the window: its size, and its corner where the press is in the window less
+ * where it is in the element; null when it has not been drawn yet.
+ * @param {MouseButtonEvent} event
+ * @returns {WindowBox | null}
+ */
+const boxOf = ({ bounds, local_position: local, position }) =>
+  bounds === undefined || local === undefined
+    ? null
+    : {
+        height: bounds.height,
+        width: bounds.width,
+        x: position.x - local.x,
+        y: position.y - local.y,
+      };
+
+/**
  * @param {AsyncContext} cx
  * @returns {Role}
  */
@@ -202,7 +246,7 @@ export const inbox = (cx) => {
   /** @type {InboxFilter} */
   let filter = FILTER.all;
   let selected = "";
-  /** @type {Opened} the card open, and since when: an approval counts only on it, once it has been open a moment */
+  /** @type {Opened} the card shown open, and since when: an approval counts only on it, once it has shown a moment */
   let opened = { at: 0, id: "" };
   // The card whose text field is open, if any.
   let typing = "";
@@ -226,6 +270,12 @@ export const inbox = (cx) => {
   const blockedSince = new Map();
   /** @type {Map<string, number>} each card's height with its room below, as last drawn: a stamped one closes from it */
   const heights = new Map();
+  // Where the open card and the list were drawn at the last press on them, as the press gives them (the card scrolled
+  // with the list): an answer clicked there stamps the card over what showed of it.
+  /** @type {Pressed} */
+  let pressed = { card: null, id: "" };
+  /** @type {WindowBox | null} */
+  let listBox = null;
 
   const following = checking()
     ? null
@@ -282,10 +332,27 @@ export const inbox = (cx) => {
       seen: blockedSince,
     }).filter((card) => !answered.has(card.id));
   const shownCards = () => shownIn(allCards(), filter);
-  /** The open card: the one clicked while it still waits, else the first. */
+  /** The cards whose stamp still shows: until their card closes. */
+  const stamping = () =>
+    new Set(
+      [...marks]
+        .filter(([, marked]) => marked.phase !== STAMP_PHASE.closing)
+        .map(([id]) => id),
+    );
+  // forge: a card that arrives above a stamp still showing, or goes from there, still moves the stamped card by its
+  // closed height; holding back from listed() the cards that arrive above a showing stamp until it closes would keep
+  // it still.
+  /**
+   * The open card: the one clicked while it still waits, else the first; none while that one is listed above a stamp
+   * that still shows, which opening it would push down out of sight (inbox.js heldShut). It opens as the stamped card
+   * closes.
+   */
   const current = () => {
     const cards = shownCards();
-    return cards.find((card) => card.id === selected) ?? cards[0];
+    const card = cards.find((each) => each.id === selected) ?? cards[0];
+    return card === undefined || heldShut(listed(), card.id, stamping())
+      ? undefined
+      : card;
   };
   /** The cards as the drawer lists them: those waiting and those under their stamp, the newest first. */
   const listed = () =>
@@ -297,14 +364,14 @@ export const inbox = (cx) => {
       ),
     ].sort((one, other) => other.since - one.since);
   /**
-   * Keeps the open card open by its id; when it changes, or the cards above it change so it moved under the pointer,
-   * notes since when, so it is armed again (inbox.js openCardOf, aboveOf, armed).
+   * Keeps the open card open by its id, and notes since when the card shown open has shown (inbox.js openedNow): when
+   * it changes, the cards above it change so it moved under the pointer, or a card held shut under a stamp opens, it
+   * is armed again (openCardOf, aboveOf, armed).
    */
   const pin = () => {
     selected = openCardOf(shownCards(), selected);
-    const above = aboveOf(listed(), selected);
-    if (selected !== opened.id || above !== opened.above)
-      opened = { above, at: Date.now(), id: selected };
+    const shown = current()?.id ?? "";
+    opened = openedNow(opened, shown, aboveOf(listed(), shown), Date.now());
   };
   /**
    * An answer the hook did not take leaves its request in the inbox: after a while, its card shows again, saying so.
@@ -341,14 +408,30 @@ export const inbox = (cx) => {
   };
 
   /**
+   * How far down a card clicked to answer its stamp lands: over what showed of the card at the press, which the click
+   * follows; null when no press on it gave where it was.
+   * @param {InboxCard} card
+   */
+  const landingOf = (card) =>
+    pressed.id === card.id && pressed.card !== null && listBox !== null
+      ? stampTop({
+          card: pressed.card,
+          list: listBox,
+          scale: zoomOf(),
+          stamp: STAMP_HEIGHT,
+        })
+      : null;
+
+  /**
    * Stamps a card answered: raised, landed with its sound and the card trembling, still, fading, gone. With the motion
    * off, the sound alone.
    * @param {InboxCard} card
    * @param {Mark} mark
    * @param {string | null} words in its text field, when it was answered from it
+   * @param {number | null} top how far down the card the stamp lands (landingOf), else in its middle
    * @param {Context} cx
    */
-  const stampCard = (card, mark, words, cx) => {
+  const stampCard = (card, mark, words, top, cx) => {
     if (!motionOn()) {
       playStamp();
       return;
@@ -358,6 +441,7 @@ export const inbox = (cx) => {
       card,
       mark,
       phase: STAMP_PHASE.raised,
+      top,
       words,
     });
     /** @param {StampPhase} phase */
@@ -380,7 +464,9 @@ export const inbox = (cx) => {
     });
     cx.timer.after(STAMP.land + STAMP.hold + STAMP.leave, (task) => {
       turn(STAMP_PHASE.closing);
-      // The card below rises into the room now: it is armed again once it has.
+      // A card held shut above it opens now (pin), and the card below rises into the room: either is armed again once
+      // the room has closed.
+      pin();
       opened = { ...opened, at: Date.now() + STAMP.close };
       task.notify();
     });
@@ -395,26 +481,35 @@ export const inbox = (cx) => {
     );
   };
 
-  // The card goes at once and the one below it (else above) opens, before the hook takes the request away.
-  /** @param {InboxCard} card @param {InboxAnswer} answer @param {Context} cx */
-  const send = (card, answer, cx) => {
+  // The card goes at once and the one below it opens, before the hook takes the request away; the one above, when it is
+  // the last, opens once its stamp is gone (current).
+  /**
+   * @param {InboxCard} card
+   * @param {InboxAnswer} answer
+   * @param {number | null} top how far down the card its stamp lands (landingOf), else in its middle
+   * @param {Context} cx
+   */
+  const send = (card, answer, top, cx) => {
     if (card.request === null || answered.has(card.id)) return;
     const cards = shownCards();
     const at = cards.findIndex((each) => each.id === card.id);
     selected = (cards[at + 1] ?? cards[at - 1])?.id ?? "";
     answered.set(card.id, Date.now());
-    pin();
     failed = { id: "", text: "" };
     const words = typing === card.id ? typed.value() : null;
     typing = "";
     typed.set_value("");
-    stampCard(card, markOf(card, answer), words, cx);
+    stampCard(card, markOf(card, answer), words, top, cx);
+    // After the stamp is noted: a card it holds shut above is no card shown open, so its hold's end arms it afresh.
+    pin();
     cx.spawn(async (task) => {
       const refused = await answerInbox(card.id, answer);
       if (refused !== null) {
         answered.delete(card.id);
         marks.delete(card.id);
         failed = { id: card.id, text: refused };
+        // Its stamp gone, a card held shut above it opens: armed again from now.
+        pin();
       }
       task.notify();
     });
@@ -497,19 +592,24 @@ export const inbox = (cx) => {
     return armed(opened, card.id, Date.now());
   };
 
-  /** The card's first button. @param {InboxCard} card @param {Context} cx */
+  /** The card's first button, clicked. @param {InboxCard} card @param {Context} cx */
   const approve = (card, cx) => {
     const answer = APPROVAL[card.kind](card);
     if (answer !== null && approvable(card) && clickCounts(card))
-      send(card, answer, cx);
+      send(card, answer, landingOf(card), cx);
   };
 
-  /** The field's button, or Enter in it: the deny or the plan sent back with its words, or the answer kept. @param {Context} cx */
-  const submitTyped = (cx) => {
+  /**
+   * The field's button, or Enter in it: the deny or the plan sent back with its words, or the answer kept.
+   * @param {number | null} top where a refusal's stamp lands: where its button was clicked (landingOf); Enter lands it
+   *   in the card's middle
+   * @param {Context} cx
+   */
+  const submitTyped = (top, cx) => {
     const card = current();
     if (card === undefined || card.id !== typing || !clickCounts(card)) return;
     if (FIELD[card.kind].refusal) {
-      send(card, denyAnswer(typed.value()), cx);
+      send(card, denyAnswer(typed.value()), top, cx);
       return;
     }
     others[card.id] = {
@@ -518,7 +618,7 @@ export const inbox = (cx) => {
     };
     stopTyping(cx);
   };
-  typed.on("submit", (_event, cx) => submitTyped(cx));
+  typed.on("submit", (_event, cx) => submitTyped(null, cx));
 
   /** @param {Context} _cx */
   const render = (_cx) => {
@@ -544,6 +644,24 @@ export const inbox = (cx) => {
      */
     const button = (kind, label, id, action) =>
       control(keyButton(kind, label), id, action);
+
+    /**
+     * A button that answers its card, like a control (kit/control.js) but for its press, which goes on to the card and
+     * the list: they note where they are drawn then, so the stamp lands over what shows of the card (landingOf).
+     * Nothing above them acts on a press; the click stops here, as a control's does.
+     * @param {KeyButtonKind} kind
+     * @param {string} label
+     * @param {string} id
+     * @param {(cx: Context) => void} action
+     */
+    const answerButton = (kind, label, id, action) =>
+      keyButton(kind, label)
+        .id(id)
+        .cursor_pointer()
+        .on_click((_event, cx) => {
+          cx.stop_propagation();
+          action(cx);
+        });
 
     /** @param {InboxCard} each */
     const discussButton = (each) =>
@@ -640,11 +758,11 @@ export const inbox = (cx) => {
           h_flex()
             .gap(8)
             .child(
-              button(
+              answerButton(
                 purpose.refusal ? KEY_BUTTON.warn : KEY_BUTTON.primary,
                 purpose.send,
                 `inbox-field-send-${each.id}`,
-                submitTyped,
+                (cx) => submitTyped(landingOf(each), cx),
               ),
             )
             .child(
@@ -760,7 +878,7 @@ export const inbox = (cx) => {
           actions(
             each,
             [
-              button(
+              answerButton(
                 KEY_BUTTON.primary,
                 "Allow once",
                 `inbox-allow-${each.id}`,
@@ -852,7 +970,7 @@ export const inbox = (cx) => {
           actions(
             each,
             [
-              button(
+              answerButton(
                 gate ? KEY_BUTTON.stamp : KEY_BUTTON.primary,
                 gate ? "Stamp" : "Answer",
                 `inbox-answer-${each.id}`,
@@ -911,7 +1029,7 @@ export const inbox = (cx) => {
           actions(
             each,
             [
-              button(
+              answerButton(
                 KEY_BUTTON.primary,
                 "Approve plan",
                 `inbox-approve-${each.id}`,
@@ -1067,8 +1185,9 @@ export const inbox = (cx) => {
 
     /**
      * A card answered, under its stamp: the card as it was, the same size, its time now when it was answered, and the
-     * gnomemark coming down over it, the card trembling under the blow and going to the background, its colours veiled
-     * so the stamp stands out; then both slide off to the right. Nothing under the stamp takes a click.
+     * gnomemark coming down over what showed of it when it was clicked (else over its middle), the card trembling under
+     * the blow and going to the background, its colours veiled so the stamp stands out; then both slide off to the
+     * right. Nothing under the stamp takes a click.
      * @param {InboxCard} each
      * @param {Marked} marked
      */
@@ -1099,32 +1218,44 @@ export const inbox = (cx) => {
             .transition("opacity", STAMP.veil),
         )
         .child(
-          h_flex()
+          v_flex()
             .id(`inbox-stamp-over-${each.id}`)
             .absolute()
             .top(0)
             .left(0)
             .size_full()
-            .items_center()
-            .justify_center()
+            // As far down the card as it lands (landingOf), else in its middle.
+            .pt(marked.top ?? 0)
+            .when(marked.top === null, (el) => el.justify_center())
             .on_mouse_down("left", (_event, cx) => cx.stop_propagation())
             .on_click((_event, cx) => cx.stop_propagation())
             .child(
-              div()
-                .id(`inbox-stamp-${each.id}`)
+              // A band the landed stamp's height: the raised one, bigger, grows around its middle and lands into it.
+              h_flex()
                 .flex_none()
-                .relative()
-                .w(STAMP_ART.width * size)
-                .h(STAMP_ART.height * size)
-                .spring("width", STAMP.spring)
-                .spring("height", STAMP.spring)
-                .opacity(raised ? 0 : 1)
-                .transition("opacity", STAMP.land)
-                .children(
-                  stampLayers(
-                    marked.mark === MARK.yes ? k.done : k.failed,
-                    withAlpha(k.bg0, STAMP.body),
-                  ).map((layer) => layer.absolute().top(0).left(0).size_full()),
+                .w_full()
+                .h(STAMP_HEIGHT)
+                .items_center()
+                .justify_center()
+                .child(
+                  div()
+                    .id(`inbox-stamp-${each.id}`)
+                    .flex_none()
+                    .relative()
+                    .w(STAMP_ART.width * size)
+                    .h(STAMP_ART.height * size)
+                    .spring("width", STAMP.spring)
+                    .spring("height", STAMP.spring)
+                    .opacity(raised ? 0 : 1)
+                    .transition("opacity", STAMP.land)
+                    .children(
+                      stampLayers(
+                        marked.mark === MARK.yes ? k.done : k.failed,
+                        withAlpha(k.bg0, STAMP.body),
+                      ).map((layer) =>
+                        layer.absolute().top(0).left(0).size_full(),
+                      ),
+                    ),
                 ),
             ),
         );
@@ -1164,9 +1295,12 @@ export const inbox = (cx) => {
     const cardOf = (each) => {
       const open = each.id === card?.id;
       const frame = frameOf(each, open, waitedFor(each.since, now));
-      // An open card's controls take their own clicks; a closed one opens on a click anywhere.
+      // An open card's controls take their own clicks, and it notes where it is drawn at each press on it, an answer's
+      // included (answerButton); a closed one opens on a click anywhere.
       return open
-        ? frame.id(`inbox-card-${each.id}`)
+        ? frame.id(`inbox-card-${each.id}`).on_mouse_down("left", (event) => {
+            pressed = { card: boxOf(event), id: each.id };
+          })
         : control(frame, `inbox-card-${each.id}`, (cx) => {
             selected = each.id;
             pin();
@@ -1187,13 +1321,23 @@ export const inbox = (cx) => {
                 title: "Nothing waits on your mark.",
               }),
             )
-        : v_flex()
-            .id("inbox-cards")
+        : // The list scrolls inside a frame that does not: a scrolling element's bounds move with its scroll, so what
+          // shows of the cards is the frame's box, noted at a press on one after the card's own (landingOf).
+          v_flex()
+            .id("inbox-cards-shown")
             .flex_1()
             .min_h(0)
-            .overflow_y_scroll()
-            .p(14)
-            .children(cards.map(slotOf));
+            .on_mouse_down("left", (event) => {
+              listBox = boxOf(event);
+            })
+            .child(
+              v_flex()
+                .id("inbox-cards")
+                .size_full()
+                .overflow_y_scroll()
+                .p(14)
+                .children(cards.map(slotOf)),
+            );
 
     const foot = v_flex()
       .flex_none()

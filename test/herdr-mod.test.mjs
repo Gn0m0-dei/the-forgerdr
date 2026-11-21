@@ -51,11 +51,13 @@ import {
   FILTER,
   FILTER_ORDER,
   headingOf,
+  heldShut,
   INBOX_KIND,
   MARK,
   markedAt,
   markOf,
   openCardOf,
+  openedNow,
   originOf,
   PLAN_MODE,
   permissionAnswer,
@@ -67,6 +69,7 @@ import {
   reviewAskOf,
   reviewTabOf,
   shownIn,
+  stampTop,
   summaryOf,
   waitedFor,
 } from "../herdr/mods/forgerdr/inbox.js";
@@ -1945,6 +1948,25 @@ test("an approval counts only on the card open, and only once it has been open a
   strictEqual(armed({ at: 1000, id: "a" }, "b", 1600), false);
 });
 
+test("a card is armed from when it shows open: one held shut under a stamp is armed again when it opens", () => {
+  const open = { above: "d", at: 1000, id: "c" };
+  // The same card under the same cards: still open since then.
+  strictEqual(openedNow(open, "c", "d", 1800), open);
+  // The cards above it changed, so it moved under the pointer: armed again.
+  deepStrictEqual(openedNow(open, "c", "e d", 1800), {
+    above: "e d",
+    at: 1800,
+    id: "c",
+  });
+  // Answered at 2000, the card above waits shut for the stamp: no card shows open.
+  const held = openedNow(open, "", "", 2000);
+  strictEqual(armed(held, "c", 2600), false);
+  // The answer comes back refused at 2900 and the hold ends: the card opens, armed only half a second later.
+  const shown = openedNow(held, "c", "d", 2900);
+  strictEqual(armed(shown, "c", 3000), false);
+  strictEqual(armed(shown, "c", 3400), true);
+});
+
 test("a card's heading names its kind and what it is about", () => {
   const heading = (kind, tool, input) =>
     headingOf(
@@ -2147,6 +2169,47 @@ test("a card answered says when, on the local clock", () => {
   );
 });
 
+test("a stamp lands over what shows of its card: mid-list on a long card scrolled to its buttons, never out of the card", () => {
+  const stamp = 128;
+  // The list's visible box and a card's frame, in the window, as a press gives them.
+  const list = { height: 600, width: 480, x: 960, y: 100 };
+  const card = (y, height) => ({ height, width: 452, x: 974, y });
+  // Where the stamp's middle lands, in the window.
+  const middle = (frame) =>
+    frame.y + stampTop({ card: frame, list, scale: 1, stamp }) + stamp / 2;
+  // A short card shown whole: over its middle, as when nothing says where it was.
+  strictEqual(
+    stampTop({ card: card(114, 300), list, scale: 1, stamp }),
+    (300 - 128) / 2,
+  );
+  // A long card scrolled to its bottom, its top far above the list: over the list's middle.
+  strictEqual(middle(card(700 - 2400, 2400)), list.y + list.height / 2);
+  // Only its top, or only its bottom, shows: the stamp stays inside the card, at that end.
+  strictEqual(stampTop({ card: card(650, 400), list, scale: 1, stamp }), 0);
+  strictEqual(
+    stampTop({ card: card(-250, 400), list, scale: 1, stamp }),
+    400 - stamp,
+  );
+  // A card shorter than the stamp: at its top.
+  strictEqual(stampTop({ card: card(300, 100), list, scale: 1, stamp }), 0);
+  // Zoomed, a press gives window pixels and the stamp is placed in layout ones: as a long card scrolled to its buttons
+  // was measured at zoom 1.2, the stamp's middle still lands on the middle of what shows.
+  const zoom = 1.2;
+  const shown = { height: 1106, width: 574, x: 2866, y: 161 };
+  const tall = { height: 2072, width: 536, x: 2885, y: -836 };
+  const top = stampTop({ card: tall, list: shown, scale: zoom, stamp });
+  strictEqual(
+    Math.round(tall.y + (top + stamp / 2) * zoom),
+    Math.round((shown.y + tall.y + tall.height) / 2),
+  );
+  // Zoomed, the clamps are in window pixels too: only its bottom shows, at its end; shorter than the stamp, at its top.
+  strictEqual(
+    stampTop({ card: card(-250, 400), list, scale: zoom, stamp }),
+    (400 - stamp * zoom) / zoom,
+  );
+  strictEqual(stampTop({ card: card(300, 100), list, scale: zoom, stamp }), 0);
+});
+
 test("what a card shows of a request leaves nothing invisible: zero-width, bidi and control characters are spelt out", () => {
   const hidden = (code) => String.fromCodePoint(code);
   const sneaky =
@@ -2189,6 +2252,28 @@ test("what shows above the open card is noted, so a card that moved under the po
   strictEqual(aboveOf(cards, "a"), "c b");
   strictEqual(aboveOf(cards, "c"), "");
   strictEqual(aboveOf(cards, "gone"), "");
+});
+
+test("a card above a stamp still showing waits shut, so opening it never pushes the stamp out of sight", () => {
+  const live = [{ address: "t5", state: "live" }];
+  // As the drawer lists them: "b" is under its stamp, "c" and "d" above it, "a" below.
+  const cards = cardsOf(
+    [
+      inboxRequest("d", "permission", 4, "Bash", { command: "d" }),
+      inboxRequest("c", "permission", 3, "Bash", { command: "c" }),
+      inboxRequest("b", "permission", 2, "Bash", { command: "b" }),
+      inboxRequest("a", "permission", 1, "Bash", { command: "a" }),
+    ],
+    live,
+  );
+  const stamping = new Set(["b"]);
+  strictEqual(heldShut(cards, "c", stamping), true);
+  strictEqual(heldShut(cards, "d", stamping), true);
+  // Below the stamp, it grows under it: it opens at once.
+  strictEqual(heldShut(cards, "a", stamping), false);
+  // Once the stamped card closes, its stamp no longer shows: the card above opens.
+  strictEqual(heldShut(cards, "c", new Set()), false);
+  strictEqual(heldShut(cards, "gone", stamping), false);
 });
 
 // The forge floor (floor.js): a flow as bin/forge-flow.sh keeps it.

@@ -5,6 +5,8 @@
 // Pure: Node tests it (test/herdr-mod.test.mjs).
 import { parentOf } from "./lanes.js";
 
+/** @typedef {import("gpui-kit").Point} Point */
+/** @typedef {import("gpui-kit").Size} Size */
 /** @typedef {import("herdr").PaneInfo} PaneInfo */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("./forges.js").Forge} Forge */
@@ -525,6 +527,35 @@ export const markedAt = (at) => {
 };
 
 /**
+ * A box drawn in the window, in window px (layout px times the app's zoom): an element's bounds as a pointer event
+ * gives them (gpui-shell's ElementBounds, whose x and y its declaration loses to the type check).
+ * @typedef {Point & Size} WindowBox
+ */
+
+/**
+ * Where a card answered with a click was drawn at the press, and the stamp it gets.
+ * @typedef {object} StampLanding
+ * @property {WindowBox} card the card's frame: scrolled, its top can be far above the list's
+ * @property {WindowBox} list the list's visible box
+ * @property {number} stamp the landed stamp's height, in layout px
+ * @property {number} scale window px per layout px: the app's zoom, since a press gives window px
+ */
+
+/**
+ * How far down its card a stamp lands, in layout px: over the middle of what shows of the card in the list, so a long
+ * card scrolled to its buttons gets it where the human looks and one shown whole gets it in its middle; never out of
+ * the card, and at its top when the card is shorter than the stamp.
+ * @param {StampLanding} landing
+ */
+export const stampTop = ({ card, list, stamp, scale }) => {
+  const drawn = stamp * scale;
+  const shownTop = Math.max(card.y, list.y);
+  const shownBottom = Math.min(card.y + card.height, list.y + list.height);
+  const middle = (shownTop + shownBottom) / 2 - card.y;
+  return Math.max(0, Math.min(middle - drawn / 2, card.height - drawn)) / scale;
+};
+
+/**
  * Whether a card can be approved here: a request listed whole. An agent waiting in its pane, or a request with a text
  * too long to list whole, is only denied here or answered in its pane.
  * @param {InboxCard} card
@@ -557,6 +588,18 @@ export const aboveOf = (cards, id) => {
 };
 
 /**
+ * Whether a card waits shut for a stamp below it: opening, it would grow and push the stamped card and its stamp down
+ * the list, out of sight. It opens once every stamp below it has gone (its card closing).
+ * @param {InboxCard[]} cards as the drawer lists them, those under their stamp included
+ * @param {string} id
+ * @param {ReadonlySet<string>} stamping the cards whose stamp still shows
+ */
+export const heldShut = (cards, id, stamping) => {
+  const at = cards.findIndex((card) => card.id === id);
+  return at !== -1 && cards.slice(at + 1).some((card) => stamping.has(card.id));
+};
+
+/**
  * When a card was opened, and which: an approval counts only on it, and only once it has been open a moment.
  * @typedef {object} Opened
  * @property {string} id
@@ -571,6 +614,18 @@ export const aboveOf = (cards, id) => {
  */
 export const armed = (opened, id, now) =>
   opened.id === id && now - opened.at >= ARM_MS;
+
+/**
+ * The card shown open, and since when: the same as before while it is the same card under the same cards, else from
+ * now. A card held shut (heldShut) is no card shown open, so every end of a hold arms the card that opens again.
+ * @param {Opened} opened
+ * @param {string} id the card shown open, or "" when none is
+ * @param {string} above the cards shown above it (aboveOf)
+ * @param {number} now ms
+ * @returns {Opened}
+ */
+export const openedNow = (opened, id, above, now) =>
+  id === opened.id && above === opened.above ? opened : { above, at: now, id };
 
 /**
  * How long a card has waited: 0:42, 3:10, then 2h 14m.
