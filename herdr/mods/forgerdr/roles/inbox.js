@@ -1,10 +1,10 @@
 // The approval inbox (design 05): a drawer at the window's right, under the top bar, with what waits on the human's
 // mark, a card each (inbox.js), the newest first: a tool's permission, a question, one of forgerdr's gates, a plan, or
 // an agent waiting in its pane. Each card shows the gnome and the name of the forge it comes from, then the branch and
-// the session. A click opens a card, or one above a stamp still showing once the stamp goes: Allow once and Deny with
-// reason for a permission; the options, an answer of one's own and Answer (Stamp on a gate) for a question; the plan,
-// the mode its session takes after it, Approve and Revise for a plan; and Discuss on every card, which goes to the
-// agent's pane and leaves the card open. Everything is a click; the text field alone takes Enter. An answer goes
+// the session. A click opens a card (while a stamp shows, once it goes): Allow once and Deny with reason for a
+// permission; the options, an answer of one's own and Answer (Stamp on a gate) for a question; the plan, the mode its
+// session takes after it, Approve and Revise for a plan; and Discuss on every card, which goes to the agent's pane and
+// leaves the card open. Everything is a click; the text field alone takes Enter. An answer goes
 // through bin/forge-inbox.sh to the hook that waits on it (hooks/inbox.sh); the pane's own dialog stays open meanwhile,
 // whichever answers first wins, and a card answered in the pane goes. An answer stamps its card with the gnomemark
 // (design 05b, after the mark), gold for a yes and red for a no, over what showed of the card when it was clicked: it
@@ -38,7 +38,6 @@ import {
   FILTER,
   FILTER_ORDER,
   headingOf,
-  heldShut,
   INBOX_KIND,
   MARK,
   markedAt,
@@ -268,7 +267,10 @@ export const inbox = (cx) => {
   let quiet = new Map();
   /** @type {Map<string, number>} when the drawer first saw each session blocked: how long it has waited in its pane */
   const blockedSince = new Map();
-  /** @type {Map<string, number>} each card's height with its room below, as last drawn: a stamped one closes from it */
+  /**
+   * @type {Map<string, number>} each card's height with its room below, as last drawn, in layout px: a stamped one
+   *   closes from it
+   */
   const heights = new Map();
   // Where the open card and the list were drawn at the last press on them, as the press gives them (the card scrolled
   // with the list): an answer clicked there stamps the card over what showed of it.
@@ -332,27 +334,24 @@ export const inbox = (cx) => {
       seen: blockedSince,
     }).filter((card) => !answered.has(card.id));
   const shownCards = () => shownIn(allCards(), filter);
-  /** The cards whose stamp still shows: until their card closes. */
+  /** Whether a stamp still shows, on a card the filter shows: until its card closes. */
   const stamping = () =>
-    new Set(
-      [...marks]
-        .filter(([, marked]) => marked.phase !== STAMP_PHASE.closing)
-        .map(([id]) => id),
+    [...marks.values()].some(
+      (marked) =>
+        marked.phase !== STAMP_PHASE.closing &&
+        shownIn([marked.card], filter).length > 0,
     );
   // forge: a card that arrives above a stamp still showing, or goes from there, still moves the stamped card by its
   // closed height; holding back from listed() the cards that arrive above a showing stamp until it closes would keep
   // it still.
   /**
-   * The open card: the one clicked while it still waits, else the first; none while that one is listed above a stamp
-   * that still shows, which opening it would push down out of sight (inbox.js heldShut). It opens as the stamped card
-   * closes.
+   * The open card: the one clicked while it still waits, else the first; none while a stamp shows, so nothing grows
+   * or moves under it: the next card opens as the stamped one closes.
    */
   const current = () => {
     const cards = shownCards();
     const card = cards.find((each) => each.id === selected) ?? cards[0];
-    return card === undefined || heldShut(listed(), card.id, stamping())
-      ? undefined
-      : card;
+    return card === undefined || stamping() ? undefined : card;
   };
   /** The cards as the drawer lists them: those waiting and those under their stamp, the newest first. */
   const listed = () =>
@@ -365,7 +364,7 @@ export const inbox = (cx) => {
     ].sort((one, other) => other.since - one.since);
   /**
    * Keeps the open card open by its id, and notes since when the card shown open has shown (inbox.js openedNow): when
-   * it changes, the cards above it change so it moved under the pointer, or a card held shut under a stamp opens, it
+   * it changes, the cards above it change so it moved under the pointer, or a card held shut by a stamp opens, it
    * is armed again (openCardOf, aboveOf, armed).
    */
   const pin = () => {
@@ -464,8 +463,7 @@ export const inbox = (cx) => {
     });
     cx.timer.after(STAMP.land + STAMP.hold + STAMP.leave, (task) => {
       turn(STAMP_PHASE.closing);
-      // A card held shut above it opens now (pin), and the card below rises into the room: either is armed again once
-      // the room has closed.
+      // The next card opens now (pin) as the card below rises into the room: armed again once the room has closed.
       pin();
       opened = { ...opened, at: Date.now() + STAMP.close };
       task.notify();
@@ -481,8 +479,8 @@ export const inbox = (cx) => {
     );
   };
 
-  // The card goes at once and the one below it opens, before the hook takes the request away; the one above, when it is
-  // the last, opens once its stamp is gone (current).
+  // The card goes at once, before the hook takes the request away; the next one (below it, else above) opens once its
+  // stamp is gone (current).
   /**
    * @param {InboxCard} card
    * @param {InboxAnswer} answer
@@ -508,7 +506,7 @@ export const inbox = (cx) => {
         answered.delete(card.id);
         marks.delete(card.id);
         failed = { id: card.id, text: refused };
-        // Its stamp gone, a card held shut above it opens: armed again from now.
+        // Its stamp gone, the next card opens: armed again from now.
         pin();
       }
       task.notify();
@@ -1277,7 +1275,9 @@ export const inbox = (cx) => {
         .flex_none()
         .pb(CARD_GAP)
         .on_size_change((size) => {
-          if (marked === undefined) heights.set(each.id, size.height);
+          // A size comes in window px; the slot keeps it in layout px, the unit `h` takes, through the app's zoom.
+          if (marked === undefined)
+            heights.set(each.id, size.height / zoomOf());
         })
         .when(closing && height !== undefined, (el) =>
           el

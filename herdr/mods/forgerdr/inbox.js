@@ -588,18 +588,6 @@ export const aboveOf = (cards, id) => {
 };
 
 /**
- * Whether a card waits shut for a stamp below it: opening, it would grow and push the stamped card and its stamp down
- * the list, out of sight. It opens once every stamp below it has gone (its card closing).
- * @param {InboxCard[]} cards as the drawer lists them, those under their stamp included
- * @param {string} id
- * @param {ReadonlySet<string>} stamping the cards whose stamp still shows
- */
-export const heldShut = (cards, id, stamping) => {
-  const at = cards.findIndex((card) => card.id === id);
-  return at !== -1 && cards.slice(at + 1).some((card) => stamping.has(card.id));
-};
-
-/**
  * When a card was opened, and which: an approval counts only on it, and only once it has been open a moment.
  * @typedef {object} Opened
  * @property {string} id
@@ -617,7 +605,7 @@ export const armed = (opened, id, now) =>
 
 /**
  * The card shown open, and since when: the same as before while it is the same card under the same cards, else from
- * now. A card held shut (heldShut) is no card shown open, so every end of a hold arms the card that opens again.
+ * now. While a stamp shows no card is shown open, so every end of a hold arms the card that opens then.
  * @param {Opened} opened
  * @param {string} id the card shown open, or "" when none is
  * @param {string} above the cards shown above it (aboveOf)

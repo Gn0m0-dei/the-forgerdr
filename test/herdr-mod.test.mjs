@@ -51,7 +51,6 @@ import {
   FILTER,
   FILTER_ORDER,
   headingOf,
-  heldShut,
   INBOX_KIND,
   MARK,
   markedAt,
@@ -1948,7 +1947,7 @@ test("an approval counts only on the card open, and only once it has been open a
   strictEqual(armed({ at: 1000, id: "a" }, "b", 1600), false);
 });
 
-test("a card is armed from when it shows open: one held shut under a stamp is armed again when it opens", () => {
+test("a card is armed from when it shows open: one held shut by a stamp is armed again when it opens", () => {
   const open = { above: "d", at: 1000, id: "c" };
   // The same card under the same cards: still open since then.
   strictEqual(openedNow(open, "c", "d", 1800), open);
@@ -1958,7 +1957,7 @@ test("a card is armed from when it shows open: one held shut under a stamp is ar
     at: 1800,
     id: "c",
   });
-  // Answered at 2000, the card above waits shut for the stamp: no card shows open.
+  // Answered at 2000, the next card waits shut while the stamp shows: no card shows open.
   const held = openedNow(open, "", "", 2000);
   strictEqual(armed(held, "c", 2600), false);
   // The answer comes back refused at 2900 and the hold ends: the card opens, armed only half a second later.
@@ -2252,28 +2251,6 @@ test("what shows above the open card is noted, so a card that moved under the po
   strictEqual(aboveOf(cards, "a"), "c b");
   strictEqual(aboveOf(cards, "c"), "");
   strictEqual(aboveOf(cards, "gone"), "");
-});
-
-test("a card above a stamp still showing waits shut, so opening it never pushes the stamp out of sight", () => {
-  const live = [{ address: "t5", state: "live" }];
-  // As the drawer lists them: "b" is under its stamp, "c" and "d" above it, "a" below.
-  const cards = cardsOf(
-    [
-      inboxRequest("d", "permission", 4, "Bash", { command: "d" }),
-      inboxRequest("c", "permission", 3, "Bash", { command: "c" }),
-      inboxRequest("b", "permission", 2, "Bash", { command: "b" }),
-      inboxRequest("a", "permission", 1, "Bash", { command: "a" }),
-    ],
-    live,
-  );
-  const stamping = new Set(["b"]);
-  strictEqual(heldShut(cards, "c", stamping), true);
-  strictEqual(heldShut(cards, "d", stamping), true);
-  // Below the stamp, it grows under it: it opens at once.
-  strictEqual(heldShut(cards, "a", stamping), false);
-  // Once the stamped card closes, its stamp no longer shows: the card above opens.
-  strictEqual(heldShut(cards, "c", new Set()), false);
-  strictEqual(heldShut(cards, "gone", stamping), false);
 });
 
 // The forge floor (floor.js): a flow as bin/forge-flow.sh keeps it.
