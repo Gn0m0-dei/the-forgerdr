@@ -21,7 +21,7 @@ The skills report what only they know:
 | A build task's test fails for the stated reason, the suite passes, its review is over | `forge-flow.sh task <n> <of> red <test name>`, `… green`, `… reviewed` |
 | The pull request is open | `forge-flow.sh pr <number> <url>` |
 
-The key is `#<id>` for a work item, `EXT-<id>` for one of an external backlog, the change's name for an OpenSpec change, a short slug of the text for free text. The gates that leave the machine (commit, push, PR, comment, state) are asked with `AskUserQuestion`, and the floor reads them from the inbox: they need no report.
+The key is `#<id>` for a work item, `EXT-<id>` for one of an external backlog, the change's name for an OpenSpec change, a short slug of the text for free text. Every gate is asked with `AskUserQuestion` (standards, Gates), so the floor finds what a session waits on in the inbox and its card names the gate from the question's header (`WAITING · PLAN GATE` for one headed `Plan`, `WAITING · COMMIT GATE` for `Gate commit`); a gate of understanding still reports `waiting` (table above), which marks its cell on the strip, and the ones that leave the machine (commit, push, PR, comment, state, item) need no report.
 
 ## Cells
 

@@ -25,7 +25,7 @@ Does the same thing work elsewhere in the codebase? What differs? Has this faile
 
 ## Phase 3: hypothesis
 
-State one hypothesis in one sentence. Design the smallest test that proves or kills it: a log line, a unit test, a request. Run it. Wrong: back to Phase 1 with the new evidence, not to another guess. Three failed hypotheses in a row: stop and tell the user; the architecture or the understanding is what is wrong.
+State one hypothesis in one sentence. Design the smallest test that proves or kills it: a log line, a unit test, a request. Run it. Wrong: back to Phase 1 with the new evidence, not to another guess. Three failed hypotheses in a row: stop, tell the user and ask how to go on, as the standards say (Gates); the architecture or the understanding is what is wrong.
 
 ## Phase 4: fix
 

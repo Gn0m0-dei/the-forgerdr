@@ -17,6 +17,7 @@ import {
   statusOf,
   stripOf,
   tasksOf,
+  UNDERSTANDING_GATES,
 } from "../herdr/mods/forgerdr/floor.js";
 import {
   crackedOf,
@@ -663,6 +664,25 @@ test("folded, the lanes are one line; unfolded, a head and a row a lane up to fi
   strictEqual(lanesHeight(0, true), 36);
   strictEqual(lanesHeight(3, true), 34 + 3 * 34 + 2);
   strictEqual(lanesHeight(9, true), 34 + 5 * 34 + 2);
+});
+
+test("the folded lanes' top line sits on the sidebar footer's: the footer is as tall as they and the status bar", () => {
+  const layout = JSON.parse(
+    readFileSync(
+      new URL("../herdr/layouts/forgerdr.json", import.meta.url),
+      "utf8",
+    ),
+  );
+  const blockById = (node, id) => {
+    if (Array.isArray(node))
+      return node.map((each) => blockById(each, id)).find(Boolean);
+    if (node === null || typeof node !== "object") return undefined;
+    return node.id === id ? node : blockById(Object.values(node), id);
+  };
+  strictEqual(
+    blockById(layout, "sidebar-footer")?.size?.px,
+    lanesHeight(0, false) + blockById(layout, "status")?.size?.px,
+  );
 });
 
 test("a lane's time is its current task's, from the hook's labels, and stops when the task does", () => {
@@ -2751,6 +2771,40 @@ test("a card says what its flow waits on first, then whether it broke, is done, 
   );
   strictEqual(CARD_STATUS.waiting, "waiting");
   strictEqual(FLOW_CELL.rootCause, "root-cause");
+});
+
+test("a question headed by a gate of understanding names that gate on its card; any other question stays one", () => {
+  const blocked = { address: "t5", state: "live", status: "blocked" };
+  const running = flowOf({
+    cells: { plan: { at: 2, runs: 1, state: "running" } },
+  });
+  const asked = (kind, header) =>
+    statusOf(running, blocked, {
+      kind,
+      terminal: "t5",
+      tool_input: {
+        questions: [{ header, options: [], question: "Go on?" }],
+      },
+    }).label;
+  strictEqual(asked("question", "Plan"), "WAITING · PLAN GATE");
+  strictEqual(asked("question", "Verdict"), "WAITING · VERDICT GATE");
+  strictEqual(asked("question", " Design "), "WAITING · DESIGN GATE");
+  strictEqual(asked("question", zoomQuestion.header), "WAITING · QUESTION");
+  strictEqual(asked("gate", "Gate commit"), "WAITING · COMMIT GATE");
+  strictEqual(asked("gate", " Gate push "), "WAITING · PUSH GATE");
+});
+
+test("every gate of understanding the floor names is one the standards' Gates section names", () => {
+  const standards = readFileSync(
+    new URL("../rules/standards.md", import.meta.url),
+    "utf8",
+  );
+  const start = standards.indexOf("\n## Gates\n");
+  const gates = standards.slice(start, standards.indexOf("\n## ", start + 1));
+  deepStrictEqual(
+    UNDERSTANDING_GATES.filter((header) => !gates.includes(`\`${header}\``)),
+    [],
+  );
 });
 
 test("the floor: every forge in the bar's order, its cards by urgency, then its untracked sessions", () => {

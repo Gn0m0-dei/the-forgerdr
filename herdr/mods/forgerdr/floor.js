@@ -280,8 +280,19 @@ export const REVIEW_AGENTS = Object.freeze([
 // The flows of sessions outside any forge, whose forge cannot be told any more.
 const ELSEWHERE = Object.freeze({ key: "elsewhere", name: "elsewhere" });
 
+// The headers a gate of understanding's question has, as rules/standards.md ("Gates") names them.
+/** @type {readonly string[]} */
+export const UNDERSTANDING_GATES = Object.freeze([
+  "Verdict",
+  "Proposal",
+  "Design",
+  "Plan",
+]);
+
 const DEV_TAB = /^dev :(\d+)$/;
 const GATE_HEADER = /^Gate\s+/;
+// What a card puts after the gate it waits at: COMMIT GATE, PLAN GATE.
+const GATE_SUFFIX = " GATE";
 
 /**
  * The cell records, by cell, that have one.
@@ -452,15 +463,27 @@ const currentOf = (cells) => {
 const cellIn = (cells, state) =>
   Object.values(FLOW_CELL).find((cell) => cells[cell]?.state === state);
 
+/**
+ * The header of a request's first question, trimmed.
+ * @param {Pick<InboxRequest, "tool_input">} request
+ */
+const headerOf = (request) => {
+  const [first] = request.tool_input.questions ?? [];
+  return (first?.header ?? "").trim();
+};
+
 /** What a request asks the human, as a card says it. @type {Readonly<Record<InboxRequest["kind"], (request: Pick<InboxRequest, "tool_input">) => string>>} */
 const ASKS = Object.freeze({
-  gate: (request) => {
-    const [first] = request.tool_input.questions ?? [];
-    return `${(first?.header ?? "").replace(GATE_HEADER, "").toUpperCase()} GATE`;
-  },
+  gate: (request) =>
+    `${headerOf(request).replace(GATE_HEADER, "").toUpperCase()}${GATE_SUFFIX}`,
   permission: () => "PERMISSION",
   plan: () => "PLAN",
-  question: () => "QUESTION",
+  question: (request) => {
+    const header = headerOf(request);
+    return UNDERSTANDING_GATES.includes(header)
+      ? `${header.toUpperCase()}${GATE_SUFFIX}`
+      : "QUESTION";
+  },
 });
 
 /** @param {string} label @param {FlowCell | undefined} cell */
@@ -544,7 +567,7 @@ export const statusOf = (flow, terminal, request, agentWaits = false) => {
       holds: gated !== undefined && terminal !== undefined,
       state: () => ({
         kind: CARD_STATUS.waiting,
-        label: `${withCell(STATUS_LABEL.waiting, gated)} GATE`,
+        label: `${withCell(STATUS_LABEL.waiting, gated)}${GATE_SUFFIX}`,
       }),
     },
     {

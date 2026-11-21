@@ -1,6 +1,6 @@
 # Items
 
-What `/forgerdr:workitem` and `/forgerdr:worktree` take as an item, and how `spec`, `plan`, `build` and `ship` find the OpenSpec change they work on. The project's spec mode decides both: it is printed at session start, and `${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh get spec <project-key>` reads it. In `openspec:<store>`, every `openspec` command below takes `--store <store>`.
+What `/forgerdr:workitem` and `/forgerdr:worktree` take as an item, and how `spec`, `plan`, `build` and `ship` find the OpenSpec change they work on. The project's spec mode decides both: it is printed at session start, and `${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh get spec <project-key>` reads it. In `openspec:<store>`, every `openspec` command below takes `--store <store>`. Every question below is asked as the standards say (Gates).
 
 ## Several items
 

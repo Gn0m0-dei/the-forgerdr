@@ -3,9 +3,9 @@
 // counts) that folds and unfolds on a click, each forge on its own, all open at first and remembered; each item a card
 // with its type and mode, what it waits on or does, its branch and its dev server's port, its flow's cells (how many
 // times each ran) and its build tasks; then the forge's sessions that report no flow. It never answers what an item
-// waits on: its WAITING chip opens the inbox, or the item's pane when what it waits on is asked there. Discuss goes to
-// the item's pane. A finished item leaves the floor once its session ends; nothing is dismissed by hand. Esc or its ✕
-// closes it.
+// waits on: its WAITING chip opens the inbox, where every question is asked (a gate of understanding like any other),
+// or the item's pane when it waits on something the inbox does not hold. Discuss goes to the item's pane. A finished
+// item leaves the floor once its session ends; nothing is dismissed by hand. Esc or its ✕ closes it.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import {
@@ -123,8 +123,9 @@ export const floor = (cx) => {
     );
   };
 
-  // What a card waits on opens where it is answered: a request in the inbox (its session's or an agent's), else the
-  // session's pane (a gate of understanding, asked in the chat, or a dialog in the pane the inbox does not hold).
+  // What a card waits on opens where it is answered: a request in the inbox (its session's or an agent's, a gate of
+  // understanding asked like any question), else the session's pane (a dialog there the inbox does not hold, or a cell
+  // at its gate whose question is not in the inbox, talked over in the pane).
   /** @param {FloorCard} card */
   const statusOfCard = (card) => {
     const chip = statusChip(STATUS_TONE[card.status.kind], card.status.label);

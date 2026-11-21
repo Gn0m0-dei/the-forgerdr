@@ -30,4 +30,4 @@ Before saying a task or session is done: `mem_session_summary` with goal, discov
 
 ## Conflicts
 
-When `mem_save` answers with `judgment_required`, resolve each candidate with `mem_judge` using that candidate's own `judgment_id`. Resolve silently when confidence is 0.7 or higher and the relation is not `supersedes` or `conflicts_with`; otherwise ask the user in the next reply, conversationally, and resolve after the answer.
+When `mem_save` answers with `judgment_required`, resolve each candidate with `mem_judge` using that candidate's own `judgment_id`. Resolve silently when confidence is 0.7 or higher and the relation is not `supersedes` or `conflicts_with`; otherwise ask the user, as the standards say (Gates), and resolve after the answer.

@@ -17,7 +17,7 @@ Run the project's checks now, in this turn: tests, lint, typecheck, build, whate
 
 `git fetch origin`. The branch must not track the base: `git rev-parse --abbrev-ref @{upstream}` fails or names the branch itself. `git rebase origin/<base>`; conflicts resolved one file at a time, the suite green again afterwards. Verify the hashes changed only for the branch's own commits.
 
-A working tree mounted by a running container must not be rebased with the container up; warn and let the user stop it first.
+A working tree mounted by a running container must not be rebased with the container up; warn, and ask with `AskUserQuestion` (standards, Gates), whose options need no typing: `Stop it for me` (you stop it) and `I stopped it`.
 
 ## 3. Security
 

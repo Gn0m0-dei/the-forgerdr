@@ -11,7 +11,7 @@ On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `re
 
 ## Plan
 
-One or two clarifying questions when the goal is unclear: learning, deciding, or writing something; the angle. "Just research it": proceed with defaults. Split the topic into three to five sub-questions that, answered, settle it. Library and API questions include the exact versions in play (`package.json`, lockfiles, `pyproject.toml`).
+One or two clarifying questions, asked as the standards say (Gates), when the goal is unclear: learning, deciding, or writing something; the angle. "Just research it": proceed with defaults. Split the topic into three to five sub-questions that, answered, settle it. Library and API questions include the exact versions in play (`package.json`, lockfiles, `pyproject.toml`).
 
 ## Gather
 

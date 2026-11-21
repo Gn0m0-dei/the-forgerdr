@@ -31,7 +31,7 @@ Manual by default. `--auto` in the arguments switches to the auto flow for this 
 - **manual**: this skill does the analysis, the reproduction and the root cause or proposal, then stops and names the next command that fits (`/forgerdr:spec`, `/forgerdr:debug`, `/forgerdr:plan`, `/forgerdr:build`, `/forgerdr:security`, `/forgerdr:ship`). The user drives.
 - **auto**: after the brief, classify the item and chain the whole pipeline in this session, following each skill's procedure (read its `SKILL.md` under `${CLAUDE_PLUGIN_ROOT}/skills/`):
   - **Bug, or a defect found while reproducing**: root cause with the four phases of `debug` → proposal (gate 2) → fix with a regression test proven red then green → `security` auditor on the branch diff → `ship`.
-  - **Backlog item that adds or changes behaviour**: `spec` with the item as the spec (in spec mode `openspec`, the change is `<id>-<slug>` and links the item) (its description and acceptance criteria; missing criteria are drafted in Gherkin and proposed for the item, written only on a yes) → `research` for any choice with real alternatives (library, approach) → `plan` → `build` → `security` auditor on the branch diff → `ship`.
+  - **Backlog item that adds or changes behaviour**: `spec` with the item as the spec (in spec mode `openspec`, the change is `<id>-<slug>` and links the item) (its description and acceptance criteria; missing criteria are drafted in Gherkin and proposed for the item, written only on the yes of the standards' `Gate item`) → `research` for any choice with real alternatives (library, approach) → `plan` → `build` → `security` auditor on the branch diff → `ship`.
   - **Content or data someone else owns**: verdict and comment only, as in step 5.
   - **OpenSpec change**: from its stage (items reference) to the end of the pipeline: `spec` continuing the change → `plan` → `build` → `security` auditor on the branch diff → `ship`.
   Announce each stage in one line as it starts. A stage that finds nothing to do says so and moves on.
@@ -42,7 +42,7 @@ In the manual flow, an OpenSpec change stops after the brief and names the comma
 
 ## Gates
 
-Stop and wait for the user after: the analysis and verdict (gate 1), the proposed solution (gate 2), before every commit (gate 3), before the pull request (gate 4), before publishing a comment (gate 5), before any state or assignment change (gate 6). Gates 3 to 6 are asked as the standards say (Gates). Never skip a gate because the step looks obvious.
+Stop and wait for the user after: the analysis and verdict (gate 1), the proposed solution (gate 2), before every commit (gate 3), before the pull request (gate 4), before publishing a comment (gate 5), before any state or assignment change (gate 6). Every gate is asked as the standards say (Gates): 1 and 2 as gates of understanding, 3 to 6 as the gates that leave the machine. Never skip a gate because the step looks obvious.
 
 ## 1. Analysis
 
@@ -56,7 +56,7 @@ Stop and wait for the user after: the analysis and verdict (gate 1), the propose
 An OpenSpec change skips steps 2 and 3: its stage comes next (Flow).
 
 - Verify in the browser with chrome-devtools, on production and locally when both exist, interacting for real: clicks, forms, Enter, the back button, resize when the item mentions resolutions. Act as QA: edge cases, special characters, races. Never touch a production back office or CMS.
-- Environments and base URLs, looked up in this order and stopping at the first hit: the project's `CLAUDE.md` (the right place for them: shared with the team and loaded in every session); memory (`mem_search` "environments"); `README.md`, `.env*` files, docker compose, deployment configs, CI workflows. Nothing found: ask the user once, then `mem_save` them under the title "Environments: <project key>" so the next lookup hits, and offer to add them to the project's `CLAUDE.md`.
+- Environments and base URLs, looked up in this order and stopping at the first hit: the project's `CLAUDE.md` (the right place for them: shared with the team and loaded in every session); memory (`mem_search` "environments"); `README.md`, `.env*` files, docker compose, deployment configs, CI workflows. Nothing found: ask the user once, as the standards say (Gates), then `mem_save` them under the title "Environments: <project key>" so the next lookup hits, and offer to add them to the project's `CLAUDE.md`.
 - Verdict, stated first: **applies** or **does not reproduce**, with the cause and the evidence (selectors, network JSON, metrics, screenshot paths). Gate 1.
 
 ## 3. Root cause and proposal

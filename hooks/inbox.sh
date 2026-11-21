@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
-# The approval inbox's side of Claude Code's permission dialogs, for a session in a herdr terminal (HC_TERMINAL_ID): a
-# tool's permission, a question (AskUserQuestion; one headed "Gate ..." is one of forgerdr's gates) or a plan
-# (ExitPlanMode) waits in the forgerdr mod's inbox as well as in its pane, and whichever answers first wins.
+# The approval inbox's side of Claude Code's permission dialogs, and of a turn that ends asking, for a session in a
+# herdr terminal (HC_TERMINAL_ID): a tool's permission, a question (AskUserQuestion; one headed "Gate ..." is one of
+# forgerdr's gates) or a plan (ExitPlanMode) waits in the forgerdr mod's inbox as well as in its pane, and whichever
+# answers first wins; a question typed in the chat instead reaches no inbox, so the turn goes back to ask it.
 #   ask     PermissionRequest: puts the request in the inbox (forge_inbox_dir) and waits for the answer the mod writes
 #           (bin/forge-inbox.sh answer). An answer the request takes becomes Claude Code's decision; any other is thrown
 #           away, since anything running as the user can write there. The decision comes from the request as Claude
@@ -12,6 +13,9 @@
 #           the same call goes, and its waiting hook leaves with no decision. Claude Code reports a call with what the
 #           pane added to it (a question's answers) or without its input (a plan), so the same call is the same tool
 #           with the same values in the fields both sides carry.
+#   stop    Stop: a turn that ends on a question typed in the chat, which the inbox never sees, goes back once to ask it
+#           with AskUserQuestion. Only the final message is read, never the transcript. An agent forgerdr dispatched
+#           (FORGE_REPORT_TO) asks the session that dispatched it instead: hooks/agent-state.sh.
 # Outside herdr it does nothing: the pane's dialog is the only one.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
@@ -132,11 +136,58 @@ settle() {
   rm -f "$inbox/$oldest.json"
 }
 
+# What a turn that ends asking is told, sent back: Claude Code shows it to Claude as the reason it goes on.
+readonly ASK_IT_REASON="Your turn ended on a question typed in the chat. In the herdr app only a question asked with \
+AskUserQuestion reaches the user's inbox; one typed here leaves this session waiting on them unseen. Ask it now with \
+AskUserQuestion: the likely answers as options, your recommendation first (the user can still type an answer of their \
+own, or discuss it in this pane). If nothing in your message needs the user's answer, end your turn again."
+
+# Stop's decision from what Claude Code sends, which must be one JSON document: a turn whose final message ends asking
+# goes back, unless a stop hook already sent it back. A message ends asking when one of its lines, out of fenced code
+# blocks and with its inline code and links taken out, ends in a question mark, spaces and closing marks after it aside.
+# A fence opens on three or more backticks (with no backtick after them: that is inline code) or tildes, and closes on
+# a line of only as many of the same or more; a link ends before the punctuation after it, as a GitHub autolink does.
+# A CR left by a CRLF counts as a space. Only a line's end can ask, and jq's gsub takes time quadratic in its matches on
+# one line, so the removals see a line's last 2000 characters, room for a long signed link after a question, from the
+# end of the inline code span the cut falls in: from the left, a run of backticks opens a span and the next closes it.
+# forge: a question with over 2000 characters of inline code and links after it passes. Upgrade: peel them off the end.
+# forge: a trailing question mark is the signal; a request typed without one passes. Upgrade: a prompt-based Stop hook.
+# shellcheck disable=SC2016 # a jq filter
+readonly ASKING_FILTER='
+  def asks: "?\uff1f";
+  def closes: "*_)\\]\"\u0027\u00bb\u201d\u2019\uff09\u300d\u300f\u00a0";
+  def unfenced: foreach .[] as $line ({fence: null};
+    (($line | capture("^\\s*(?<mark>`{3,}(?=[^`]*$)|~{3,})(?<rest>.*)")) // null) as $f
+    | if .fence == null then (if $f == null then .line = $line else .fence = $f.mark | .line = null end)
+      elif $f != null and $f.mark[:1] == .fence[:1] and ($f.mark | length) >= (.fence | length)
+        and ($f.rest | test("^\\s*$")) then .fence = null | .line = null
+      else .line = null end;
+    select(.line != null) | .line);
+  def runs: split("`") | if length < 2 then 0 else [.[1:-1][] | select(. != "")] | length + 1 end;
+  def tail: if length <= 2000 then . else
+      (.[-2000:] | capture("^(?<ticks>`*)(?<rest>.*)")) as $cut
+      | if (.[:-2000] + $cut.ticks | runs) % 2 == 1 then $cut.rest | sub("^[^`]*`+"; "") else $cut.rest end
+    end;
+  select(length == 1) | .[0]
+  | select(type == "object" and .stop_hook_active != true and (.last_assistant_message | type) == "string")
+  | select(.last_assistant_message | split("\n")
+    | any(unfenced | tail | gsub("`+[^`]*`+"; "") | gsub("https?://\\S*[^\\s!.,:;~" + asks + closes + "]"; "");
+      test("[" + asks + "][\\s" + closes + "]*$")))
+  | {decision: "block", reason: $reason}'
+
+stop() {
+  local decision
+  [ -z "${FORGE_REPORT_TO:-}" ] || return 0
+  decision="$(jq -cs --arg reason "$ASK_IT_REASON" "$ASKING_FILTER")" || return 0
+  [ -z "$decision" ] || printf '%s\n' "$decision"
+}
+
 main() {
   case "${1:-}" in
     ask) ask ;;
     settle) settle ;;
-    *) forge_die "usage: inbox.sh ask|settle" ;;
+    stop) stop ;;
+    *) forge_die "usage: inbox.sh ask|settle|stop" ;;
   esac
 }
 

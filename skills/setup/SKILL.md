@@ -5,7 +5,7 @@ description: "Verifies and completes the forgerdr environment on this machine af
 
 # Setup
 
-`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash`) puts the tools, the plugins, the herdr look and the status line on the machine, and `uninstall.sh` takes the ones ticked away. Claude Code, the herdr app and git are prerequisites they never install or remove. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask before anything that needs credentials or a package manager. Run it again any time.
+`install.sh` (`curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash`) puts the tools, the plugins, the herdr look and the status line on the machine, and `uninstall.sh` takes the ones ticked away. Claude Code, the herdr app and git are prerequisites they never install or remove. This skill checks every piece, completes what is left, and reports one table: piece → ok / done now / skipped (why). Ask, as the standards say (Gates), before anything that needs credentials or a package manager and wherever a row says so. Run it again any time.
 
 ## Tools (from install.sh)
 
@@ -48,7 +48,7 @@ The desktop app (`herdr-app`) shows spaces, tabs and panes; herdr-core (`hc`) ru
 
 ## Sign-ins (the user runs them)
 
-`az login`, `gh auth login`, `glab auth login` (skip glab when the user has no GitLab projects). Checks: `az account show`, `gh auth status`, `glab auth status`. Tell the user to run each with the `!` prefix in the prompt and continue when they confirm. An Azure DevOps organization the `az login` identity cannot reach (a guest account, a client's organization) takes a personal access token for that organization alone: `az devops login --organization https://dev.azure.com/<org>`, the token pasted when asked.
+`az login`, `gh auth login`, `glab auth login` (skip glab when the user has no GitLab projects). Checks: `az account show`, `gh auth status`, `glab auth status`. Tell the user, in a plain line and not with `AskUserQuestion`, to run each with the `!` prefix in the prompt; their next message is the confirmation. An Azure DevOps organization the `az login` identity cannot reach (a guest account, a client's organization) takes a personal access token for that organization alone: `az devops login --organization https://dev.azure.com/<org>`, the token pasted when asked.
 
 ## Claude Code
 

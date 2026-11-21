@@ -15,7 +15,7 @@ Hard limits:
 
 ## Step 0: the pull request
 
-Use the URL passed as argument. Without one, ask for the pull request link, in the reply language, and stop. Parse provider, organization or owner, project, repository and id. If a part is missing, ask again.
+Use the URL passed as argument. Without one, ask for the pull request link, in the reply language and as the standards say (Gates). Parse provider, organization or owner, project, repository and id. If a part is missing, ask again.
 
 ## Beside a review view
 

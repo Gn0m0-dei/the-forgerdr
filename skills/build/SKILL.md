@@ -32,7 +32,7 @@ Load the project skills for the code the plan touches (standards, "Project skill
 
 Plan wrong: decide, write `Ruling: <what> — <why> — <cost if wrong>` in the ledger, continue. Code wrong: root cause first (read the error, reproduce, check recent changes, trace the data), never a symptom fix. Deviating without a ledgered ruling is a decision made in secret.
 
-Only four things stop you: an irreversible or destructive operation, a security-sensitive action, a side effect outside the branch (merge, push to a shared branch, publish), a plan so broken that every path is a guess. Everything else is a ruling.
+Only four things make you stop and ask the user, as the standards say (Gates): an irreversible or destructive operation, a security-sensitive action, a side effect outside the branch (merge, push to a shared branch, publish), a plan so broken that every path is a guess. Everything else is a ruling.
 
 ## Verification before any claim
 

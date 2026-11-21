@@ -24,7 +24,7 @@ No arguments: print the current value of every setting for this project and the 
 "${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" set spec <value> [<project-key>]
 ```
 
-Setting `openspec:<store>` checks the store is registered first (`openspec store list --json`); when it is not, offer `openspec store register <path>` and set the mode only after it. The change applies to the next skill that reads it, in this session. Confirm in one line: setting, scope, old value, new value.
+Setting `openspec:<store>` checks the store is registered first (`openspec store list --json`); when it is not, offer `openspec store register <path>`, as the standards say (Gates), and set the mode only after it. The change applies to the next skill that reads it, in this session. Confirm in one line: setting, scope, old value, new value.
 
 ## The forge's mode
 

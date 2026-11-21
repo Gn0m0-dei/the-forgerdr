@@ -22,7 +22,7 @@ Two rungs work: take the higher one. Two standard options of the same size: take
 - No unrequested abstractions: no interface with one implementation, no factory for one product, no config for a value that never changes, no scaffolding "for later".
 - Deletion over addition. Boring over clever.
 - Fewest files, shortest working diff, in the right place. The smallest change in the wrong place is a second bug.
-- Complex request: ship the lazy version and question the rest in the same reply. "Did X; Y covers it. Need full X? Say so." Never stall on something you can default.
+- Complex request: ship the lazy version and question the rest in the same reply. "Did X; Y covers it. Full X needed: say so." Never stall on something you can default.
 - Mark a deliberate simplification with a `forge:` comment naming the ceiling and the upgrade path: `// forge: global lock; per-account locks if throughput matters`.
 - Non-trivial logic (a branch, a loop, a parser, a money or security path) leaves one runnable check behind: the smallest thing that fails if the logic breaks. No frameworks or fixtures unless asked. One-liners need no test.
 

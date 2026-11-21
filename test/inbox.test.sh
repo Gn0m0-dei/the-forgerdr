@@ -249,6 +249,84 @@ printf '%s' "$pushed" | bash "$hook" settle
 expect "outside herdr nothing is settled" "yes" "$(still_waiting)"
 answer "$id" '{"behavior":"deny"}'
 
+# A turn that ends on a question typed in the chat, which the inbox never sees, goes back once to ask it with
+# AskUserQuestion. Stop's input as Claude Code sends it: $1 the final message, $2 whether a stop hook already sent it
+# back.
+stop_input() {
+  jq -cn --arg message "$1" --argjson active "${2:-false}" \
+    '{session_id: "s1", cwd: "/work", hook_event_name: "Stop", stop_hook_active: $active, last_assistant_message: $message}'
+}
+stopping() { stop_input "$@" | HC_TERMINAL_ID=t7 bash "$hook" stop; }
+typed="$(printf 'Two ways to keep the zoom.\n\nWhich one do you want?')"
+sent_back="$(stopping "$typed")"
+expect "a turn that ends on a question typed in the chat goes back, one decision and nothing else" \
+  '[["decision","reason"]]' "$(jq -cs 'map(keys)' <<<"$sent_back")"
+expect "it blocks the stop" "block" "$(jq -r '.decision' <<<"$sent_back")"
+expect "and tells Claude to ask it with AskUserQuestion" "yes" \
+  "$(jq -r '.reason | if startswith("Your turn ended on a question typed in the chat") and contains("AskUserQuestion") then "yes" else "no" end' <<<"$sent_back")"
+expect "outside herdr it goes nowhere" "" "$(stop_input "$typed" | bash "$hook" stop)"
+expect "sent back once, never twice" "" "$(stopping "$typed" true)"
+expect "an agent forgerdr dispatched asks the session that dispatched it instead" "" \
+  "$(stop_input "$typed" | HC_TERMINAL_ID=t7 FORGE_REPORT_TO=uds:/tmp/parent.sock bash "$hook" stop)"
+# shellcheck disable=SC2016 # inline code, not expansions
+coded="$(printf '%s\n' 'Ran the search.' '```sh' 'grep -q "a?" notes?' '```' '~~~' 'Still waiting?' '~~~' \
+  'The pattern is `a?`' 'Results at https://example.com/search?q' 'See https://example.com/a?b=c.' 'Kept `x?` and `y?`')"
+expect "a question mark in a code block, inline code or a link asks nothing" "" "$(stopping "$coded")"
+expect "a question that ends in a link still asks" "block" "$(stopping 'Opened https://example.com/search?' | jq -r '.decision')"
+expect "and one whose link is in brackets" "block" "$(stopping 'Open the pull request (https://example.com/p/1)?' | jq -r '.decision')"
+# shellcheck disable=SC2016 # fences, not expansions
+{
+  expect "a tilde fence inside a backtick block closes nothing" "" "$(stopping "$(printf '%s\n' '```' '~~~' 'Still code?' '```' 'Done.')")"
+  expect "an unclosed fence asks nothing" "" "$(stopping "$(printf '%s\n' 'Done.' '```' 'Still code?')")"
+  expect "a four-backtick block holding a three-backtick one asks nothing" "" \
+    "$(stopping "$(printf '%s\n' 'Example:' '````md' '```sh' 'ls?' '```' '````' 'Done.')")"
+  expect "a fence line with more after it closes nothing" "" "$(stopping "$(printf '%s\n' '```' '```sh' 'ls?' '```' 'Done.')")"
+  expect "a message with CRLF line ends asks too" "block" "$(stopping "$(printf '```\r\nls\r\n```\r\nWhich one?\r\n')" | jq -r '.decision')"
+  expect "a line that starts with inline code opens no fence" "block" "$(stopping '```ls``` failed. Retry?' | jq -r '.decision')"
+  expect "a fence with an info string still opens" "" "$(stopping "$(printf '%s\n' 'Run:' '```sh' 'ls?' '```' 'Done.')")"
+  expect "and a tilde fence with backticks in its info" "" "$(stopping "$(printf '%s\n' 'Run:' '~~~ `x`' 'ls?' '~~~' 'Done.')")"
+}
+expect "a report asks nothing" "" "$(stopping 'Tests pass. Branch pushed.')"
+expect "a question with closing marks after it still asks" "block" \
+  "$(stopping "$(printf 'Two ways.\n\n**Which one?** ')" | jq -r '.decision')"
+expect "a full-width question mark asks too" "block" "$(stopping "$(printf 'Two ways.\n\n(Which one？)')" | jq -r '.decision')"
+expect "full-width brackets close a question too" "block" "$(stopping "$(printf 'Two ways.\n\n（Which one？）')" | jq -r '.decision')"
+expect "a question with more after it on its line asks nothing" "" "$(stopping 'Which one? The first, as before.')"
+expect "a question asked before the end of the message still asks" "block" \
+  "$(stopping "$(printf 'Which one do you want?\n\nBoth are ready.')" | jq -r '.decision')"
+expect "malformed input never fails the hook" "0" "$(printf 'not json' | HC_TERMINAL_ID=t7 bash "$hook" stop 2>/dev/null; echo $?)"
+expect "and says why on stderr" "yes" "$(printf 'not json' | HC_TERMINAL_ID=t7 bash "$hook" stop 2>&1 >/dev/null | grep -q . && echo yes || echo no)"
+expect "nor input of another shape" "0" "$(printf '7' | HC_TERMINAL_ID=t7 bash "$hook" stop 2>&1; echo $?)"
+expect "nor two documents, even both asking" "0" "$({ stop_input "$typed"; stop_input "$typed"; } | HC_TERMINAL_ID=t7 bash "$hook" stop 2>&1; echo $?)"
+# A long message goes through a pipe: Linux caps one argument at 128 KiB.
+started="$(node -e 'console.log(Date.now())')"
+judged="$({ seq 1 10000 | sed 's/.*/Line & of the report./'; echo 'Which one?'; } |
+  jq -Rsc '{hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: .}' |
+  HC_TERMINAL_ID=t7 bash "$hook" stop | jq -r '.decision')"
+took=$(($(node -e 'console.log(Date.now())') - started))
+expect "a long message is judged" "block" "$judged"
+expect "well within the hook's 5 s timeout" "yes" "$([ "$took" -lt 5000 ] && echo yes || echo "no, $took ms")"
+# One line of 10 000 inline code spans and links, ended by $1, through a pipe as above: its decision, and whether it
+# came within the hook's 5 s timeout. jq's gsub takes time quadratic in its matches on one line.
+# shellcheck disable=SC2016 # inline code, not expansions
+dense_line() {
+  local started took decision
+  started="$(node -e 'console.log(Date.now())')"
+  decision="$({ seq 1 10000 | sed 's|.*|`a` https://x.io/a|' | tr '\n' ' '; echo "$1"; } |
+    jq -Rsc '{hook_event_name: "Stop", stop_hook_active: false, last_assistant_message: .}' |
+    HC_TERMINAL_ID=t7 bash "$hook" stop | jq -r '.decision')"
+  took=$(($(node -e 'console.log(Date.now())') - started))
+  if [ "$took" -lt 5000 ]; then echo "${decision:-nothing} in time"; else echo "${decision:-nothing} in $took ms"; fi
+}
+expect "a long line of inline code and links that ends asking is judged in time" "block in time" "$(dense_line 'Which one?')"
+expect "and one that ends otherwise" "nothing in time" "$(dense_line 'Both are ready.')"
+# Only a line's end is read: inline code that opens before the cut and closes after it neither hides a question nor
+# makes one up.
+code="$(printf 'x%.0s' $(seq 1 3000))"
+expect "a question between long inline code and more inline code still asks" "block" \
+  "$(stopping "\`$code\` Which one? \`x\`" | jq -r '.decision')"
+expect "and a question inside long inline code asks nothing" "" "$(stopping "\`$code Which one? \`x\`" | jq -r '.decision')"
+
 # The mod's side: bin/forge-inbox.sh lists what waits and writes its answers.
 cli="$root/bin/forge-inbox.sh"
 rm -rf "$inbox"

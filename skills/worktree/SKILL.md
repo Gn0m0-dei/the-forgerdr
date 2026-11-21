@@ -7,7 +7,7 @@ description: "Fans out items across the herdr app, one space each, one or many s
 
 Turn a list of items into one git worktree per item and repository, each opened as a herdr app space with its branch, its env files, its dev server and its own agent. The topology is built by `${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree.sh`; you decide the inputs it cannot guess.
 
-Preconditions: `test -n "${HC_TERMINAL_ID:-}"` (otherwise say you are not inside the herdr app and stop); at least one item (ask for them otherwise). Items are separated by `|`; what an item is in this project's spec mode, its title and its branch: `${CLAUDE_PLUGIN_ROOT}/references/items.md`.
+Preconditions: `test -n "${HC_TERMINAL_ID:-}"` (otherwise say you are not inside the herdr app and stop); at least one item, asked for as the standards say (Gates) when none is given. Items are separated by `|`; what an item is in this project's spec mode, its title and its branch: `${CLAUDE_PLUGIN_ROOT}/references/items.md`.
 
 ## 1. Repositories
 

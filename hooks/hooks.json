@@ -164,6 +164,15 @@
             "type": "command"
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/inbox.sh\" stop",
+            "timeout": 5,
+            "type": "command"
+          }
+        ]
       }
     ],
     "StopFailure": [

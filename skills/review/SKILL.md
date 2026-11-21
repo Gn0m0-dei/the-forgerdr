@@ -7,7 +7,7 @@ description: "Opens each pull request URL, one or many, in a herdr app tab of it
 
 Open each pull request, one or many, in a tab of its own: the review view, where the user picks, edits and stamps, with its agent working out of sight behind it. A pull request by someone else gets the interactive `/forgerdr:review-other` flow; one authored by the signed-in user gets `/forgerdr:review-own`.
 
-Preconditions: `test -n "${HC_TERMINAL_ID:-}"` (otherwise say you are not inside the herdr app and stop); at least one pull request URL (ask otherwise).
+Preconditions: `test -n "${HC_TERMINAL_ID:-}"` (otherwise say you are not inside the herdr app and stop); at least one pull request URL, asked for as the standards say (Gates) when none is given.
 
 ## Run
 

@@ -13,8 +13,8 @@ On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `sp
 
 Say the classification before the first question so the user can override it:
 
-- **Spike**: a feasibility question ("can we…", "quick and dirty is fine"). Output is an answer, not code you keep. Present the question and the probe in 2-3 sentences, get a nod, investigate as cheaply as correctness allows, report a recommendation. Anything built is labelled throwaway.
-- **Bounded**: a well-scoped change to a flow that already exists in this repository (a flag, a small endpoint, a one-file fix). Ask the questions that matter, present a short design in chat (sentences to a few short paragraphs) and stop until the user says yes. No spec file.
+- **Spike**: a feasibility question ("can we…", "quick and dirty is fine"). Output is an answer, not code you keep. Present the question and the probe in 2-3 sentences, get a nod on them as a `Proposal` (Gate, below), investigate as cheaply as correctness allows, report a recommendation, approved as a `Verdict`. Anything built is labelled throwaway.
+- **Bounded**: a well-scoped change to a flow that already exists in this repository (a flag, a small endpoint, a one-file fix). Ask the questions that matter, present a short design in chat (sentences to a few short paragraphs) and stop for its approval (Gate, below). No spec file.
 - **Architectural**: a new project, a new subsystem, a change that restructures how components fit or alters interfaces others depend on. Full path: questions, approaches, sectioned design, kept where the spec mode says, then `/forgerdr:plan`.
 
 In doubt, take the heavier path. Complexity discovered mid-task upgrades the path: stop, say so, step up. Nothing downgrades mid-task.
@@ -23,9 +23,9 @@ In doubt, take the heavier path. Complexity discovered mid-task upgrades the pat
 
 1. Intent: the outcome, who it is for, what success looks like. Missing: one focused question about purpose before proposing anything. Knowing the kind of app does not tell you why the user wants it.
 2. Context: codebase-memory (`get_architecture`, `search_graph`) and `mem_search` on the feature's keywords before asking what the repository already answers.
-3. Write back the understanding: outcome, constraints, success criteria, what the user said apart from what you assume. Invite correction. Keep it short.
+3. Write back the understanding: outcome, constraints, success criteria, what the user said apart from what you assume. Invite correction with `AskUserQuestion`, a plain question with no gate header. Keep it short.
 
-Questions one at a time, the most consequential first. Prefer `AskUserQuestion` with concrete options over open questions.
+Questions one at a time, the most consequential first, each asked with `AskUserQuestion` as the standards say (Gates): concrete options, your recommendation first.
 
 ## Design
 
@@ -49,10 +49,10 @@ The session start prints `Spec mode: <value>` (`/forgerdr:mode` shows or changes
 4. `openspec validate <name> --strict` passes before anything is shown. Then show the files; approval of the conversation only permits writing them, approval of the files only permits `/forgerdr:plan`.
 5. A bug fix that restores the behaviour the specs already describe changes no requirement: no change is created. A fix that changes a requirement gets one.
 
-**`azure`**: the design is a Feature with its requirements as backlog items in Azure Boards. When the azdospec plugin is installed (the `azdo:propose` skill is available), run it with the approved understanding: forgerdr is a wrapper and azdospec owns the work items. When it is not installed, say that `/forgerdr:setup` recommends it, and do it yourself through `az` (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`, "Create work items"), in the backlog's organization and project (`${CLAUDE_PLUGIN_ROOT}/references/items.md`, "An item of an external backlog": the remote's unless set, asked once and saved when the user says the backlog is elsewhere): one Feature, one backlog item per requirement with the acceptance criteria in Gherkin, written in the reply language, shown as a single draft and created only on a yes. A spike becomes one backlog item with the question and the timebox; its findings are posted as a comment on it when the spike closes.
+**`azure`**: the design is a Feature with its requirements as backlog items in Azure Boards. When the azdospec plugin is installed (the `azdo:propose` skill is available), run it with the approved understanding: forgerdr is a wrapper and azdospec owns the work items. When it is not installed, say that `/forgerdr:setup` recommends it, and do it yourself through `az` (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`, "Create work items"), in the backlog's organization and project (`${CLAUDE_PLUGIN_ROOT}/references/items.md`, "An item of an external backlog": the remote's unless set, asked once and saved when the user says the backlog is elsewhere): one Feature, one backlog item per requirement with the acceptance criteria in Gherkin, written in the reply language, shown as a single draft and created only on the yes of a `Gate item` (standards, Gates). A spike becomes one backlog item with the question and the timebox, created the same way; its findings are posted as a comment on it, after a comment gate, when the spike closes.
 
-When the work starts from an existing backlog item (`/forgerdr:workitem`, `/forgerdr:worktree`), that item is the requirement: never run `/azdo:propose` or create a Feature for it, it would duplicate the item. Draft what the item lacks, the acceptance criteria in Gherkin and the task checklist `/azdo:apply` reads from the description, in the reply language, show it, and write it to the item only on a yes. `/forgerdr:plan` then runs `/azdo:apply` on that item.
+When the work starts from an existing backlog item (`/forgerdr:workitem`, `/forgerdr:worktree`), that item is the requirement: never run `/azdo:propose` or create a Feature for it, it would duplicate the item. Draft what the item lacks, the acceptance criteria in Gherkin and the task checklist `/azdo:apply` reads from the description, in the reply language, show it, and write it to the item only on the yes of a `Gate item` (standards, Gates). `/forgerdr:plan` then runs `/azdo:apply` on that item.
 
 ## Gate
 
-Bounded: stop after the in-chat design. Architectural: stop after the design is kept where the mode says. Spike: stop after the recommendation. A yes approves the stage actually presented, nothing beyond it. `mem_save` the approved design decisions.
+Bounded: stop after the in-chat design. Architectural: stop after the design is kept where the mode says. Spike: stop after the recommendation. Every stop asks its approval as a gate of understanding (standards, Gates), the spike's nod as a `Proposal` and its recommendation as a `Verdict`; a yes that writes to the backlog (the Feature and its items, what an existing item lacks) is a `Gate item` instead. A yes approves the stage actually presented, nothing beyond it. `mem_save` the approved design decisions.
