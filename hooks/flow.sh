@@ -31,11 +31,12 @@ works_here() {
 }
 
 prompt() {
-  local input prompt cwd command given
+  local input prompt cwd session command given
   forge_in_herdr || return 0
   input="$(cat)"
   prompt="$(printf '%s' "$input" | jq -r '.prompt // empty')"
   cwd="$(printf '%s' "$input" | jq -r '.cwd // empty')"
+  session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
   [[ "${prompt%%$'\n'*}" =~ $COMMAND_PATTERN ]] || return 0
   command="${BASH_REMATCH[1]}"
   given="${prompt#"/forgerdr:$command"}"
@@ -43,7 +44,8 @@ prompt() {
   [ "$command" != workitem ] || works_here "$given" || return 0
   # The flow keeps the repository it works in, which is the session's folder.
   [ -z "$cwd" ] || cd "$cwd" 2>/dev/null || true
-  "$plugin_root/bin/forge-flow.sh" launch "$command" "$given" >&2
+  # A new Claude session in the same terminal (claude started again, /clear) works another item: its flow starts afresh.
+  FORGE_SESSION_ID="$session" "$plugin_root/bin/forge-flow.sh" launch "$command" "$given" >&2
 }
 
 case "${1:-}" in

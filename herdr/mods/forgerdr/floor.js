@@ -99,6 +99,7 @@ export const TASK_CELL = Object.freeze({ ...TASK_MARK, pending: "pending" });
  * A flow as bin/forge-flow.sh keeps it.
  * @typedef {object} Flow
  * @property {string} terminal the herdr terminal of the session that works the item
+ * @property {string} [session] the Claude session that works it, when a hook saw it
  * @property {FlowMode} mode
  * @property {FlowType | ""} type none until its brief names it
  * @property {string} key the item's: #12, EXT-12, a change's name, a slug; none until its brief names it
@@ -143,6 +144,16 @@ export const CARD_STATUS = Object.freeze({
 });
 
 /** @typedef {typeof CARD_STATUS[keyof typeof CARD_STATUS]} CardStatus */
+
+// What a card's chip says of each status, before the cell or the gate it names.
+/** @type {Readonly<Record<CardStatus, string>>} */
+const STATUS_LABEL = Object.freeze({
+  cracked: "CRACKED",
+  done: "DONE",
+  ended: "ENDED",
+  forging: "FORGING",
+  waiting: "WAITING",
+});
 /** @typedef {{ kind: CardStatus, label: string }} CardState */
 
 /**
@@ -159,6 +170,7 @@ export const CARD_STATUS = Object.freeze({
  * @property {Progress} progress
  * @property {TaskRow | null} tasks
  * @property {FlowPr | null} pr
+ * @property {boolean} inbox what it waits on is in the inbox: a request of its session, or of an agent it dispatched
  */
 
 /**
@@ -321,6 +333,19 @@ const shownCells = (flow) => {
 };
 
 /**
+ * The cells a flow runs, in order: every manual step in manual, its pipeline in auto, only its brief before the brief
+ * names its type.
+ * @param {Pick<Flow, "mode" | "type">} flow
+ * @returns {readonly FlowCell[]}
+ */
+const orderOf = (flow) =>
+  flow.mode === FLOW_MODE.manual
+    ? MANUAL_CELLS
+    : flow.type === ""
+      ? UNNAMED
+      : PIPELINE[flow.type];
+
+/**
  * The cells a flow shows: its pipeline's in auto (and any launched by hand outside it, after them), every manual one in
  * manual; each with its state and how often it ran. The review cell runs while a reviewing agent of the session works.
  * Once the flow is over, a cell that never ran will not: it shows as skipped, not as still to come.
@@ -332,11 +357,7 @@ const shownCells = (flow) => {
 export const stripOf = (flow, reviewing, over = false) => {
   const manual = flow.mode === FLOW_MODE.manual;
   const cells = shownCells(flow);
-  const order = manual
-    ? MANUAL_CELLS
-    : flow.type === ""
-      ? UNNAMED
-      : PIPELINE[flow.type];
+  const order = orderOf(flow);
   const launched = manual
     ? []
     : MANUAL_CELLS.filter(
@@ -467,20 +488,26 @@ const building = (flow) => {
  * @returns {FlowCell | undefined}
  */
 const finalOf = (flow) =>
-  flow.mode === FLOW_MODE.manual
-    ? FLOW_CELL.ship
-    : flow.type === ""
-      ? undefined
-      : PIPELINE[flow.type].findLast(() => true);
+  flow.mode === FLOW_MODE.manual || flow.type !== ""
+    ? orderOf(flow).at(-1)
+    : undefined;
+
+// The states of a cell still under way: an item with one is not finished, whatever its last cell says.
+/** @type {readonly CellState[]} */
+const UNDER_WAY = Object.freeze([CELL_STATE.running, CELL_STATE.waiting]);
 
 /**
- * Whether a flow is finished: the cell it ends with is done.
+ * Whether a flow is finished: the cell it ends with is done and none is under way (an item at work again after it
+ * shipped, on the pull request's comments, is not).
  * @param {Pick<Flow, "mode" | "type" | "cells">} flow
  */
 const finished = (flow) => {
   const final = finalOf(flow);
+  const cells = shownCells(flow);
   return (
-    final !== undefined && shownCells(flow)[final]?.state === CELL_STATE.done
+    final !== undefined &&
+    cells[final]?.state === CELL_STATE.done &&
+    !recordsOf(cells).some((each) => UNDER_WAY.includes(each.state))
   );
 };
 
@@ -490,10 +517,12 @@ const finished = (flow) => {
  * session gone, or else it forges its item, at work or between two steps of it.
  * @param {Pick<Flow, "mode" | "type" | "cells" | "pr">} flow
  * @param {LaneTerminal | undefined} terminal its session's, while it lives
- * @param {Pick<InboxRequest, "kind" | "tool_input">} [request] what its session asks in the inbox
+ * @param {Pick<InboxRequest, "kind" | "tool_input">} [request] what its session, or an agent it dispatched, asks in the
+ *   inbox
+ * @param {boolean} [agentWaits] an agent the session dispatched waits on the human in its pane
  * @returns {CardState}
  */
-export const statusOf = (flow, terminal, request) => {
+export const statusOf = (flow, terminal, request, agentWaits = false) => {
   const cells = shownCells(flow);
   const current = currentOf(cells);
   const gated = cellIn(cells, CELL_STATE.waiting);
@@ -504,18 +533,18 @@ export const statusOf = (flow, terminal, request) => {
       holds: request !== undefined,
       state: () => ({
         kind: CARD_STATUS.waiting,
-        label: `WAITING · ${request === undefined ? "" : ASKS[request.kind](request)}`,
+        label: `${STATUS_LABEL.waiting} · ${request === undefined ? "" : ASKS[request.kind](request)}`,
       }),
     },
     {
-      holds: terminal?.status === "blocked",
-      state: () => ({ kind: CARD_STATUS.waiting, label: "WAITING" }),
+      holds: terminal?.status === "blocked" || agentWaits,
+      state: () => ({ kind: CARD_STATUS.waiting, label: STATUS_LABEL.waiting }),
     },
     {
       holds: gated !== undefined && terminal !== undefined,
       state: () => ({
         kind: CARD_STATUS.waiting,
-        label: `${withCell("WAITING", gated)} GATE`,
+        label: `${withCell(STATUS_LABEL.waiting, gated)} GATE`,
       }),
     },
     {
@@ -525,26 +554,28 @@ export const statusOf = (flow, terminal, request) => {
           (failed !== undefined && failed === current)),
       state: () => ({
         kind: CARD_STATUS.cracked,
-        label: withCell("CRACKED", failed ?? current),
+        label: withCell(STATUS_LABEL.cracked, current),
       }),
     },
     {
       holds: finished(flow),
       state: () => ({
         kind: CARD_STATUS.done,
-        label: flow.pr ? `DONE · PR #${flow.pr.number}` : "DONE",
+        label: flow.pr
+          ? `${STATUS_LABEL.done} · PR #${flow.pr.number}`
+          : STATUS_LABEL.done,
       }),
     },
     {
       holds: terminal === undefined,
-      state: () => ({ kind: CARD_STATUS.ended, label: "ENDED" }),
+      state: () => ({ kind: CARD_STATUS.ended, label: STATUS_LABEL.ended }),
     },
   ];
   // Otherwise the session forges its item, at work or between two steps of it.
   return (
     rules.find((rule) => rule.holds)?.state() ?? {
       kind: CARD_STATUS.forging,
-      label: withCell("FORGING", current),
+      label: withCell(STATUS_LABEL.forging, current),
     }
   );
 };
@@ -601,13 +632,18 @@ export const floorOf = ({ flows, forges, panes, terminals, requests }) => {
   const live = terminals.filter((terminal) => terminal.state !== "finished");
   const liveOf = (/** @type {string} */ address) =>
     live.find((terminal) => terminal.address === address);
+  // A flow's session lives while its terminal does and still runs its agent: back at a shell, the session has ended.
+  const sessionOf = (/** @type {string} */ address) => {
+    const pane = panes.find((each) => each.terminal === address);
+    return pane?.program?.agent === false ? undefined : liveOf(address);
+  };
   const spaceOf = (/** @type {string} */ tab) =>
     forges
       .flatMap((forge) => forge.spaces)
       .find((space) => space.tabs.some((each) => each.id === tab));
   /** @param {Flow} flow @returns {PlacedCard} */
   const placed = (flow) => {
-    const terminal = liveOf(flow.terminal);
+    const terminal = sessionOf(flow.terminal);
     const pane =
       terminal === undefined
         ? undefined
@@ -618,13 +654,20 @@ export const floorOf = ({ flows, forges, panes, terminals, requests }) => {
         : originOf(flow.terminal, forges, panes, terminals).forge) ??
       forges.find((each) => each.key === flow.repo) ??
       null;
-    // The agents the session dispatched that are at work for it now.
-    const helpers = live.filter(
-      (each) => parentOf(each) === flow.terminal && each.status === "working",
+    // The agents the session dispatched, still live.
+    const agents =
+      terminal === undefined
+        ? []
+        : live.filter((each) => parentOf(each) === flow.terminal);
+    const reviewing = agents.some(
+      (each) =>
+        each.status === "working" &&
+        REVIEW_AGENTS.includes(each.labels?.["forge.agent"] ?? ""),
     );
-    const reviewing = helpers.some((each) =>
-      REVIEW_AGENTS.includes(each.labels?.["forge.agent"] ?? ""),
-    );
+    const askers = new Set([
+      flow.terminal,
+      ...agents.map((each) => each.address),
+    ]);
     const strip = stripOf(
       flow,
       reviewing,
@@ -633,10 +676,11 @@ export const floorOf = ({ flows, forges, panes, terminals, requests }) => {
     const request =
       terminal === undefined
         ? undefined
-        : requests.find((each) => each.terminal === flow.terminal);
+        : requests.find((each) => askers.has(each.terminal));
     return {
       card: {
         branch: pane?.branch ?? null,
+        inbox: request !== undefined,
         key: flow.key,
         mode: flow.mode,
         port:
@@ -645,7 +689,12 @@ export const floorOf = ({ flows, forges, panes, terminals, requests }) => {
             : portOf(spaceOf(pane.tab)?.tabs ?? []),
         pr: flow.pr ?? null,
         progress: progressOf(strip),
-        status: statusOf(flow, terminal, request),
+        status: statusOf(
+          flow,
+          terminal,
+          request,
+          agents.some((each) => each.status === "blocked"),
+        ),
         strip,
         tasks: tasksOf(flow.tasks, building(flow)),
         terminal: flow.terminal,
@@ -658,7 +707,7 @@ export const floorOf = ({ flows, forges, panes, terminals, requests }) => {
   };
   // A finished item leaves the floor once its session ends.
   const cards = flows
-    .filter((flow) => !finished(flow) || liveOf(flow.terminal) !== undefined)
+    .filter((flow) => !finished(flow) || sessionOf(flow.terminal) !== undefined)
     .map(placed);
   const tracked = new Set(flows.map((flow) => flow.terminal));
   /** @type {PlacedSession[]} */

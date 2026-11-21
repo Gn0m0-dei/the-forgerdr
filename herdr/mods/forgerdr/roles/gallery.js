@@ -68,6 +68,7 @@ import {
 /** @typedef {import("../kit/sprites.js").HatColour} HatColour */
 /** @typedef {import("../kit/sprites.js").Mood} Mood */
 /** @typedef {import("../kit/tokens.js").Tone} Tone */
+/** @typedef {import("../floor.js").StripCell} StripCell */
 
 // In the design's order, not the sets' sorted keys.
 /** @type {Tone[]} */
@@ -346,7 +347,7 @@ const icons = () =>
   ]);
 
 // Every state a cell of the floor's strip can show, and a count.
-/** @type {import("../floor.js").StripCell[]} */
+/** @type {StripCell[]} */
 const FLOOR_STRIP = [
   { cell: FLOW_CELL.workitem, runs: 1, state: STRIP_STATE.done },
   { cell: FLOW_CELL.spec, runs: 0, state: STRIP_STATE.pending },

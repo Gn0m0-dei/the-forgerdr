@@ -61,6 +61,9 @@ flow task 5 8 red restore_reattaches_after_restart
 flow task 4 8 green
 expect "build tasks keep their marks and the failing test's name" 'null green red 8 restore_reattaches_after_restart' \
   "$(field '"\(.tasks.marks[0]) \(.tasks.marks[3]) \(.tasks.marks[4]) \(.tasks.of) \(.tasks.name)"')"
+flow task 6 8 red
+expect "a red task with no test named does not keep the last one's" null "$(field .tasks.name)"
+flow task 5 8 red restore_reattaches_after_restart
 
 flow review forgerdr:reviewer
 flow review forgerdr:security-verifier
@@ -86,6 +89,14 @@ expect "a work item launched by hand is manual, titled for its session" 'manual 
 T=t8 FORGE_SESSION_TITLE='cart work' flow launch workitem --auto '#16'
 expect "a work item launched again keeps its flow, counts the launch and takes the new mode" 'auto 1 1 1' \
   "$(field '"\(.mode) \(.cells.plan.runs) \(.cells.workitem.runs) \(.cells.brief.runs)"' t8)"
+T=t15 FORGE_SESSION_ID=s1 flow launch plan
+T=t15 FORGE_SESSION_ID=s1 flow launch build
+T=t15 flow stage build "done"
+expect "the same Claude session keeps its flow" 's1 2' "$(field '"\(.session) \(.cells | length)"' t15)"
+T=t15 FORGE_SESSION_ID=s2 flow launch security
+expect "another Claude session in the same terminal starts afresh" 's2 security' \
+  "$(field '"\(.session) \(.cells | keys | join(","))"' t15)"
+rm -f "$dir/t15.json"
 
 status=0
 HC_TERMINAL_ID='' bash "$script" stage ship "done" || status=$?
@@ -129,13 +140,14 @@ expect "nothing dismisses a flow by hand: it goes by itself" '1 true' "$status $
 
 # hooks/flow.sh on UserPromptSubmit, as the session in terminal t20 typing the prompt, in a session titled $2.
 prompt() {
-  jq -cn --arg prompt "$1" --arg cwd "$sandbox/repo" '{hook_event_name: "UserPromptSubmit", prompt: $prompt, cwd: $cwd}' \
+  jq -cn --arg prompt "$1" --arg cwd "$sandbox/repo" '{hook_event_name: "UserPromptSubmit", session_id: "s20", prompt: $prompt, cwd: $cwd}' \
     | HC_TERMINAL_ID=t20 FORGE_SESSION_TITLE="$2" bash "$root/hooks/flow.sh" prompt
 }
 prompted="$(prompt '/forgerdr:workitem --auto https://github.com/acme/shop/issues/15' '#15 cart totals')"
 expect "a work item in the session titled for it starts its flow" 'auto brief #15 cart totals' \
   "$(field '"\(.mode) \(.cells | keys[0]) \(.title)"' t20)"
 expect "and says nothing to the model" "" "$prompted"
+expect "the flow knows the Claude session that works it" s20 "$(field .session t20)"
 rm -f "$dir/t20.json"
 prompt '/forgerdr:workitem #15 | #16' '#15 cart totals'
 expect "several items only open their sessions: no flow here" false "$(exists "$dir/t20.json")"

@@ -14,7 +14,8 @@
 #   launch <command> [args...]
 #                       /forgerdr:<command> typed in the session: a work item launches its flow's brief with --auto, its
 #                       workitem cell without, in that mode; an item's step launches its cell; either starts the flow
-#                       when there is none; anything else is not a cell.
+#                       when there is none, or when FORGE_SESSION_ID names another Claude session than the flow's (a
+#                       new session in the same terminal works another item); anything else is not a cell.
 #   review <agent-type> a reviewing agent dispatched: counted on the review cell.
 #   list                every flow, oldest first, as one JSON array; a file that is not a flow, or names another
 #                       terminal, is skipped, and a flow a week untouched goes.
@@ -63,8 +64,11 @@ own_flow() {
 
 # A flow as jq makes it, and how a cell is launched: the cells that ran or waited at their gate before it are over.
 readonly FLOW_DEFS='
-  def fresh($mode): {v: 1, terminal: $terminal, mode: $mode, type: "", key: "", title: $title, repo: $repo, cwd: $cwd,
-    created: $now, cells: {}};
+  def fresh($mode): {v: 1, terminal: $terminal, session: $session, mode: $mode, type: "", key: "", title: $title,
+    repo: $repo, cwd: $cwd, created: $now, cells: {}};
+  def same_session: if . == null or $session == "" or (.session // "") == "" or .session == $session then .
+    else null end;
+  def own_session: if $session == "" then . else .session = $session end;
   def launch($cell): .cells |= with_entries(if .value.state | IN("running", "waiting") then .value.state = "done"
       else . end)
     | .cells[$cell] = {state: "running", runs: ((.cells[$cell].runs // 0) + 1), at: $now};
@@ -94,7 +98,8 @@ rewrite() {
   fi
   repo="$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
   now="$(jq -n 'now * 1000 | floor')" || return 1
-  if ! jq -c --argjson now "$now" --arg terminal "$(basename "$file" .json)" --arg repo "$repo" --arg cwd "$PWD" "$@" \
+  if ! jq -c --argjson now "$now" --arg terminal "$(basename "$file" .json)" --arg repo "$repo" --arg cwd "$PWD" \
+    --arg session "${FORGE_SESSION_ID:-}" "$@" \
     "$FLOW_DEFS ($filter) | if . == null then empty else .updated = \$now end" <<<"$current" > "$file.tmp"; then
     rm -f "$file.tmp"
     printf 'forgerdr: %s was not changed\n' "$file" >&2
@@ -147,7 +152,7 @@ task() {
   change "$file" \
     'if . == null then null
       else .tasks.of = $of | .tasks.marks = ((.tasks.marks // []) | .[$number - 1] = $mark | .[:$of])
-        | if $name == "" then . else .tasks.name = $name end end' \
+        | if $mark != "red" then . elif $name == "" then del(.tasks.name) else .tasks.name = $name end end' \
     --argjson number "$number" --argjson of "$of" --arg mark "$mark" --arg name "$(title_of "$name")" --arg title ""
 }
 
@@ -172,10 +177,12 @@ launch() {
     if [[ " $* " == *" --auto "* ]]; then mode=auto cell=brief; fi
     [ -n "${FORGE_SESSION_TITLE:-}" ] || title="$(title_of "$(printf ' %s ' "$*" | sed 's/ --auto / /g')")"
     change "$file" \
-      '(. // fresh($mode)) | .mode = $mode | (if .title == "" then .title = $title else . end) | launch($cell)' \
+      'same_session | (. // fresh($mode)) | own_session | .mode = $mode
+        | (if .title == "" then .title = $title else . end) | launch($cell)' \
       --arg mode "$mode" --arg cell "$cell" --arg title "$title"
   elif one_of "$command" "${STEPS[@]}"; then
-    change "$file" '(. // fresh("manual")) | launch($cell)' --arg cell "$command" --arg title "$title"
+    change "$file" 'same_session | (. // fresh("manual")) | own_session | launch($cell)' \
+      --arg cell "$command" --arg title "$title"
   fi
 }
 
@@ -200,7 +207,8 @@ readonly ENTRY_FILTER='
   def pr: . == null or (type == "object" and (.number | number) and (.url | text));
   def flow: type == "object" and .v == 1 and .terminal == $terminal and (.mode | IN($modes[]))
     and (.type == "" or (.type | IN($types[]))) and (.key | text) and (.title | text) and (.repo | text)
-    and (.cwd | text) and (.created | number) and (.updated | number) and (.cells | type) == "object"
+    and (.cwd | text) and (.session == null or (.session | text)) and (.created | number) and (.updated | number)
+    and (.cells | type) == "object"
     and all(.cells | to_entries[]; (.key | IN($cells[])) and (.value | cell)) and (.tasks | tasks) and (.pr | pr);
   if flow | not then error("not a flow") elif $now - .updated >= $week then empty else . end'
 

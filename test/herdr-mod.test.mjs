@@ -2327,6 +2327,119 @@ test("an item's progress counts every pass of its steps, reviews too: a step run
   ]);
 });
 
+test("a session that has quit its agent has ended; a finished item at work again forges", () => {
+  const main = {
+    id: "sp1",
+    name: "orders",
+    tabs: [{ id: "tb1", name: "claude" }],
+  };
+  const forges = [{ key: "/code/orders/.git", main, spaces: [main] }];
+  const flows = [
+    flowOf({
+      cells: { plan: { at: 2, runs: 1, state: "running" } },
+      key: "#1",
+      terminal: "t1",
+    }),
+    flowOf({
+      cells: {
+        build: { at: 5, runs: 2, state: "running" },
+        ship: { at: 4, runs: 1, state: "done" },
+      },
+      key: "#2",
+      terminal: "t2",
+    }),
+    flowOf({
+      cells: { ship: { at: 4, runs: 1, state: "done" } },
+      key: "#3",
+      terminal: "t3",
+    }),
+  ];
+  const shell = { agent: false };
+  const agent = { agent: true };
+  const panes = [
+    { branch: "a", program: shell, tab: "tb1", terminal: "t1", title: "zsh" },
+    { branch: "b", program: agent, tab: "tb1", terminal: "t2", title: "two" },
+    { branch: "c", program: shell, tab: "tb1", terminal: "t3", title: "zsh" },
+  ];
+  const terminals = ["t1", "t2", "t3"].map((address) => ({
+    address,
+    state: "live",
+    status: "idle",
+  }));
+  const [{ cards }] = floorOf({
+    flows,
+    forges,
+    panes,
+    requests: [],
+    terminals,
+  });
+  deepStrictEqual(
+    cards.map((card) => [card.key, card.status.label]),
+    [
+      ["#2", "FORGING · BUILD"],
+      ["#1", "ENDED"],
+    ],
+  );
+});
+
+test("a card waits while an agent its session dispatched waits, and its chip goes to the inbox", () => {
+  const main = {
+    id: "sp1",
+    name: "orders",
+    tabs: [{ id: "tb1", name: "claude" }],
+  };
+  const forges = [{ key: "/code/orders/.git", main, spaces: [main] }];
+  const flows = [
+    flowOf({
+      cells: { build: { at: 3, runs: 1, state: "running" } },
+      terminal: "t1",
+    }),
+  ];
+  const panes = [
+    {
+      branch: "a",
+      program: { agent: true },
+      tab: "tb1",
+      terminal: "t1",
+      title: "one",
+    },
+  ];
+  const terminals = [
+    { address: "t1", state: "live", status: "idle" },
+    {
+      address: "t9",
+      labels: { "forge.parent": "t1" },
+      state: "live",
+      status: "blocked",
+    },
+  ];
+  const requests = [{ kind: "permission", terminal: "t9", tool_input: {} }];
+  const [{ cards }] = floorOf({ flows, forges, panes, requests, terminals });
+  deepStrictEqual(
+    cards.map((card) => [card.status.label, card.inbox]),
+    [["WAITING · PERMISSION", true]],
+  );
+});
+
+test("a cracked golem is named by the cell it is on, not by an old failure", () => {
+  const flow = flowOf({
+    cells: {
+      debug: { at: 1, runs: 1, state: "failed" },
+      plan: { at: 5, runs: 1, state: "running" },
+    },
+    mode: "manual",
+  });
+  strictEqual(
+    statusOf(flow, {
+      address: "t5",
+      labels: { "forge.state": "cracked" },
+      state: "live",
+      status: "idle",
+    }).label,
+    "CRACKED · PLAN",
+  );
+});
+
 test("a step that will not run shows so: skipped, or never launched once the flow is over", () => {
   const flow = flowOf({
     cells: {

@@ -49,6 +49,7 @@ import { openMode } from "./mode.js";
 import { openStart } from "./start.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
+/** @typedef {import("../floor.js").Flow} Flow */
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
@@ -110,7 +111,7 @@ export const topbar = (cx) => {
         requests = read;
       });
   // The flows of the items the sessions work (bin/forge-flow.sh), which FLOOR counts by what waits on the human.
-  /** @type {import("../floor.js").Flow[]} */
+  /** @type {Flow[]} */
   let flows = [];
   const flowing = checking()
     ? null

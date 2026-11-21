@@ -173,11 +173,11 @@ export const stageCell = ({ cell, state, runs }) => {
     );
 };
 
-// A step's square as its state colours it, like its cell in the strip: done in green, at work, at its gate or broken
+// A step's square as its state colours it, like its cell in the strip: done in gold, at work, at its gate or broken
 // in their colours, still to come in grey, and ✕ for one that will not run.
 /** @type {Readonly<Record<StripState, () => Color>>} */
 const STEP_FILL = Object.freeze({
-  done: () => tokens().ok,
+  done: () => BRAND.forgeGold,
   failed: () => tokens().failed,
   pending: () => tokens().bg2,
   running: () => tokens().working,
