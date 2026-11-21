@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.34.0] - 2026-11-21
+
 ### Added
 
 - `hooks/inbox.sh stop`, on Claude Code's `Stop`: inside the herdr app, a turn whose final message asks a question typed in the chat (outside fenced code, inline code and links), which no inbox sees, is sent back once to ask it with `AskUserQuestion`. An agent forgerdr dispatched asks the session that dispatched it instead.
