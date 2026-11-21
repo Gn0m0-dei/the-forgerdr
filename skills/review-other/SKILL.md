@@ -17,6 +17,15 @@ Hard limits:
 
 Use the URL passed as argument. Without one, ask for the pull request link, in the reply language, and stop. Parse provider, organization or owner, project, repository and id. If a part is missing, ask again.
 
+## Beside a review view
+
+When `FORGE_REVIEW_VIEW` is set, the herdr app shows a review view beside this session, in the pull request's tab: steps 4 to 6 go through it, as `${CLAUDE_PLUGIN_ROOT}/references/reviews.md` says. The method does not change: every finding listed, the user picks, nothing published without the stamp.
+
+- After step 1: `forge-pr.sh open other` with the pull request.
+- Step 4: send every finding with `forge-pr.sh findings`, in the order and with the fields of the template (`discarded` true for the rules memory says the user discards), instead of printing the list. In the chat, one line with the totals per severity and that the picks are made in the view. Then the single `Review pick` question instead of the option calls; its answer names the rows picked.
+- Step 5: one draft per row picked, its id the row's, sent with `forge-pr.sh drafts`; in the chat, one short line per draft.
+- Step 6: the comment gate as always. Publish exactly what `forge-pr.sh stamped` prints. When it prints nothing (answered in the pane), publish the preview's drafts only if `forge-pr.sh drafted` prints the same; if the user edited them in the view since, ask the gate again with `drafted` in the preview. A change asked for at the gate is made on what `drafted` prints; `Draft also: <ids>` adds a draft per row named and asks again; `Not yet` publishes nothing. Then `forge-pr.sh results`, a line per thread.
+
 ## Step 1: context
 
 Commands per provider: `${CLAUDE_PLUGIN_ROOT}/references/providers.md`.

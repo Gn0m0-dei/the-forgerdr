@@ -629,6 +629,19 @@ forge_flows_dir() {
   printf '%s\n' "${FORGE_FLOWS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/flows}"
 }
 
+# The review views' pull requests: one file per herdr terminal, <terminal>.json, what the review session in it knows of
+# its pull request, which bin/forge-pr.sh keeps for the review skills and the forgerdr mod. FORGE_REVIEWS_DIR moves it.
+forge_reviews_dir() {
+  printf '%s\n' "${FORGE_REVIEWS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/reviews}"
+}
+
+# The review rounds of the agents' work: one file per herdr terminal, <terminal>.json, its base and its rounds, which
+# bin/forge-round.sh keeps; the snapshots themselves are git commits under refs/forgerdr/rounds/<terminal>/.
+# FORGE_ROUNDS_DIR moves it.
+forge_rounds_dir() {
+  printf '%s\n' "${FORGE_ROUNDS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/rounds}"
+}
+
 # Opens a worktree as a herdr app space that does not take the focus: named, its first tab named when a name is given,
 # running the argv given as JSON or a shell. Records it and prints what herdr-app made: {"space", "tab", "terminal"}.
 forge_open_space() {
@@ -787,12 +800,14 @@ forge_pane_of() {
 
 # The argv the herdr app runs for a titled Claude session, as JSON for space.new and tab.new (the app runs it in the
 # user's login interactive shell): FORGE_SESSION_TITLE in its environment (hooks/session-start.sh makes it the session
-# title), the words of FORGE_CLAUDE_ARGS, then the prompt.
+# title), with any NAME=value given after the prompt, the words of FORGE_CLAUDE_ARGS, then the prompt.
 forge_claude_argv() {
-  local extra=()
+  local title="$1" prompt="$2" extra=()
+  shift 2
   read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
   # shellcheck disable=SC2016 # a jq filter
-  jq -cn --arg title "$1" --arg prompt "$2" '["env", ("FORGE_SESSION_TITLE=" + $title), "claude"] + $ARGS.positional + [$prompt]' \
+  jq -cn --arg title "$title" --arg prompt "$prompt" --argjson env "$(jq -cn '$ARGS.positional' --args -- "$@")" \
+    '["env", ("FORGE_SESSION_TITLE=" + $title)] + $env + ["claude"] + $ARGS.positional + [$prompt]' \
     --args -- ${extra[@]+"${extra[@]}"}
 }
 
@@ -976,6 +991,55 @@ forge_json_update() {
 }
 
 # Sets the state of a dispatched agent (working or done), and its task title when one is given, in its record.
+# A snapshot of what a worktree holds, tracked and untracked files alike (what .gitignore leaves out stays out), as a
+# commit no branch reaches; prints its id. The user's index is never touched: git adds to a copy of it. The commit is
+# signed by forgerdr, not the user: it is never pushed.
+forge_snapshot() {
+  local repo="$1" index tmp tree status=0
+  index="$(git -C "$repo" rev-parse --path-format=absolute --git-path index)" || return 1
+  tmp="$(mktemp -d)" || return 1
+  [ ! -f "$index" ] || cp "$index" "$tmp/index"
+  tree="$(GIT_INDEX_FILE="$tmp/index" git -C "$repo" add -A && GIT_INDEX_FILE="$tmp/index" git -C "$repo" write-tree)" \
+    || status=$?
+  rm -rf "$tmp"
+  [ "$status" -eq 0 ] || return "$status"
+  GIT_AUTHOR_NAME=forgerdr GIT_AUTHOR_EMAIL=forgerdr@invalid GIT_COMMITTER_NAME=forgerdr \
+    GIT_COMMITTER_EMAIL=forgerdr@invalid git -C "$repo" commit-tree "$tree" -m "forgerdr snapshot"
+}
+
+# Rewrites a state file through a jq filter, atomically, under its lock: the filter reads the file (null when there is
+# none, or when it is not a JSON object, so one bad write never keeps a state out for good) and its result replaces it,
+# with .updated set to now. The filter gets $now (ms) and $terminal (the file's name without .json), then the jq
+# arguments after it. A filter that fails keeps the file and says why. The folder is made the user's alone.
+# Arguments: the file, the filter, jq arguments.
+forge_json_rewrite() {
+  local dir
+  dir="$(dirname "$1")"
+  [ -d "$dir" ] || { mkdir -p "$dir" && chmod 700 "$dir"; }
+  forge_locked "$1" forge_json_rewrite_locked "$@"
+}
+
+# Runs under the lock, where set -e does not reach: every failure is returned. Each write has a temporary file of its
+# own: a lock that outwaits forge_locked lets two in, and they must not share one.
+forge_json_rewrite_locked() {
+  local file="$1" filter="$2" current=null now error tmp
+  shift 2
+  if [ -f "$file" ]; then
+    current="$(cat "$file")" || return 1
+    jq -e 'type == "object"' <<<"$current" >/dev/null 2>&1 || current=null
+  fi
+  now="$(jq -n 'now * 1000 | floor')" || return 1
+  tmp="$(mktemp "$file.XXXXXX")" || return 1
+  if ! error="$(jq -c --argjson now "$now" --arg terminal "$(basename "$file" .json)" "$@" \
+    "($filter) | .updated = \$now" <<<"$current" 2>&1 > "$tmp")"; then
+    rm -f "$tmp"
+    printf 'forgerdr: %s\n' "${error#jq: error (at <stdin>:*): }" >&2
+    return 1
+  fi
+  chmod 600 "$tmp"
+  mv "$tmp" "$file"
+}
+
 forge_agent_mark() {
   # shellcheck disable=SC2016 # a jq filter
   forge_json_update "$1" --arg state "$2" --arg title "${3:-}" '.state = $state | .title = (if $title == "" then .title else $title end)'

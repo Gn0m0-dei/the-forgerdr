@@ -4,7 +4,7 @@
 # which reads the spec mode. Given nothing, it closes. Given the URLs, review asks for nothing: the Start work dialog of
 # the herdr app's forgerdr layout opens it so.
 # Usage: forge-prompt.sh review|worktree
-#        forge-prompt.sh review <pr-url>...
+#        forge-prompt.sh review [--mod NAME] <pr-url>...   (--mod: the copy of the forgerdr mod the review views run in)
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR
@@ -32,6 +32,11 @@ if [ "$mode" = worktree ]; then
 fi
 
 bin="$(cd "$(dirname "$0")" && pwd)"
+mod_args=()
+if [ "${1:-}" = --mod ]; then
+  mod_args=(--mod "${2:-}")
+  shift 2
+fi
 urls=("$@")
 if [ ${#urls[@]} -eq 0 ]; then
   printf 'forgerdr review\nPaste the pull request URLs (one per line, space separated also fine), then an empty line:\n'
@@ -43,7 +48,7 @@ fi
 [ ${#urls[@]} -gt 0 ] || { printf 'nothing to do\n'; close_tab; }
 
 status=0
-"$bin/forge-review.sh" "${urls[@]}" || status=$?
+"$bin/forge-review.sh" ${mod_args[@]+"${mod_args[@]}"} "${urls[@]}" || status=$?
 # Given the URLs, the tab goes once the reviews are open; one that failed stays to say why.
 if [ $# -gt 0 ] && [ "$status" -eq 0 ]; then close_tab; fi
 printf '\nPress Enter to close this tab.\n'

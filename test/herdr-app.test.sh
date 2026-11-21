@@ -38,6 +38,8 @@ expect "a branch's worktree path" "$HOME/.herdr/worktrees/front/feature-#12-logi
 
 expect "a titled claude session for the app" '["env","FORGE_SESSION_TITLE=#12 Login","claude","/forgerdr:workitem #12"]' \
   "$(forge_claude_argv "#12 Login" "/forgerdr:workitem #12")"
+expect "with variables of its own before claude" '["env","FORGE_SESSION_TITLE=PR 3","FORGE_REVIEW_VIEW=1","claude","/forgerdr:review-own x"]' \
+  "$(forge_claude_argv "PR 3" "/forgerdr:review-own x" FORGE_REVIEW_VIEW=1)"
 expect "with the words of FORGE_CLAUDE_ARGS" '["env","FORGE_SESSION_TITLE=t","claude","--settings","/tmp/a.json","go"]' \
   "$(FORGE_CLAUDE_ARGS="--settings /tmp/a.json" forge_claude_argv t go)"
 
@@ -147,31 +149,45 @@ expect "a tall pane splits down" "t1 down" "$(printf 't1 100 80\n' | forge_pick_
 expect "the largest pane that halves is split" "t2 down" "$(printf 't1 152 31\nt2 152 66\n' | forge_pick_split)"
 expect "none when no half would keep 80x15" "" "$(printf 't1 152 31\nt2 152 31\n' | forge_pick_split)"
 
-# forge-review.sh: the pull requests in new tabs named Reviews, as many panes to a tab as fit, the first one shown.
+# forge-review.sh: a tab per pull request in this terminal's space, named for it, its review view beside its agent.
 fakes_reset
-printf '{"spaces":[{"id":"sp-own","tabs":[{"name":"1"},{"name":"Reviews"}]},{"id":"sp-other","tabs":[{"name":"Reviews 2"}]}]}\n' \
-  > "$FAKE_DIR/ls.json"
-urls=(https://example.com/o/r/pull/1 https://example.com/o/r/pull/2 https://example.com/o/r/pull/3 https://example.com/o/r/pull/4
-  https://example.com/o/r/pull/5)
-out="$(FAKE_TAB_SIZE="310 66" in_herdr bash "$bin/forge-review.sh" --cwd "$repo" "${urls[@]}")"
-expect "new tabs in this terminal's space, named after the group with the first names free there" "sp-own Reviews 2|sp-own Reviews 3" \
-  "$(grep '"tab.new"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s %s\n' "$(printf '%s' "$line" | option_of --space)" "$(printf '%s' "$line" | option_of --name)"; done | paste -sd '|' -)"
-expect "four to a 310x66 tab, the fifth in the next tab" "tb-made-1 tb-made-1 tb-made-1 tb-made-1 tb-made-2" "$(printf '%s\n' "$out" | jq -r .tab | paste -sd ' ' -)"
-expect "split right, then down, then down" "right down down" \
-  "$(grep '"terminal.open"' "$FAKE_CALLS" | while IFS= read -r line; do printf '%s' "$line" | option_of --place; done | paste -sd ' ' -)"
-expect "each split from the pane it halves" "t40 t40 t41" \
-  "$(grep '"pane.focus"' "$FAKE_CALLS" | head -n 3 | while IFS= read -r line; do printf '%s' "$line" | option_of --terminal; done | paste -sd ' ' -)"
-expect "leaving four even panes" "152x31 152x31 152x31 152x31" \
-  "$(for t in t40 t41 t42 t43; do jq -r '"\(.cols)x\(.rows)"' "$FAKE_DIR/terminals/$t.json"; done | paste -sd ' ' -)"
-expect "each pane in the clone, running its review" "$repo /forgerdr:review-other https://example.com/o/r/pull/2" \
-  "$(call_of herdr-app "do" terminal.open | jq -r '[((index("--folder")) as $i | .[$i + 1] | rtrimstr("/")), ((index("--argv")) as $j | .[$j + 1] | fromjson | .[-1])] | join(" ")')"
-expect "the first one shown at the end" '["herdr-app","do","tab.select","--id","tb-made-1"] ["herdr-app","do","pane.focus","--terminal","t40"]' \
-  "$(tail -n 2 "$FAKE_CALLS" | paste -sd ' ' -)"
-expect "one line each" "1 2 3 4 5" "$(printf '%s\n' "$out" | jq -r .pr | paste -sd ' ' -)"
-rm -f "$FAKE_DIR/ls.json"
+mkdir -p "$sandbox/bin"
+cat > "$sandbox/bin/gh" <<'SH'
+#!/usr/bin/env bash
+case "$*" in
+  *"--json author"*) echo dev ;;
+  "api user"*) echo Dev ;;
+esac
+SH
+chmod +x "$sandbox/bin/gh"
+urls=(https://example.com/o/r/pull/2 https://github.com/o/r/pull/3)
+out="$(PATH="$sandbox/bin:$PATH" FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-review.sh" --cwd "$repo" "${urls[@]}")"
+each() { grep "\"$1\"" "$FAKE_CALLS" | while IFS= read -r line; do "${@:2}" <<<"$line"; done | paste -sd '|' -; }
+expect "a tab each in this terminal's space, named for its pull request: another's, then the user's own" \
+  "sp-own #2 review|sp-own #3 mine" "$(each tab.new jq -r '"\(.[(index("--space")) + 1]) \(.[(index("--name")) + 1])"')"
+# shellcheck disable=SC2016 # a jq filter
+expect "each agent in its clone, running its review, told its view is beside it" \
+  "$repo /forgerdr:review-other https://example.com/o/r/pull/2 true|$repo /forgerdr:review-own https://github.com/o/r/pull/3 true" \
+  "$(each tab.new jq -r '(.[(index("--argv")) + 1] | fromjson) as $argv
+    | "\(.[(index("--folder")) + 1] | rtrimstr("/")) \($argv[-1]) \($argv | index("FORGE_REVIEW_VIEW=1") != null)"')"
+expect "the view splits off its agent's pane, the forgerdr mod told the agent's terminal" \
+  'p-t40 right forgerdr {"role":"review","terminal":"t40"}|p-t42 right forgerdr {"role":"review","terminal":"t42"}' \
+  "$(each pane.split jq -r '"\(.[(index("--pane")) + 1]) \(.[(index("--direction")) + 1]) \(.[(index("--mod")) + 1]) \(.[(index("--props")) + 1])"')"
+expect "and its agent is parked out of sight, the view alone in the tab" "t40|t42" \
+  "$(each terminal.park jq -r '.[(index("--terminal")) + 1]')"
+expect "the agent knows its view's tab, for the inbox to take the human there" "yes yes" \
+  "$(called hc label t40 forge.tab=tb-made-1) $(called hc label t42 forge.tab=tb-made-2)"
+expect "one line each, with its agent's terminal and tab" "2 t40 tb-made-1 true|3 t42 tb-made-2 true" \
+  "$(printf '%s\n' "$out" | jq -r '"\(.pr) \(.terminal) \(.tab) \(.agent_started)"' | paste -sd '|' -)"
+expect "the first one shown at the end" '["herdr-app","do","tab.select","--id","tb-made-1"]' "$(tail -n 1 "$FAKE_CALLS")"
 fakes_reset
-out="$(FAKE_TAB_SIZE="310 66" FAKE_LAYOUT_STUCK=1 FORGE_LAYOUT_TRIES=2 in_herdr bash "$bin/forge-review.sh" --no-agent --cwd "$repo" "${urls[@]:0:3}")"
-expect "a split the app does not lay out closes its tab to the next one" "tb-made-1 tb-made-1 tb-made-2" "$(printf '%s\n' "$out" | jq -r .tab | paste -sd ' ' -)"
+FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-review.sh" --no-agent --mod forgerdr-dev --cwd "$repo" "${urls[0]}" >/dev/null
+expect "--mod picks the copy the view runs in" forgerdr-dev "$(call_of herdr-app "do" pane.split | option_of --mod)"
+expect "--no-agent opens a shell beside the view" no "$(call_of herdr-app "do" tab.new | has_arg --argv)"
+fakes_reset
+expect "a view the app cannot split off fails, saying so" 1 \
+  "$(FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 FAKE_SPLIT_FAILS=1 status_of in_herdr bash "$bin/forge-review.sh" --no-agent --cwd "$repo" "${urls[0]}")"
+expect "outside herdr there is nothing to open" 1 "$(status_of bash "$bin/forge-review.sh" "${urls[0]}")"
 
 # forge-session.sh --group: several sessions in tabs of the group.
 fakes_reset
@@ -385,10 +401,13 @@ fakes_reset
 printf '\n' | in_herdr bash "$bin/forge-prompt.sh" review >/dev/null
 expect "the prompt tab closes when given nothing" yes "$(called hc kill t5)"
 fakes_reset
-(cd "$repo" && FAKE_TAB_SIZE="310 66" in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7) </dev/null >/dev/null
+(cd "$repo" && FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7) </dev/null >/dev/null
 expect "given the URLs, it opens their reviews without asking" "/forgerdr:review-other https://example.com/o/r/pull/7" \
   "$(call_of herdr-app "do" tab.new | jq -r '(index("--argv")) as $j | .[$j + 1] | fromjson | .[-1]')"
 expect "and closes its tab once they are open" yes "$(called hc kill t5)"
+fakes_reset
+(cd "$repo" && FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-prompt.sh" review --mod forgerdr-dev https://example.com/o/r/pull/7) </dev/null >/dev/null
+expect "it passes on the copy of the mod that opened it" forgerdr-dev "$(call_of herdr-app "do" pane.split | option_of --mod)"
 fakes_reset
 out="$(cd "$repo" && FAKE_APP_DOWN=1 in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7 </dev/null 2>&1 || true)"
 expect "a review that fails keeps the tab until Enter, to say why" yes \

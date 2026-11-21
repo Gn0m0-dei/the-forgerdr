@@ -7,6 +7,15 @@ description: "Handles the review comments on the user's own pull request: reads 
 
 The reviewer's comment is a request from a colleague: understand it before agreeing or pushing back, and close the loop in the thread itself.
 
+## Beside a review view
+
+When `FORGE_REVIEW_VIEW` is set, the herdr app shows a review view beside this session, in the pull request's tab: the threads, the picks and the stamp go through it, as `${CLAUDE_PLUGIN_ROOT}/references/reviews.md` says.
+
+- Step 1: `forge-pr.sh open own` with the pull request.
+- Step 2: send the entries with `forge-pr.sh threads` (each thread with its proposal and detail) instead of printing them; in the chat, one line with how many of each. Then the single `Review pick` question instead of the option call.
+- Step 3: after each fix's push, send the threads again with its `commit`, `subject` and `tests`. The replies go with `forge-pr.sh drafts`, each with its thread's id, `resolve` true for the threads whose fix was pushed.
+- Step 4: the comment gate as always. Publish exactly what `forge-pr.sh stamped` prints; when it prints nothing (answered in the pane), the preview's replies only if `forge-pr.sh drafted` prints the same, else ask the gate again with `drafted` in the preview (a change asked for at the gate is made on `drafted`; `Draft also: <ids>` adds a reply per thread named and asks again; `Not yet` publishes nothing); resolve the threads marked `resolve`. Then `forge-pr.sh results` with each thread `resolved` or `open`.
+
 ## 1. Read
 
 Pull request and open threads through the provider CLI (`${CLAUDE_PLUGIN_ROOT}/references/providers.md`): author, path, line, text, status. Skip threads already resolved. Read the code each thread points at, with codebase-memory for the callers.

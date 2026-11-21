@@ -33,11 +33,13 @@ printf '{"hook_event_name":"UserPromptSubmit"}' | HC_TERMINAL_ID=t7 bash "$hook"
 expect "writing to it again mends it and starts a task" '["hc","label","t7","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>"]' "$(calls)"
 
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t8 FORGE_PARENT_TERMINAL=t5 bash "$hook" born
-expect "a dispatched agent's golem is tied to its session" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.parent=t5"]' "$(calls)"
+expect "a dispatched agent's golem is tied to its session" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.review=","forge.parent=t5"]' "$(calls)"
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t8 FORGE_PARENT_TERMINAL=t5 FORGE_AGENT_TYPE=forgerdr:reviewer bash "$hook" born
-expect "and says what agent it is" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.parent=t5","forge.agent=forgerdr:reviewer"]' "$(calls)"
+expect "and says what agent it is" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.review=","forge.parent=t5","forge.agent=forgerdr:reviewer"]' "$(calls)"
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t5 bash "$hook" born
-expect "a session of its own only mends" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>"]' "$(calls)"
+expect "a session of its own mends, and forgets the review view of the session before it" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.review="]' "$(calls)"
+printf '{"hook_event_name":"SessionStart","source":"compact"}' | HC_TERMINAL_ID=t5 bash "$hook" born
+expect "a session compacted, or resumed, keeps its review view" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>"]' "$(calls)"
 
 : > "$FAKE_CALLS"
 printf '{"error":"rate_limit"}' | bash "$hook" crack
