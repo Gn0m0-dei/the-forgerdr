@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.33.0] - 2026-11-21
+
 ### Added
 
 - Review views in the forgerdr layout (designs 06b and 06c): each pull request opens in a tab of its own, `#42 review` or `#40 mine`, showing the forgerdr mod's view alone while its review session works out of sight (`Discuss with the golem` peeks at it; closing the tab ends it; the sidebar lists it as a golem of the forge), the gnome thinking while it reads, drafts or publishes, and the tab closing by itself once every thread is published. A colleague's pull request shows its findings by severity, each opening to its rule, what happens, what to change, the code and the sketch, ticked one by one; the drafts are edited in place, a draft that names AI or its tools keeps the stamp back, and `Stamp gnomemark and publish N` freezes the drafts and answers the session's comment gate, so it publishes exactly those. Your own pull request shows a card per open thread with its fix, reply or question and its reply drafted, and one stamp publishes the replies and resolves the fixed threads. `review-other` and `review-own` use the view when `FORGE_REVIEW_VIEW` is set and the chat otherwise; the inbox sends their picks and comment gate to the view.
