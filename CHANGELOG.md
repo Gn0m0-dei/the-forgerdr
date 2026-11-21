@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.32.0] - 2026-11-21
+
 ### Added
 
 - The forge floor: `FLOOR`, beside `INBOX` in the forgerdr layout's top bar (or `forgerdr.floor`), opens over the window every item the Claude sessions work, in every forge, as an accordion with a section per forge (its gnome, its name, its counts) that folds on a click, all open at first and remembered. Each item is a card: its key and title, its type and mode, what it waits on or does (`WAITING · COMMIT GATE`, `FORGING · BUILD`, `CRACKED`, `DONE · PR #40`, `ENDED`), its branch and its dev server's port, and the cells of its flow. An auto flow shows the cells its pipeline will run; a manual one shows every step that can be launched, lit only where it was; a step that will not run shows a ✕. A cell launched more than once says how often (`×3`), and `REVIEW` counts every reviewing agent. Under the strip, its progress pass by pass, a square each (`8 OF 10 DONE`: three reviews are three passes), and, while the build runs, its tasks red or green. `WAITING` opens the inbox, or the item's pane when what it waits on is asked there; `discuss` goes to the pane; a finished item leaves once its session ends; the agent sessions that report no flow come last. `FLOOR` counts the items that wait on you.
