@@ -5,6 +5,20 @@ import { deepStrictEqual, strictEqual } from "node:assert";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
+  CARD_STATUS,
+  FLOW_CELL,
+  floorCounts,
+  floorMood,
+  floorOf,
+  MANUAL_CELLS,
+  PIPELINE,
+  portOf,
+  progressOf,
+  statusOf,
+  stripOf,
+  tasksOf,
+} from "../herdr/mods/forgerdr/floor.js";
+import {
   crackedOf,
   forgeMood,
   forgeMoves,
@@ -1591,6 +1605,18 @@ test("no control is put on a bare icon or picture, where the app never wires a c
   deepStrictEqual(bare, []);
 });
 
+test("every role the mod has is one main.js can make", () => {
+  const roles = new URL("../herdr/mods/forgerdr/roles/", import.meta.url);
+  const main = readFileSync(new URL("../main.js", roles), "utf8");
+  const missing = readdirSync(roles).filter(
+    (name) =>
+      name.endsWith(".js") &&
+      name !== "role.js" &&
+      !main.includes(`"./roles/${name}"`),
+  );
+  deepStrictEqual(missing, []);
+});
+
 // The approval inbox (design 05): requests hooks/inbox.sh wrote, as bin/forge-inbox.sh lists them.
 const inboxRequest = (
   id,
@@ -2135,4 +2161,631 @@ test("what shows above the open card is noted, so a card that moved under the po
   strictEqual(aboveOf(cards, "a"), "c b");
   strictEqual(aboveOf(cards, "c"), "");
   strictEqual(aboveOf(cards, "gone"), "");
+});
+
+// The forge floor (floor.js): a flow as bin/forge-flow.sh keeps it.
+const flowOf = (fields) => ({
+  cells: {},
+  created: 1,
+  key: "#15",
+  mode: "auto",
+  pr: null,
+  repo: "/code/orders/.git",
+  tasks: null,
+  terminal: "t5",
+  title: "inbox keyboard answering",
+  type: "feature",
+  updated: 1,
+  ...fields,
+});
+const stripText = (strip) =>
+  strip.map(({ cell, state, runs }) => `${cell}:${state}:${runs}`);
+
+test("an auto flow shows only the cells its pipeline will run, known beforehand", () => {
+  deepStrictEqual(PIPELINE.feature, [
+    "brief",
+    "spec",
+    "research",
+    "plan",
+    "build",
+    "review",
+    "security",
+    "ship",
+  ]);
+  deepStrictEqual(PIPELINE.bug, [
+    "brief",
+    "reproduce",
+    "root-cause",
+    "proposal",
+    "fix",
+    "review",
+    "security",
+    "ship",
+  ]);
+  deepStrictEqual(PIPELINE.content, ["brief", "verdict", "comment"]);
+  deepStrictEqual(PIPELINE.change, [
+    "spec",
+    "plan",
+    "build",
+    "review",
+    "security",
+    "ship",
+  ]);
+  const flow = flowOf({
+    cells: {
+      brief: { at: 1, runs: 1, state: "done" },
+      spec: { at: 2, runs: 1, state: "running" },
+    },
+  });
+  deepStrictEqual(stripText(stripOf(flow, false)), [
+    "brief:done:1",
+    "spec:running:1",
+    "research:pending:0",
+    "plan:pending:0",
+    "build:pending:0",
+    "review:pending:0",
+    "security:pending:0",
+    "ship:pending:0",
+  ]);
+  // Before its brief names its type, an auto flow knows only its brief.
+  deepStrictEqual(stripText(stripOf(flowOf({ type: "" }), false)), [
+    "brief:pending:0",
+  ]);
+});
+
+test("a manual flow shows every cell, lit only where launched, with how often", () => {
+  deepStrictEqual(MANUAL_CELLS, [
+    "workitem",
+    "spec",
+    "research",
+    "debug",
+    "plan",
+    "build",
+    "review",
+    "security",
+    "ship",
+  ]);
+  const flow = flowOf({
+    cells: {
+      brief: { at: 1, runs: 1, state: "done" },
+      build: { at: 3, runs: 3, state: "done" },
+      security: { at: 4, runs: 1, state: "running" },
+    },
+    mode: "manual",
+    type: "",
+  });
+  deepStrictEqual(stripText(stripOf(flow, false)), [
+    "workitem:done:1",
+    "spec:pending:0",
+    "research:pending:0",
+    "debug:pending:0",
+    "plan:pending:0",
+    "build:done:3",
+    "review:pending:0",
+    "security:running:1",
+    "ship:pending:0",
+  ]);
+});
+
+test("in manual, the work item's cell stands for its brief, reproduction and proposal", () => {
+  const flow = flowOf({
+    cells: {
+      brief: { at: 2, runs: 1, state: "running" },
+      workitem: { at: 1, runs: 1, state: "done" },
+    },
+    mode: "manual",
+    type: "bug",
+  });
+  strictEqual(stripText(stripOf(flow, false))[0], "workitem:running:1");
+  strictEqual(
+    statusOf(flow, { address: "t5", state: "live", status: "working" }).label,
+    "FORGING · WORKITEM",
+  );
+});
+
+test("an item's progress counts every pass of its steps, reviews too: a step run again adds one, a skipped one is not done", () => {
+  const flow = flowOf({
+    cells: {
+      brief: { at: 1, runs: 1, state: "done" },
+      build: { at: 5, runs: 1, state: "done" },
+      plan: { at: 4, runs: 1, state: "done" },
+      research: { at: 3, runs: 0, state: "skipped" },
+      review: { at: 6, runs: 3, state: "done" },
+      security: { at: 7, runs: 1, state: "done" },
+      spec: { at: 2, runs: 1, state: "done" },
+    },
+  });
+  deepStrictEqual(progressOf(stripOf(flow, false)), {
+    done: 8,
+    of: 10,
+    steps: [
+      "done",
+      "done",
+      "skipped",
+      "done",
+      "done",
+      "done",
+      "done",
+      "done",
+      "done",
+      "pending",
+    ],
+  });
+  // A step at work again: its earlier passes are done, the one at work is not yet.
+  const again = flowOf({
+    cells: { build: { at: 1, runs: 2, state: "running" } },
+    type: "change",
+  });
+  deepStrictEqual(progressOf(stripOf(again, false)).steps, [
+    "pending",
+    "pending",
+    "done",
+    "running",
+    "pending",
+    "pending",
+    "pending",
+  ]);
+});
+
+test("a step that will not run shows so: skipped, or never launched once the flow is over", () => {
+  const flow = flowOf({
+    cells: {
+      brief: { at: 1, runs: 1, state: "done" },
+      research: { at: 2, runs: 0, state: "skipped" },
+      ship: { at: 3, runs: 1, state: "done" },
+    },
+  });
+  deepStrictEqual(stripText(stripOf(flow, false)).slice(0, 3), [
+    "brief:done:1",
+    "spec:pending:0",
+    "research:skipped:0",
+  ]);
+  deepStrictEqual(stripText(stripOf(flow, false, true)).slice(0, 3), [
+    "brief:done:1",
+    "spec:skipped:0",
+    "research:skipped:0",
+  ]);
+});
+
+test("a finished item leaves the floor once its session ends; one left half way stays as ended", () => {
+  const main = {
+    id: "sp1",
+    name: "orders",
+    tabs: [{ id: "tb1", name: "claude" }],
+  };
+  const forges = [{ key: "/code/orders/.git", main, spaces: [main] }];
+  const shipped = { ship: { at: 9, runs: 1, state: "done" } };
+  const flows = [
+    flowOf({ cells: shipped, key: "#1", terminal: "t1" }),
+    flowOf({ cells: shipped, key: "#2", terminal: "t2" }),
+    flowOf({
+      cells: { plan: { at: 2, runs: 1, state: "done" } },
+      key: "#3",
+      terminal: "t3",
+    }),
+  ];
+  const panes = [
+    {
+      branch: "a",
+      program: { agent: true },
+      tab: "tb1",
+      terminal: "t1",
+      title: "one",
+    },
+  ];
+  const terminals = [{ address: "t1", state: "live", status: "idle" }];
+  const [{ cards }] = floorOf({
+    flows,
+    forges,
+    panes,
+    requests: [],
+    terminals,
+  });
+  deepStrictEqual(
+    cards.map((card) => [card.key, card.status.label]),
+    [
+      ["#1", "DONE"],
+      ["#3", "ENDED"],
+    ],
+  );
+});
+
+test("a step and the next a moment apart: the work item's cell takes the later one", () => {
+  const flow = flowOf({
+    cells: {
+      brief: { at: 7, runs: 1, state: "done" },
+      reproduce: { at: 7, runs: 1, state: "running" },
+      workitem: { at: 7, runs: 1, state: "done" },
+    },
+    mode: "manual",
+    type: "bug",
+  });
+  strictEqual(stripText(stripOf(flow, false))[0], "workitem:running:1");
+});
+
+test("build tasks say whether the build is at work or done; a session whose agent works for it forges", () => {
+  const main = {
+    id: "sp1",
+    name: "orders",
+    tabs: [{ id: "tb1", name: "claude" }],
+  };
+  const forges = [{ key: "/code/orders/.git", main, spaces: [main] }];
+  const tasks = { marks: ["green", "green"], of: 2 };
+  const flows = [
+    flowOf({
+      cells: { build: { at: 3, runs: 1, state: "running" } },
+      key: "#1",
+      tasks,
+      terminal: "t1",
+    }),
+    flowOf({
+      cells: {
+        build: { at: 3, runs: 1, state: "done" },
+        security: { at: 4, runs: 1, state: "running" },
+      },
+      key: "#2",
+      tasks,
+      terminal: "t2",
+    }),
+  ];
+  const panes = [
+    {
+      branch: "a",
+      program: { agent: true },
+      tab: "tb1",
+      terminal: "t1",
+      title: "one",
+    },
+    {
+      branch: "b",
+      program: { agent: true },
+      tab: "tb1",
+      terminal: "t2",
+      title: "two",
+    },
+  ];
+  const terminals = [
+    { address: "t1", state: "live", status: "working" },
+    { address: "t2", state: "live", status: "idle" },
+    {
+      address: "t3",
+      labels: {
+        "forge.agent": "forgerdr:security-auditor",
+        "forge.parent": "t2",
+      },
+      state: "live",
+      status: "working",
+    },
+  ];
+  const [{ cards }] = floorOf({
+    flows,
+    forges,
+    panes,
+    requests: [],
+    terminals,
+  });
+  deepStrictEqual(
+    cards.map((card) => [
+      card.key,
+      card.tasks?.building,
+      card.progress.done,
+      card.status.label,
+    ]),
+    [
+      ["#1", true, 0, "FORGING · BUILD"],
+      ["#2", false, 1, "FORGING · SECURITY"],
+    ],
+  );
+});
+
+test("a card's flow is done once its pipeline's last cell is, and a break mends once another cell runs", () => {
+  const live = { address: "t5", state: "live", status: "working" };
+  strictEqual(
+    statusOf(
+      flowOf({
+        cells: { comment: { at: 3, runs: 1, state: "done" } },
+        type: "content",
+      }),
+      { ...live, status: "idle" },
+    ).label,
+    "DONE",
+  );
+  strictEqual(
+    statusOf(
+      flowOf({
+        cells: {
+          debug: { at: 2, runs: 1, state: "failed" },
+          plan: { at: 3, runs: 1, state: "running" },
+        },
+        mode: "manual",
+      }),
+      live,
+    ).label,
+    "FORGING · PLAN",
+  );
+});
+
+test("a cell launched by hand in an auto flow joins its strip; review lights while a reviewer works", () => {
+  const flow = flowOf({
+    cells: {
+      debug: { at: 5, runs: 2, state: "done" },
+      review: { at: 4, runs: 2, state: "done" },
+    },
+    type: "change",
+  });
+  deepStrictEqual(stripText(stripOf(flow, true)), [
+    "spec:pending:0",
+    "plan:pending:0",
+    "build:pending:0",
+    "review:running:2",
+    "security:pending:0",
+    "ship:pending:0",
+    "debug:done:2",
+  ]);
+});
+
+test("build tasks: the one at work, red or next, of how many", () => {
+  deepStrictEqual(
+    tasksOf(
+      {
+        marks: ["green", "green", "reviewed", "green", "red"],
+        name: "restore_after_restart",
+        of: 8,
+      },
+      true,
+    ),
+    {
+      at: 5,
+      building: true,
+      marks: [
+        "green",
+        "green",
+        "reviewed",
+        "green",
+        "red",
+        "pending",
+        "pending",
+        "pending",
+      ],
+      name: "restore_after_restart",
+      of: 8,
+      red: true,
+    },
+  );
+  strictEqual(tasksOf({ marks: ["green", null, "green"], of: 3 }, true).at, 2);
+  strictEqual(tasksOf({ marks: ["green", "green"], of: 2 }, true).at, 2);
+  strictEqual(
+    tasksOf({ marks: ["green", "green"], of: 2 }, false).building,
+    false,
+  );
+  strictEqual(tasksOf(null, true), null);
+});
+
+test("a dev server's port comes from its tab", () => {
+  strictEqual(portOf([{ name: "claude" }, { name: "dev :4102" }]), 4102);
+  strictEqual(portOf([{ name: "dev server" }]), undefined);
+});
+
+test("a card says what its flow waits on first, then whether it broke, is done, has ended or forges", () => {
+  const live = (status, labels = {}) => ({
+    address: "t5",
+    labels,
+    state: "live",
+    status,
+  });
+  const gate = {
+    kind: "gate",
+    terminal: "t5",
+    tool_input: {
+      questions: [{ header: "Gate commit", options: [], question: "Commit?" }],
+    },
+  };
+  const running = flowOf({
+    cells: { plan: { at: 2, runs: 1, state: "running" } },
+  });
+  const status = (flow, terminal, request) => {
+    const { kind, label } = statusOf(flow, terminal, request);
+    return `${kind}|${label}`;
+  };
+  strictEqual(
+    status(running, live("blocked"), gate),
+    "waiting|WAITING · COMMIT GATE",
+  );
+  strictEqual(
+    status(running, live("blocked"), { ...gate, kind: "plan" }),
+    "waiting|WAITING · PLAN",
+  );
+  strictEqual(
+    status(
+      flowOf({ cells: { plan: { at: 2, runs: 1, state: "waiting" } } }),
+      live("done"),
+    ),
+    "waiting|WAITING · PLAN GATE",
+  );
+  strictEqual(status(running, live("blocked")), "waiting|WAITING");
+  strictEqual(
+    status(running, live("idle", { "forge.state": "cracked" })),
+    "cracked|CRACKED · PLAN",
+  );
+  strictEqual(
+    status(
+      flowOf({ cells: { reproduce: { at: 2, runs: 1, state: "failed" } } }),
+      live("idle"),
+    ),
+    "cracked|CRACKED · REPRODUCE",
+  );
+  const shipped = flowOf({
+    cells: { ship: { at: 9, runs: 1, state: "done" } },
+    pr: { number: 40, url: "u" },
+  });
+  strictEqual(status(shipped, undefined), "done|DONE · PR #40");
+  strictEqual(status(running, undefined), "ended|ENDED");
+  strictEqual(status(running, live("working")), "forging|FORGING · PLAN");
+  strictEqual(
+    status(
+      flowOf({ cells: { "root-cause": { at: 3, runs: 1, state: "done" } } }),
+      live("idle"),
+    ),
+    "forging|FORGING · ROOT CAUSE",
+  );
+  strictEqual(CARD_STATUS.waiting, "waiting");
+  strictEqual(FLOW_CELL.rootCause, "root-cause");
+});
+
+test("the floor: every forge in the bar's order, its cards by urgency, then its untracked sessions", () => {
+  const main = {
+    id: "sp1",
+    name: "orders",
+    tabs: [
+      { id: "tb1", name: "claude · main" },
+      { id: "tb5", name: "claude · review" },
+    ],
+  };
+  const worktree = {
+    id: "sp2",
+    name: "approval-inbox",
+    tabs: [
+      { id: "tb2", name: "claude · inbox" },
+      { id: "tb3", name: "dev :4102" },
+    ],
+  };
+  const dotfiles = {
+    id: "sp3",
+    name: "dotfiles",
+    tabs: [{ id: "tb4", name: "shell" }],
+  };
+  const forges = [
+    { key: "/code/orders/.git", main, spaces: [main, worktree] },
+    { key: "space:sp3", main: dotfiles, spaces: [dotfiles] },
+  ];
+  const agent = { agent: true };
+  const panes = [
+    {
+      branch: "main",
+      program: agent,
+      tab: "tb1",
+      terminal: "t5",
+      title: "claude · main",
+    },
+    {
+      branch: "feature/#12-approval-inbox",
+      program: agent,
+      tab: "tb2",
+      terminal: "t6",
+      title: "claude · inbox",
+    },
+    {
+      branch: null,
+      program: { agent: false },
+      tab: "tb3",
+      terminal: "t7",
+      title: "dev",
+    },
+    {
+      branch: "main",
+      program: agent,
+      tab: "tb5",
+      terminal: "t8",
+      title: "claude · review",
+    },
+    {
+      branch: null,
+      program: agent,
+      tab: "tb4",
+      terminal: "t2",
+      title: "claude · dots",
+    },
+  ];
+  const terminals = [
+    { address: "t5", state: "live", status: "working" },
+    { address: "t6", state: "live", status: "blocked" },
+    { address: "t7", state: "live", status: "idle" },
+    { address: "t8", state: "live", status: "idle" },
+    { address: "t2", state: "live", status: "idle" },
+    {
+      address: "t9",
+      labels: { "forge.agent": "forgerdr:reviewer", "forge.parent": "t5" },
+      state: "live",
+      status: "working",
+    },
+  ];
+  const flows = [
+    flowOf({
+      cells: { build: { at: 3, runs: 1, state: "running" } },
+      created: 1,
+      terminal: "t5",
+    }),
+    flowOf({
+      cells: { plan: { at: 3, runs: 1, state: "running" } },
+      created: 2,
+      key: "#12",
+      terminal: "t6",
+    }),
+    flowOf({
+      created: 3,
+      key: "#7",
+      repo: "/code/shop/.git",
+      terminal: "t40",
+      title: "lanes overflow",
+    }),
+    flowOf({ created: 4, key: "#41", terminal: "t41" }),
+    flowOf({ created: 5, key: "#42", repo: "", terminal: "t42" }),
+  ];
+  const requests = [{ kind: "permission", terminal: "t6", tool_input: {} }];
+  const floor = floorOf({ flows, forges, panes, requests, terminals });
+  deepStrictEqual(
+    floor.map((forge) => [
+      forge.key,
+      forge.name,
+      forge.cards.map((card) => card.key),
+      forge.untracked.map((one) => one.terminal),
+    ]),
+    [
+      ["/code/orders/.git", "orders", ["#12", "#15", "#41"], ["t8"]],
+      ["space:sp3", "dotfiles", [], ["t2"]],
+      ["/code/shop/.git", "shop", ["#7"], []],
+      ["elsewhere", "elsewhere", ["#42"], []],
+    ],
+  );
+  const [waiting, forging] = floor[0].cards;
+  deepStrictEqual(
+    [waiting.status.label, waiting.branch, waiting.port],
+    ["WAITING · PERMISSION", "feature/#12-approval-inbox", 4102],
+  );
+  deepStrictEqual(
+    [forging.status.label, forging.branch, forging.port],
+    ["FORGING · BUILD", "main", undefined],
+  );
+  strictEqual(
+    forging.strip.find((cell) => cell.cell === "review").state,
+    "running",
+  );
+  deepStrictEqual(floor[0].untracked[0], {
+    space: "orders",
+    status: "idle",
+    terminal: "t8",
+    title: "claude · review",
+  });
+  deepStrictEqual(floor[0].counts, {
+    cracked: 0,
+    done: 0,
+    forging: 1,
+    waiting: 1,
+  });
+  deepStrictEqual(floorCounts(floor), {
+    cracked: 0,
+    done: 0,
+    forging: 1,
+    waiting: 1,
+  });
+  strictEqual(floor[2].cards[0].status.kind, "ended");
+  strictEqual(floorMood(floor[0].counts), "needs");
+  strictEqual(
+    floorMood({ cracked: 1, done: 1, forging: 1, waiting: 0 }),
+    "error",
+  );
+  strictEqual(
+    floorMood({ cracked: 0, done: 0, forging: 0, waiting: 0 }),
+    "idle",
+  );
 });

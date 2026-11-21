@@ -2,8 +2,9 @@
 // drawer shows: its block in the layout, which the top bar's INBOX and forgerdr.inbox toggle, with the state in shared
 // so the drawer knows when it opened. The requests are hooks/inbox.sh's (forge_inbox_dir); the format is tested from
 // bash (test/inbox.test.sh).
-import { exec, home, run, setShared, shared, watchFolder } from "herdr";
+import { exec, home, run, setShared, shared } from "herdr";
 import { ROOT } from "../name.js";
+import { followFolder } from "./follow.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Task} Task */
@@ -12,8 +13,6 @@ import { ROOT } from "../name.js";
 
 const SCRIPT = `${ROOT}/bin/forge-inbox.sh`;
 const TIMEOUT = 10_000;
-// Before the folder exists, or while a watch cannot start, the list is read again this often.
-const RETRY = 5000;
 const OPEN_KEY = "forgerdr.inbox.open";
 
 // The drawer's block in herdr/layouts/forgerdr.json.
@@ -59,31 +58,17 @@ export const answerInbox = async (id, answer) => {
 };
 
 /**
- * Reads the inbox now and again on every change in its folder, handing each read to `take`, until the copy closes. The
- * watch starts before the read, so a change between them is not missed. A read that fails is logged and the last good
- * one stands.
+ * Reads the inbox now and again on every change in its folder, handing each read to `take`, until the copy closes.
  * @param {AsyncContext} cx
  * @param {(requests: InboxRequest[]) => void} take
  * @returns {Task}
  */
 export const followInbox = (cx, take) =>
-  cx.spawn(async (cx) => {
-    for (;;) {
-      const watch = watchFolder(folder());
-      try {
-        take(await readInbox());
-        cx.notify();
-      } catch (error) {
-        console.error("forgerdr inbox: the requests could not be read", error);
-      }
-      try {
-        await watch;
-      } catch (error) {
-        console.error("forgerdr inbox: the folder could not be watched", error);
-        await cx.sleep(RETRY);
-      }
-    }
-  });
+  followFolder(
+    cx,
+    { folder: folder(), read: readInbox, what: "the inbox" },
+    take,
+  );
 
 export const inboxOpen = () => shared(OPEN_KEY) === true;
 

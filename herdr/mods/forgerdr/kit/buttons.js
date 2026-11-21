@@ -156,6 +156,28 @@ export const inboxButton = (count) => {
 };
 
 /**
+ * The forge floor: how many items wait on the human, quiet when none does.
+ * @param {number} waiting
+ */
+export const floorButton = (waiting) => {
+  const k = tokens();
+  const colour = waiting > 0 ? k.needs : k.muted;
+  return h_flex()
+    .flex_none()
+    .items_center()
+    .gap(8)
+    .px(10)
+    .py(6)
+    .bg(k.bg2)
+    .border(2)
+    .border_color(k.line)
+    .child(icon(ICON.board, colour))
+    .child(
+      text(waiting > 0 ? `FLOOR ${waiting}` : "FLOOR", "display", 11, colour),
+    );
+};
+
+/**
  * A new Herdr is ready: a click restarts into it.
  * @param {string} version
  */

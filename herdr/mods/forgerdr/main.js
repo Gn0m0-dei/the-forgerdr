@@ -4,6 +4,7 @@
 import { div, View } from "gpui-kit";
 import { props } from "herdr";
 import { empty } from "./roles/empty.js";
+import { floor } from "./roles/floor.js";
 import { forgeMenu } from "./roles/forge-menu.js";
 import { gallery } from "./roles/gallery.js";
 import { gnomeDialog } from "./roles/gnome.js";
@@ -33,6 +34,7 @@ const readProps = props;
 /** @type {Record<string, (cx: AsyncContext) => Role>} */
 const ROLES = {
   empty,
+  floor,
   "forge-menu": forgeMenu,
   gallery,
   gnome: gnomeDialog,

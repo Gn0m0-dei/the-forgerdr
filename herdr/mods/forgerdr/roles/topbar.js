@@ -1,6 +1,7 @@
 // The window's top bar (design 04): a forge tab per repository (its main checkout and its worktrees, which the sidebar
 // lists; a space outside git is a forge of its own) with its gnome and what its golems do, the tab that opens a space,
-// the inbox of what waits on the human, which opens its drawer (roles/inbox.js), and the command palette. The bar
+// the forge floor, which opens over the window (roles/floor.js), the inbox of what waits on the human, which opens its
+// drawer (roles/inbox.js), and the command palette. The bar
 // drags the window; its controls do not.
 // A forge tab does what the app's own space list does, on the space it shows (the open one, else the last one shown,
 // else its main checkout's): a click shows it, its ✕ or a middle click closes it (the app confirms), and a right click
@@ -9,7 +10,8 @@
 // moves its spaces there together. When the tabs do not fit, the strip scrolls under the trackpad and with the arrows
 // beside it. The bar, always shown, also sounds the crack of a golem an API error breaks (bridges/sounds.js).
 import { h_flex, ScrollHandle } from "gpui-base";
-import { agents, checking, keys, nextCommand, run, spaces } from "herdr";
+import { agents, checking, keys, nextCommand, panes, run, spaces } from "herdr";
+import { followFlows } from "../bridges/flows.js";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { followInbox, toggleInbox } from "../bridges/inbox.js";
@@ -19,6 +21,7 @@ import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
 import { playCracked } from "../bridges/sounds.js";
 import { readTerminals } from "../bridges/terminals.js";
+import { floorCounts, floorOf } from "../floor.js";
 import {
   crackedOf,
   forgeMoves,
@@ -30,12 +33,13 @@ import {
 import { keyLabel } from "../format.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
 import { cardsOf, quietAfter, quietNow } from "../inbox.js";
-import { inboxButton, paletteHint } from "../kit/buttons.js";
+import { floorButton, inboxButton, paletteHint } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, iconButton } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
 import { scrollTarget, stripState } from "../strip.js";
+import { openFloor } from "./floor.js";
 import {
   newWorktreeOn,
   openForgeMenu,
@@ -68,10 +72,11 @@ export const topbar = (cx) => {
   const strip = ScrollHandle.new();
   // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on,
   // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown,
-  // forgerdr.mode its mode, forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs, and forgerdr.inbox
-  // opens or closes the inbox's drawer.
+  // forgerdr.mode its mode, forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs, forgerdr.inbox
+  // opens or closes the inbox's drawer and forgerdr.floor opens the forge floor.
   /** @type {Readonly<Record<string, () => void>>} */
   const handlers = Object.freeze({
+    floor: openFloor,
     inbox: toggleInbox,
     lanes: toggleLanes,
     mode: () => modeShown(),
@@ -103,6 +108,14 @@ export const topbar = (cx) => {
     : followInbox(cx, (read) => {
         quiet = quietAfter(quiet, requests, read, Date.now());
         requests = read;
+      });
+  // The flows of the items the sessions work (bin/forge-flow.sh), which FLOOR counts by what waits on the human.
+  /** @type {import("../floor.js").Flow[]} */
+  let flows = [];
+  const flowing = checking()
+    ? null
+    : followFlows(cx, (read) => {
+        flows = read;
       });
   const cracks = checking()
     ? null
@@ -310,6 +323,15 @@ export const topbar = (cx) => {
       quiet: quietNow(quiet, Date.now()),
     }).length;
     const palette = keys().find((binding) => binding.action === "app.palette");
+    const floorWaiting = floorCounts(
+      floorOf({
+        flows,
+        forges,
+        panes: panes(),
+        requests,
+        terminals: readTerminals(),
+      }),
+    ).waiting;
     const order = [...forges.map((forge) => forge.key), ADD_TAB];
     const activeAt = forges.findIndex((forge) =>
       forge.spaces.some((space) => space.active),
@@ -401,6 +423,7 @@ export const topbar = (cx) => {
           .h_full()
           .items_center()
           .gap(8)
+          .child(control(floorButton(floorWaiting), "floor", openFloor))
           .child(control(inboxButton(waiting), "inbox", () => toggleInbox()))
           .when(palette !== undefined, (el) =>
             el.child(
@@ -416,6 +439,7 @@ export const topbar = (cx) => {
     close: () => {
       commands?.cancel();
       cracks?.cancel();
+      flowing?.cancel();
       inbox?.cancel();
       strip.release();
     },

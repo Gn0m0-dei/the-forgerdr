@@ -3,6 +3,14 @@
 //   herdr-app do tab.new --name gallery --mod forgerdr-dev --props '{"role":"gallery"}'
 import { h_flex, v_flex } from "gpui-base";
 import {
+  FLOW_CELL,
+  FLOW_MODE,
+  FLOW_TYPE,
+  STRIP_STATE,
+  TASK_CELL,
+} from "../floor.js";
+import {
+  floorButton,
   inboxButton,
   KEY_BUTTON,
   kbdHint,
@@ -12,6 +20,15 @@ import {
   updateChip,
 } from "../kit/buttons.js";
 import { agentChip, profileSwitch, statusChip } from "../kit/chips.js";
+import {
+  cardFrame,
+  flowTags,
+  forgeHeader,
+  forgeSection,
+  progressRow,
+  stageCell,
+  untrackedRow,
+} from "../kit/floor.js";
 import { heatMeter, steppedBar } from "../kit/meters.js";
 import { SIGN, sign } from "../kit/motion.js";
 import {
@@ -128,6 +145,8 @@ const actions = () =>
       kbdHint("⌘"),
       inboxButton(2),
       inboxButton(0),
+      floorButton(1),
+      floorButton(0),
       paletteHint(),
     ]),
   ]);
@@ -326,6 +345,79 @@ const icons = () =>
     ),
   ]);
 
+// Every state a cell of the floor's strip can show, and a count.
+/** @type {import("../floor.js").StripCell[]} */
+const FLOOR_STRIP = [
+  { cell: FLOW_CELL.workitem, runs: 1, state: STRIP_STATE.done },
+  { cell: FLOW_CELL.spec, runs: 0, state: STRIP_STATE.pending },
+  { cell: FLOW_CELL.plan, runs: 1, state: STRIP_STATE.waiting },
+  { cell: FLOW_CELL.build, runs: 2, state: STRIP_STATE.running },
+  { cell: FLOW_CELL.review, runs: 3, state: STRIP_STATE.done },
+  { cell: FLOW_CELL.security, runs: 1, state: STRIP_STATE.failed },
+  { cell: FLOW_CELL.ship, runs: 0, state: STRIP_STATE.skipped },
+];
+
+const floorPieces = () =>
+  section("FORGE FLOOR", [
+    forgeSection(
+      forgeHeader({
+        brother: "Brother Anvilbeard",
+        counts: { cracked: 1, done: 1, forging: 2, waiting: 2 },
+        forge: "orders",
+        look: { colour: "crimson", mood: MOOD.needs },
+        open: true,
+      }),
+      [
+        untrackedRow({
+          space: "orders",
+          status: "idle",
+          title: "claude · docs",
+        }),
+      ],
+      true,
+    ),
+    cardFrame([
+      h_flex()
+        .gap(10)
+        .child(text("#18 session restore after reboot", "ui", 15, tokens().fg))
+        .child(flowTags(FLOW_TYPE.feature, FLOW_MODE.manual)),
+      h_flex().gap(6).children(FLOOR_STRIP.map(stageCell)),
+      progressRow(
+        {
+          done: 4,
+          of: 7,
+          steps: [
+            STRIP_STATE.done,
+            STRIP_STATE.done,
+            STRIP_STATE.skipped,
+            STRIP_STATE.done,
+            STRIP_STATE.running,
+            STRIP_STATE.pending,
+            STRIP_STATE.pending,
+          ],
+        },
+        {
+          at: 5,
+          building: true,
+          marks: [
+            TASK_CELL.reviewed,
+            TASK_CELL.reviewed,
+            TASK_CELL.green,
+            TASK_CELL.green,
+            TASK_CELL.red,
+            TASK_CELL.pending,
+            TASK_CELL.pending,
+            TASK_CELL.pending,
+          ],
+          name: "restore_reattaches_after_daemon_restart",
+          of: 8,
+          red: true,
+        },
+      ),
+    ]),
+    untrackedRow({ space: "dotfiles", status: "idle", title: "shell" }),
+  ]);
+
 const page = () =>
   v_flex()
     .id("gallery")
@@ -339,6 +431,7 @@ const page = () =>
     .child(statusAndMeters())
     .child(navigation())
     .child(containers())
+    .child(floorPieces())
     .child(sprites())
     .child(icons());
 
