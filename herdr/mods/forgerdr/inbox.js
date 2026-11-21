@@ -81,6 +81,7 @@ export const PLAN_MODE = Object.freeze({ auto: "auto", manual: "default" });
  * @property {string} terminal the herdr terminal its session runs in
  * @property {string} session_id
  * @property {string} agent_type the subagent asking, when one inside the session does
+ * @property {string} agent_id that subagent's id: empty when the session's main thread asks
  * @property {string} cwd
  * @property {string} tool_name
  * @property {ToolInput} tool_input
