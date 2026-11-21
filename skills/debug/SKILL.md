@@ -7,6 +7,8 @@ description: "Systematic debugging of any bug, failing test, build failure or un
 
 No fix without a root cause. A symptom fix is a failure, and "just this once" is the moment the rule exists for.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `debug` cell, or `root-cause` inside a bug's auto flow: `stage <cell> running` as it starts, `done` with the root cause, `failed` after three failed hypotheses.
+
 ## Phase 1: investigate
 
 1. Read the error in full: message, stack trace, line numbers, codes. It often names the cause.

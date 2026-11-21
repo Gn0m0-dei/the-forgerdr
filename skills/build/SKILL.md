@@ -7,6 +7,8 @@ description: "Executes an approved plan task by task with test-driven developmen
 
 The plan already did the thinking. Execute it exactly, prove every step with a test you watched fail and then pass, and leave a record that survives compaction.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `build` cell (`fix` for a bug's fix inside `/forgerdr:workitem`): `stage <cell> running` as it starts and `done` after the final review, and each task's marks: `task <n> <of> red <test name>` when its test fails for the stated reason, `green` when the suite passes, `reviewed` once its review is over.
+
 Input: the approved plan, wherever the spec mode keeps it (conversation and todos, `tasks.md`, or the child work items). Without one, a bounded change executes its approved in-chat design with the same discipline, task-sized.
 
 ## Setup

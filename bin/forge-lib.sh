@@ -623,6 +623,12 @@ forge_inbox_dir() {
   printf '%s\n' "${FORGE_INBOX_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/inbox}"
 }
 
+# The forge floor's flows: one file per herdr terminal, <terminal>.json, the flow of the item its session works, which
+# bin/forge-flow.sh keeps and the forgerdr mod lists. FORGE_FLOWS_DIR moves it.
+forge_flows_dir() {
+  printf '%s\n' "${FORGE_FLOWS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/flows}"
+}
+
 # Opens a worktree as a herdr app space that does not take the focus: named, its first tab named when a name is given,
 # running the argv given as JSON or a shell. Records it and prints what herdr-app made: {"space", "tab", "terminal"}.
 forge_open_space() {

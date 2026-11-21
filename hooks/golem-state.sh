@@ -6,7 +6,8 @@
 #   rest   Stop: forge.stopped=<now, ms>.
 #   mend   UserPromptSubmit: a task starts (forge.started=<now, ms>); the cracked mark and the stop go.
 #   born   SessionStart: mends it, and ties an agent's golem to the session that dispatched it (forge.parent, from
-#          FORGE_PARENT_TERMINAL, which hooks/agent-dispatch.sh sets), so the lanes and the sidebar list it under it.
+#          FORGE_PARENT_TERMINAL, which hooks/agent-dispatch.sh sets), so the lanes and the sidebar list it under it,
+#          saying what agent it is (forge.agent, from FORGE_AGENT_TYPE), so the forge floor lights its review cell.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
@@ -28,6 +29,7 @@ case "${1:-}" in
     forge_hc label "$terminal" forge.state= forge.error= forge.stopped= "forge.started=$now_ms" >/dev/null 2>&1 || true ;;
   born)
     forge_hc label "$terminal" forge.state= forge.error= forge.stopped= "forge.started=$now_ms" \
-      ${FORGE_PARENT_TERMINAL:+"forge.parent=$FORGE_PARENT_TERMINAL"} >/dev/null 2>&1 || true ;;
+      ${FORGE_PARENT_TERMINAL:+"forge.parent=$FORGE_PARENT_TERMINAL"} ${FORGE_AGENT_TYPE:+"forge.agent=$FORGE_AGENT_TYPE"} \
+      >/dev/null 2>&1 || true ;;
   *) forge_die "usage: golem-state.sh crack|rest|mend|born" ;;
 esac

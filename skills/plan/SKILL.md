@@ -7,6 +7,8 @@ description: "Writes an implementation plan from an approved spec, as bite-sized
 
 Write the plan for an engineer who has not seen this codebase or this spec. They write idiomatic code once they know the exact interface and the exact test; what they cannot know is what you decided. Document that.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `plan` cell: `stage plan running` as it starts, `waiting` at the approval, `done` once approved.
+
 Input: the approved design, wherever the spec mode keeps it: the conversation (`chat`), the change (`openspec`), the Feature and its backlog items (`azure`). Without an approval, stop and go through `/forgerdr:spec`.
 
 ## Scope

@@ -7,6 +7,8 @@ description: "Security review of a change or a module before it ships: runs the 
 
 A security defect is a blocker, never a nit. The audit is read-only and delegated; the fix is yours and gated.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `security` cell: `stage security running` as it starts, `waiting` at the triage, `done` once the picked fixes are in. The auditor and the verifiers count on the `review` cell by themselves.
+
 ## Scope
 
 Default: the branch diff (`git diff origin/<base>...HEAD`). The user can name a directory or the whole repository. Add the trust boundaries the project documents (README, architecture notes, routes, handlers, CLI entry points) so the auditor knows where the outside comes in.

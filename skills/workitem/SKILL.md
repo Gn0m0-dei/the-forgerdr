@@ -36,6 +36,8 @@ Manual by default. `--auto` in the arguments switches to the auto flow for this 
   - **OpenSpec change**: from its stage (items reference) to the end of the pipeline: `spec` continuing the change → `plan` → `build` → `security` auditor on the branch diff → `ship`.
   Announce each stage in one line as it starts. A stage that finds nothing to do says so and moves on.
 
+Report the flow to the forge floor as `${CLAUDE_PLUGIN_ROOT}/references/flows.md` says: `start` once the item is classified, after the brief; in the auto flow, each stage of its pipeline as it starts, waits at a gate and ends; in both flows, the cells this skill runs itself (brief, reproduce, root cause, proposal, fix, verdict, comment).
+
 In the manual flow, an OpenSpec change stops after the brief and names the command of its stage.
 
 ## Gates

@@ -153,8 +153,12 @@ expect "named as an agent" yes "$([[ "$(printf '%s' "$run" | option_of --name)" 
 expect "and the user finds it in the Agents sidebar" yes "$(contains "$(in_sub call general-purpose | jq -r '.hookSpecificOutput.permissionDecisionReason')" "Agents sidebar")"
 
 fresh
+flows="$XDG_STATE_HOME/forgerdr/flows"
+HC_TERMINAL_ID=t5 bash "$root/bin/forge-flow.sh" launch build
 in_herdr decision forgerdr:reviewer >/dev/null
 line="$(claude_line)"
+expect "a reviewer counts on the forge floor's review cell" 1 "$(jq .cells.review.runs "$flows/t5.json")"
+expect "and its golem knows what agent it is" yes "$(started | has_arg "FORGE_AGENT_TYPE=forgerdr:reviewer")"
 expect "reviewer gets its definition in a file" yes "$(grep -q "You review a diff" "$(printf '%s' "$line" | sed -nE 's/.*--append-system-prompt-file ([^ ]+).*/\1/p')" && echo yes)"
 expect "reviewer keeps its tool list" yes "$(contains "$line" "--tools Read,Grep,Glob,Bash,SendMessage,ToolSearch")"
 expect "reviewer gets no MCP servers" yes "$(contains "$line" "--strict-mcp-config")"
@@ -302,10 +306,12 @@ expect "as a task that says where to report" yes \
   "$(contains "$(printf '%s' "$routed" | jq -r .hookSpecificOutput.updatedInput.message)" 'beginning with the line "Report from agent-done (Re-review task 1)"')"
 expect "keeping the rest of the call" "Re-review task 1" "$(printf '%s' "$routed" | jq -r .hookSpecificOutput.updatedInput.summary)"
 expect "its record names the new task" "working|Re-review task 1" "$(jq -r '[.state, .title] | join("|")' "$state/s1.agents/agent-done.json")"
+expect "a reviewer given another task counts again" 2 "$(jq .cells.review.runs "$flows/t5.json")"
 answer="$(send agent-done "Use the main branch")"
 expect "to an agent still on its task, a message goes as it is" "uds:/tmp/cc-socks/77.sock|Check the fixes." \
   "$(printf '%s' "$answer" | jq -r '[.hookSpecificOutput.updatedInput.to, .hookSpecificOutput.updatedInput.message] | join("|")')"
 expect "and its task keeps its name" "Re-review task 1" "$(jq -r .title "$state/s1.agents/agent-done.json")"
+expect "an answer to a reviewer on its task is no new review" 2 "$(jq .cells.review.runs "$flows/t5.json")"
 
 closed="$state/s1.agents/agent-gone.json"
 jq -n --arg dir "$sandbox" '{name:"agent-gone",type:"general-purpose",title:"Fix task 1",state:"done",terminal:"t-gone",workdir:$dir,
@@ -321,6 +327,12 @@ expect "in a tab of agents" "p-t21 right" "$(splits)"
 expect "resuming its Claude session with its own arguments" yes "$(contains "$(claude_line)" "claude --model m1 --resume sess-9")"
 expect "with the message as its task" yes "$(contains "$(claude_line)" 'Task from the Claude session that dispatched you (general-purpose agent agent-gone, "Second fix pass")')"
 expect "and the sweep knows its terminal" yes "$(grep -q "^t40	agent-gone$" "$state/s1.terminals" && echo yes)"
+jq -n --arg dir "$sandbox" '{name:"agent-rgone",type:"forgerdr:reviewer",title:"Review task 2",state:"done",terminal:"t-rgone",
+  workdir:$dir,worktree:"",note:"",claude_session:"sess-8",socket:"/tmp/cc-socks/79.sock",args:[]}' > "$state/s1.agents/agent-rgone.json"
+fake_terminal t-rgone finished
+fresh
+send agent-rgone "Re-review task 2" >/dev/null
+expect "a reviewer reopened counts once" 3 "$(jq .cells.review.runs "$flows/t5.json")"
 jq '.claude_session = "" | .terminal = "t-gone"' "$closed" > "$closed.tmp" && mv "$closed.tmp" "$closed"
 expect "an agent with no session to resume is not reopened" yes \
   "$(contains "$(send agent-gone "Third pass" | jq -r .hookSpecificOutput.permissionDecisionReason)" "could not be reopened")"

@@ -175,6 +175,10 @@ place_pane() {
 
 input="$(cat)"
 session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
+# A reviewing agent counts on the forge floor's review cell (bin/forge-flow.sh), wherever it ends up running; one
+# reopened was counted by hooks/agent-message.sh.
+[ -n "$resume_agent" ] ||
+  "$plugin_root/bin/forge-flow.sh" review "$(printf '%s' "$input" | jq -r '.tool_input.subagent_type // empty')" || true
 forge_in_herdr || in_process "not inside the herdr app"
 mkdir -p "$state_dir"
 exec 2>>"$state_dir/dispatch.log"
@@ -303,9 +307,10 @@ printf '%s\0' ${claude_args[@]+"${claude_args[@]}"} | jq -Rs --arg name "$agent"
 message="$(forge_agent_task "$type" "$agent" "$title" "$prompt" "uds:$CLAUDE_CODE_MESSAGING_SOCKET" "$note")"
 extra=()
 read -r -a extra <<<"${FORGE_CLAUDE_ARGS:-}"
-# FORGE_PARENT_TERMINAL ties the agent's golem to this session (hooks/golem-state.sh born labels its terminal).
+# FORGE_PARENT_TERMINAL ties the agent's golem to this session and FORGE_AGENT_TYPE says what agent it is
+# (hooks/golem-state.sh born labels its terminal with both).
 command=(env "FORGE_SESSION_TITLE=$title" "FORGE_REPORT_TO=uds:$CLAUDE_CODE_MESSAGING_SOCKET" "FORGE_AGENT_RECORD=$record"
-  "FORGE_PARENT_TERMINAL=${HC_TERMINAL_ID:-}"
+  "FORGE_PARENT_TERMINAL=${HC_TERMINAL_ID:-}" "FORGE_AGENT_TYPE=$type"
   claude ${extra[@]+"${extra[@]}"} ${claude_args[@]+"${claude_args[@]}"} ${claude_session:+--resume "$claude_session"} "$message")
 if [ -n "$own_tab" ]; then
   placed=""

@@ -7,6 +7,8 @@ description: "Produces a cited research report on a topic, a technology choice o
 
 The output is a decision aid with sources, not an opinion from memory.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `research` cell: `stage research running`, then `done`; `skipped` when no choice has real alternatives.
+
 ## Plan
 
 One or two clarifying questions when the goal is unclear: learning, deciding, or writing something; the angle. "Just research it": proceed with defaults. Split the topic into three to five sub-questions that, answered, settle it. Library and API questions include the exact versions in play (`package.json`, lockfiles, `pyproject.toml`).

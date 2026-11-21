@@ -7,6 +7,8 @@ description: "Turns an idea into an approved design before any code: classifies 
 
 Nothing is built before the user approves a design. Scale the artifact to the request, never the gate.
 
+On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `spec` cell: `stage spec running` as it starts, `waiting` at its gate, `done` once the design is approved.
+
 ## Classify, out loud
 
 Say the classification before the first question so the user can override it:

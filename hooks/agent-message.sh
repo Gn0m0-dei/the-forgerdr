@@ -22,8 +22,14 @@ to="$(printf '%s' "$input" | jq -r '.tool_input.to // empty')"
 record="$state_dir/$session.agents/$to.json"
 [ -n "$session" ] && [ -f "$record" ] || exit 0
 
+# A reviewing agent given another task counts again on the forge floor's review cell (bin/forge-flow.sh).
+review_again() {
+  "$plugin_root/bin/forge-flow.sh" review "$(jq -r .type "$record")" || true
+}
+
 terminal="$(jq -r '.terminal // empty' "$record")"
 if [ -z "$terminal" ] || [ "$(forge_hc get "$terminal" --json 2>/dev/null | jq -r '.state // empty')" != live ]; then
+  review_again
   printf '%s' "$input" | FORGE_RESUME_AGENT="$to" "$plugin_root/hooks/agent-dispatch.sh"
   exit 0
 fi
@@ -37,6 +43,7 @@ fi
 # To a done agent the message is a new task, named by its summary; to one still on its task, part of that task.
 message="$(printf '%s' "$input" | jq -r '.tool_input.message // empty')"
 if [ "$(jq -r .state "$record")" = "done" ]; then
+  review_again
   forge_agent_mark "$record" working "$(printf '%s' "$input" | jq -r '.tool_input.summary // empty | gsub("[[:cntrl:]]+"; " ")')"
   message="$(forge_agent_task "$(jq -r .type "$record")" "$to" "$(jq -r .title "$record")" "$message" \
     "uds:$CLAUDE_CODE_MESSAGING_SOCKET" "$(jq -r '.note // empty' "$record")")"

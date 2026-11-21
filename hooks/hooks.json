@@ -193,6 +193,11 @@
           {
             "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/golem-state.sh\" mend",
             "type": "command"
+          },
+          {
+            "command": "\"${CLAUDE_PLUGIN_ROOT}/hooks/flow.sh\" prompt",
+            "timeout": 10,
+            "type": "command"
           }
         ]
       },

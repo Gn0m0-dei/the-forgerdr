@@ -11,7 +11,7 @@ trap 'rm -rf "$sandbox"' EXIT
 . "$root/test/fakes.sh"
 fakes_install "$sandbox"
 # A session dispatched by another runs with its dispatcher's terminal; the hook must not see it here.
-unset FORGE_PARENT_TERMINAL
+unset FORGE_PARENT_TERMINAL FORGE_AGENT_TYPE
 
 failures=0
 expect() {
@@ -34,6 +34,8 @@ expect "writing to it again mends it and starts a task" '["hc","label","t7","for
 
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t8 FORGE_PARENT_TERMINAL=t5 bash "$hook" born
 expect "a dispatched agent's golem is tied to its session" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.parent=t5"]' "$(calls)"
+printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t8 FORGE_PARENT_TERMINAL=t5 FORGE_AGENT_TYPE=forgerdr:reviewer bash "$hook" born
+expect "and says what agent it is" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.parent=t5","forge.agent=forgerdr:reviewer"]' "$(calls)"
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t5 bash "$hook" born
 expect "a session of its own only mends" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>"]' "$(calls)"
 
