@@ -82,9 +82,10 @@ export const gnomeHeader = ({
 }) => {
   const k = tokens();
   const colour = toneColour(tone);
+  // The sign is 16 px wide and stands out 12 px past the gnome: 18 px of gap leave the text 6 px of air.
   const gnomeRow = h_flex()
     .items_center()
-    .gap(12)
+    .gap(18)
     .child(
       div()
         .relative()

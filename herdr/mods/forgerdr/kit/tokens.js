@@ -50,12 +50,15 @@ export const TONE = Object.freeze({
 export const tokens = () => {
   // The app gives every theme colour as #rrggbb, the form its elements take.
   const t = /** @type {Record<string, Color>} */ (theme());
+  // Three levels of grey under everything: bg0 the shelf (the top bar, behind cards), chrome the open forge's frame,
+  // bg1 the terminals'.
   return {
     accent: t.accent,
     bg0: t.canvas,
     bg1: t.background,
     bg2: t.surface,
     bg3: t.raised,
+    chrome: t.chrome,
     done: t.done,
     failed: t.ansi1,
     fg: t.foreground,

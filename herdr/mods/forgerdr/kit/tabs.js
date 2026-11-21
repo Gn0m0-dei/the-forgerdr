@@ -21,7 +21,7 @@ import { BRAND, NONE, TONE, tokens, toneColour } from "./tokens.js";
  */
 
 /**
- * The active forge sits on the window, with an ember along its top.
+ * The active forge sits on its forge's frame, in the frame's colour, with an ember along its top.
  * @param {ForgeTabProps} props
  */
 export const forgeTab = ({
@@ -39,7 +39,7 @@ export const forgeTab = ({
     .gap(8)
     .px(14)
     .h(36)
-    .bg(active ? k.bg1 : k.bg0)
+    .bg(active ? k.chrome : k.bg0)
     .border_t(2)
     .border_l(2)
     .border_r(2)

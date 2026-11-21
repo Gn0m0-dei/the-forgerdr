@@ -367,7 +367,7 @@ export const sidebar = (cx) => {
     const root = v_flex()
       .id("sidebar")
       .size_full()
-      .bg(k.bg1)
+      .bg(k.chrome)
       .on_size_change((size, cx) => {
         if (width === size.width) return;
         width = size.width;

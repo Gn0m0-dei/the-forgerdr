@@ -57,6 +57,7 @@
           "type": "column"
         },
         {
+          "background": "chrome",
           "children": [
             {
               "content": {
@@ -184,7 +185,7 @@
               },
               "id": "status",
               "size": {
-                "px": 28
+                "px": 33
               },
               "type": "block"
             }

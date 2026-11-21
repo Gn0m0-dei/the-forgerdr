@@ -127,7 +127,7 @@ export const statusbar = (cx) => {
       .items_center()
       .gap(16)
       .px(14)
-      .bg(k.bg0)
+      .bg(k.chrome)
       .border_t(2)
       .border_color(k.line)
       .child(control(profileSwitch(["OAuth"], 0), "profile", openHeat))

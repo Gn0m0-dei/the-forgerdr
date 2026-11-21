@@ -23,7 +23,7 @@ export const empty = () => ({
       .size_full()
       .items_center()
       .justify_center()
-      .bg(tokens().bg0)
+      .bg(tokens().chrome)
       .child(
         emptyState({
           action: control(

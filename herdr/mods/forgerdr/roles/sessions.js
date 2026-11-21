@@ -297,7 +297,7 @@ export const sessions = (cx) => {
       .items_end()
       .gap(8)
       .px(10)
-      .bg(k.bg0)
+      .bg(k.chrome)
       .border_b(2)
       .border_color(k.line)
       .on_mouse_up("left", (_event, cx) => endDrag(cx))

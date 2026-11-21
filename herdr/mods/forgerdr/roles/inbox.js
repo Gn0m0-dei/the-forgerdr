@@ -1216,7 +1216,7 @@ export const inbox = (cx) => {
     return v_flex()
       .id("inbox")
       .size_full()
-      .bg(k.bg1)
+      .bg(k.chrome)
       .border_l(2)
       .border_color(k.line)
       .child(header)

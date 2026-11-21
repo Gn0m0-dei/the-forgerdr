@@ -116,7 +116,7 @@ export const lanes = (cx) => {
     const root = v_flex()
       .id("lanes")
       .size_full()
-      .bg(k.bg0)
+      .bg(k.chrome)
       .border_t(2)
       .border_color(k.line);
     if (!open) {

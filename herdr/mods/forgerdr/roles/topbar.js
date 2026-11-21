@@ -315,6 +315,7 @@ export const topbar = (cx) => {
 
   /** @param {Context} _cx */
   const render = (_cx) => {
+    const k = tokens();
     const all = spaces();
     const forges = groupForges(all, readSpacesGit());
     const everyone = readAgents();
@@ -358,6 +359,8 @@ export const topbar = (cx) => {
           if (target !== null) reveal(order, target);
         },
       );
+    // The line under the bar closes the forge's frame from above: the active forge tab sits on it, in the frame's
+    // colour, as the active session tab sits on the session bar's.
     return h_flex()
       .id("topbar")
       .size_full()
@@ -365,7 +368,9 @@ export const topbar = (cx) => {
       .gap(12)
       .pl(WINDOW_BUTTONS)
       .pr(16)
-      .bg(tokens().bg0)
+      .bg(k.bg0)
+      .border_b(2)
+      .border_color(k.line)
       .on_mouse_up("left", (_event, cx) => {
         drag.from = null;
         drag.over = null;
