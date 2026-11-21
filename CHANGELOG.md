@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- `hooks/inbox.sh stop`, on Claude Code's `Stop`: inside the herdr app, a turn whose final message asks a question typed in the chat (outside fenced code, inline code and links), which no inbox sees, is sent back once to ask it with `AskUserQuestion`. An agent forgerdr dispatched asks the session that dispatched it instead.
+- `Gate item`: creating a work item or writing any of its fields is a gate that leaves the machine, asked like the others.
+
+### Changed
+
+- Whatever a session needs from the user is asked with `AskUserQuestion`, so it reaches the herdr app's inbox, the gates of understanding too: a verdict, a proposal, a design or a plan is written in the chat and its approval asked under a `Verdict`, `Proposal`, `Design` or `Plan` header. A `! <command>` the work waits on is told in a plain line, and a `/rename` hint is a passing line. The skills and references follow `rules/standards.md`.
+- The forge floor names a gate of understanding from its question's header (`WAITING · PLAN GATE`) instead of `WAITING · QUESTION`.
+- The forgerdr layout gives the open forge a frame of its own grey: forge-night's canvas (`#111015`) is the shelf under the forge tabs, chrome (`#18171c`) the open forge's frame (the sidebar, the session bar, the room around the panes, the golem lanes, the status bar, the inbox drawer and the active forge tab), and background stays the terminals'. A line under the top bar closes the sidebar and the inbox from above, and the active forge tab sits on it. The status bar is 33 px tall, so the folded golem lanes' top line meets the sidebar footer's, and the sign beside the sidebar's gnome leaves room before the forge's name.
+- In the inbox, no card opens while a stamp shows: the next one opens as the stamped card goes.
+
+### Fixed
+
+- The inbox's stamp was centred on the whole card, out of sight on a long card answered at its buttons. It now lands over the middle of what shows of the card. The stamped card's room also keeps its height at any zoom, so the cards below no longer drop while it slides off.
+
 ## [0.33.0] - 2026-11-21
 
 ### Added
