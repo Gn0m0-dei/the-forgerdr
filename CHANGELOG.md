@@ -6,6 +6,17 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Review views in the forgerdr layout (designs 06b and 06c): each pull request opens in a tab of its own, `#42 review` or `#40 mine`, showing the forgerdr mod's view alone while its review session works out of sight (`Discuss with the golem` peeks at it; closing the tab ends it; the sidebar lists it as a golem of the forge), the gnome thinking while it reads, drafts or publishes, and the tab closing by itself once every thread is published. A colleague's pull request shows its findings by severity, each opening to its rule, what happens, what to change, the code and the sketch, ticked one by one; the drafts are edited in place, a draft that names AI or its tools keeps the stamp back, and `Stamp gnomemark and publish N` freezes the drafts and answers the session's comment gate, so it publishes exactly those. Your own pull request shows a card per open thread with its fix, reply or question and its reply drafted, and one stamp publishes the replies and resolves the fixed threads. `review-other` and `review-own` use the view when `FORGE_REVIEW_VIEW` is set and the chat otherwise; the inbox sends their picks and comment gate to the view.
+- `bin/forge-pr.sh` keeps each review in `~/.local/state/forgerdr/reviews/`, a file per herdr terminal that the review session and the mod write under its lock; `references/reviews.md` gives the formats and the questions.
+- Review rounds (design 06): the review icon on an agent's pane header snapshots what it changed into a round and opens its rounds in a tab: every changed file with its lines numbered on both sides, viewed marks, the strip of rounds, what changed since the round before or since the base, and comments on lines that follow them from round to round. `Request changes` sends the open comments to the agent as one prompt, `Stamp gnomemark` makes the round its new base. `bin/forge-round.sh` pins the snapshots under `refs/forgerdr/rounds/<terminal>/` without touching the index, HEAD or stash, taking the base when a session starts.
+
+### Changed
+
+- Start work's Review tab takes a field per pull request and `Add another` for one more, instead of a box of lines.
+- `bin/forge-review.sh` opens each pull request in a tab of its own with its review view, instead of tabs named `Reviews` with as many agents as fit; `--mod` picks the copy of the mod the views run in.
+
 ## [0.32.0] - 2026-11-21
 
 ### Added

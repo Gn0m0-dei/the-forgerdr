@@ -6,6 +6,8 @@ import { MOD } from "../name.js";
 
 const SOUND = Object.freeze({
   cracked: `mods/${MOD}/sounds/cracked.mp3`,
+  // The app's own done alert, whatever file settings.json gives it.
+  done: "done",
   settings: "settings.json",
   stamp: `mods/${MOD}/sounds/stamp.mp3`,
 });
@@ -38,6 +40,11 @@ const soundsOn = async () => {
 /** Plays a golem's crack, when the person lets sounds play. */
 export const playCracked = async () => {
   if (await soundsOn()) playSound(SOUND.cracked);
+};
+
+/** Plays the app's done alert (the forge's quench, when its sounds are installed), when the person lets sounds play. */
+export const playDone = async () => {
+  if (await soundsOn()) playSound(SOUND.done);
 };
 
 /** Plays the stamp coming down, when the person lets sounds play. */

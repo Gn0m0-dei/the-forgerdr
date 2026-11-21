@@ -313,13 +313,15 @@ const workLaunch = (work, way) => {
 
 /**
  * What starts the preview's rows: one session that works the changes and items (as /forgerdr:worktree or
- * /forgerdr:workitem would be typed), and one tab that opens a review per pull request, as the review key does.
+ * /forgerdr:workitem would be typed), and one prompt tab that opens a review per pull request, as the review key does,
+ * each in a tab of its own with its view in the copy of the mod given.
  * @param {PreviewRow[]} rows
  * @param {Way} way
  * @param {string} prompt forge-prompt.sh, which runs the reviews and closes its tab
+ * @param {string} [mod] the copy of the forgerdr mod the review views run in
  * @returns {Launch[]}
  */
-export const startLaunches = (rows, way, prompt) => {
+export const startLaunches = (rows, way, prompt, mod) => {
   const given = (/** @type {PreviewRow} */ row) => row.value ?? "";
   const work = rows
     .filter((row) => row.kind === "change" || row.kind === "item")
@@ -331,7 +333,13 @@ export const startLaunches = (rows, way, prompt) => {
       ? []
       : [
           {
-            argv: ["bash", prompt, "review", ...prs],
+            argv: [
+              "bash",
+              prompt,
+              "review",
+              ...(mod === undefined ? [] : ["--mod", mod]),
+              ...prs,
+            ],
             name: "forgerdr review",
           },
         ]),

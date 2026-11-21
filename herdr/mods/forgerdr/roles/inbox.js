@@ -51,6 +51,8 @@ import {
   questionsOf,
   quietAfter,
   quietNow,
+  reviewAskOf,
+  reviewTabOf,
   shownIn,
   summaryOf,
   visible,
@@ -457,6 +459,18 @@ export const inbox = (cx) => {
     discussing.add(card.id);
     // agent.focus reaches an agent's pane, or brings up one that has none, such as a subagent's.
     run("agent.focus", { terminal: card.terminal });
+    cx.notify();
+  };
+
+  // The review's tab, where its view answers; a session whose view's tab is not known goes to its pane.
+  /** @param {InboxCard} card @param {Context} cx */
+  const openReview = (card, cx) => {
+    const tab = reviewTabOf(card.terminal, readTerminals());
+    if (tab === "") {
+      discuss(card, cx);
+      return;
+    }
+    run("tab.select", { id: tab });
     cx.notify();
   };
 
@@ -939,6 +953,31 @@ export const inbox = (cx) => {
           ),
         );
 
+    // A review session's picks and comment gate are answered in its view, where the findings and the drafts are: the
+    // card takes the human there.
+    /** @param {InboxCard} each */
+    const reviewBody = (each) =>
+      v_flex()
+        .gap(10)
+        .child(
+          wrapped(
+            "Its review view answers this, where the findings and the drafts are.",
+            "ui",
+            13,
+            k.muted,
+          ),
+        )
+        .child(
+          h_flex().child(
+            button(
+              KEY_BUTTON.primary,
+              "Open the review",
+              `inbox-review-${each.id}`,
+              (cx) => openReview(each, cx),
+            ),
+          ),
+        );
+
     /** @type {Readonly<Record<InboxKind, (each: InboxCard) => NativeElement>>} */
     const BODY = {
       gate: questionBody,
@@ -1017,7 +1056,13 @@ export const inbox = (cx) => {
           ),
         )
         .child(originRow(each, time))
-        .when(open, (el) => el.child(BODY[each.kind](each)));
+        .when(open, (el) =>
+          el.child(
+            each.request !== null && reviewAskOf(each.request, readTerminals())
+              ? reviewBody(each)
+              : BODY[each.kind](each),
+          ),
+        );
     };
 
     /**

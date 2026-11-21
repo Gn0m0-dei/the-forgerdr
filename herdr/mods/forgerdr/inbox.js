@@ -286,6 +286,44 @@ export const questionsOf = (request) => {
   return Array.isArray(questions) ? questions : [];
 };
 
+// What a review session with a view beside it asks there instead (bin/forge-review.sh, roles/review.js): its picks and
+// its comment gate. Its terminal carries the label bin/forge-pr.sh open sets.
+export const REVIEW_ASK_HEADER = Object.freeze({
+  gate: "Gate comment",
+  pick: "Review pick",
+});
+const REVIEW_LABEL = "forge.review";
+// The tab of a review session's view, which bin/forge-review.sh labels the session's terminal with.
+const REVIEW_TAB_LABEL = "forge.tab";
+
+/**
+ * The tab of the review view a session's terminal was opened for, or "" when it has none.
+ * @param {string} terminal
+ * @param {LaneTerminal[]} terminals
+ */
+export const reviewTabOf = (terminal, terminals) =>
+  terminals.find((one) => one.address === terminal)?.labels?.[
+    REVIEW_TAB_LABEL
+  ] ?? "";
+/** @type {ReadonlySet<string>} */
+const REVIEW_HEADERS = new Set(Object.values(REVIEW_ASK_HEADER));
+
+/**
+ * Whether a request waits in a review view rather than in the inbox: a review session's picks or comment gate, from a
+ * terminal its view was opened for.
+ * @param {InboxRequest} request
+ * @param {LaneTerminal[]} terminals
+ */
+export const reviewAskOf = (request, terminals) => {
+  const header = questionsOf(request)[0]?.header ?? "";
+  const viewed = terminals.some(
+    (terminal) =>
+      terminal.address === request.terminal &&
+      (terminal.labels?.[REVIEW_LABEL] ?? "") !== "",
+  );
+  return viewed && REVIEW_HEADERS.has(header);
+};
+
 /** @param {string} plan its first line with words, without the heading's marks */
 const planTitle = (plan) =>
   (plan.split("\n").find((line) => line.trim() !== "") ?? "")

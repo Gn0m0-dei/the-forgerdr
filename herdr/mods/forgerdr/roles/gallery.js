@@ -2,6 +2,7 @@
 // look at beside them. Open it as a tab of the dev mod:
 //   herdr-app do tab.new --name gallery --mod forgerdr-dev --props '{"role":"gallery"}'
 import { h_flex, v_flex } from "gpui-base";
+import { div } from "gpui-kit";
 import {
   FLOW_CELL,
   FLOW_MODE,
@@ -38,6 +39,22 @@ import {
   splitControls,
   toast,
 } from "../kit/panels.js";
+import {
+  checkLine,
+  commentBlock,
+  diffLine,
+  draftCard,
+  fileHeader,
+  findingRow,
+  hunkHead,
+  proposalChip,
+  roundChip,
+  severityChip,
+  stillBox,
+  stillText,
+  threadCard,
+  tickLabel,
+} from "../kit/review.js";
 import {
   ACCESSORY,
   BEARD,
@@ -419,6 +436,129 @@ const floorPieces = () =>
     untrackedRow({ space: "dotfiles", status: "idle", title: "shell" }),
   ]);
 
+// The review views' pieces (designs 06, 06b, 06c), with made-up data.
+const reviewPieces = () =>
+  section("REVIEWS AND ROUNDS", [
+    row([
+      severityChip("blocker", 1),
+      severityChip("should", 4),
+      severityChip("nit", 2),
+      severityChip("question", 1),
+      severityChip("info", 0),
+      proposalChip("fix"),
+      proposalChip("reply"),
+      proposalChip("ask"),
+    ]),
+    findingRow({
+      id: "2-6",
+      note: "GROUP · 2",
+      open: false,
+      picked: true,
+      place: "resize.rs:22 · pane.rs:64",
+      severity: "should",
+      tick: stillBox(true),
+      title: "magic 16 ms → named debounce constant",
+    }),
+    draftCard({
+      body: stillText(
+        "A full channel panics the daemon here. Keep the newest size and drop the rest on Full.",
+      ),
+      drop: null,
+      flagged: [],
+      label: "[1]",
+      place: "resize.rs:48",
+      suggestion: "Ok(()) | Err(TrySendError::Full(_)) => {}",
+      threads: 1,
+    }),
+    threadCard({
+      author: "tinker-ana",
+      commit: "7c41e2a · fix(ui): virtualize the inbox list · 52 tests passed",
+      detail: "Render only the visible cards: two call sites change.",
+      picked: true,
+      place: "drawer.rs:88",
+      proposal: "fix",
+      reply: stillText("Done in 7c41e2a: only visible cards are laid out now."),
+      request:
+        "Can this list virtualize? With 200 items the drawer lays out every card each frame.",
+      tick: stillBox(true),
+    }),
+    checkLine(true, "no tooling mentions in any draft"),
+    checkLine(false, "1 draft names AI or its tools"),
+    row([
+      roundChip(
+        "R1",
+        "changes requested · 3 comments, all resolved",
+        tokens().failed,
+        false,
+      ),
+      roundChip("R2", "open · 4d08bf6..a91c8e0", tokens().needs, true),
+    ]),
+    v_flex()
+      .w_full()
+      .child(
+        div()
+          .h(46)
+          .child(
+            fileHeader({
+              adds: 46,
+              comments: 1,
+              dels: 15,
+              open: true,
+              path: "crates/daemon/src/gate.rs",
+              status: "M",
+              viewed: tickLabel(false, "viewed"),
+            }),
+          ),
+      )
+      .child(
+        div().h(24).child(hunkHead("@@ -10,10 +10,12 @@ pub struct GateStore")),
+      )
+      .child(
+        div()
+          .h(20)
+          .child(
+            diffLine({
+              kind: "ctx",
+              new: 11,
+              old: 11,
+              text: "    pending: HashMap<GateId, Gate>,",
+            }),
+          ),
+      )
+      .child(
+        div()
+          .h(20)
+          .child(
+            diffLine({
+              kind: "del",
+              new: null,
+              old: 12,
+              text: "    resolved: Vec<GateId>,",
+            }),
+          ),
+      )
+      .child(
+        div()
+          .h(20)
+          .child(
+            diffLine({
+              kind: "add",
+              new: 12,
+              old: null,
+              text: "    resolved: HashMap<GateId, Resolution>,",
+            }),
+          ),
+      )
+      .child(
+        commentBlock({
+          actions: [text("Resolve", "ui", 12, tokens().fg)],
+          body: "Return the gate's origin with the resolution, so the inbox can jump to the session.",
+          state: "open",
+          where: "round 2 · new line 12",
+        }),
+      ),
+  ]);
+
 const page = () =>
   v_flex()
     .id("gallery")
@@ -433,6 +573,7 @@ const page = () =>
     .child(navigation())
     .child(containers())
     .child(floorPieces())
+    .child(reviewPieces())
     .child(sprites())
     .child(icons());
 

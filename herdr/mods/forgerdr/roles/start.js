@@ -3,13 +3,22 @@
 // Azure DevOps takes work items by URL or id, an id completed with its backlog; OpenSpec lists its changes to tick and
 // takes new ones to spec. The work starts here or each in a worktree (/forgerdr:workitem or /forgerdr:worktree),
 // manual or auto, in one session of the space shown; a new change opens a spec session in the main checkout. Review,
-// the same in every mode, opens a review per pull request URL of any provider, in one tab, as the review key does. The
-// preview says what each line starts and skips what it cannot, saying why. ⌘↵ starts it all, Esc or Cancel leaves.
-import { h_flex, Textarea, TextareaState, v_flex } from "gpui-base";
+// the same in every mode, opens a review per pull request URL of any provider, a field each and + for one more, each
+// in a tab of its own beside its review view, as the review key does. The preview says what each line starts and skips
+// what it cannot, saying why. ⌘↵ starts it all, Esc or Cancel leaves.
+import {
+  h_flex,
+  Input,
+  InputState,
+  Textarea,
+  TextareaState,
+  v_flex,
+} from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, closeOverlay, openOverlay, props, run } from "herdr";
 import { REVIEW_PROMPT, readChanges, readForge } from "../bridges/forge.js";
 import { placeOf } from "../bridges/places.js";
+import { counted } from "../format.js";
 import { KEY_BUTTON, keyButton } from "../kit/buttons.js";
 import { tag } from "../kit/chips.js";
 import { control } from "../kit/control.js";
@@ -124,10 +133,6 @@ export const openStart = (forge, shown) => {
   openOverlay({ ...DIALOG, mod: MOD, props: { ...target, role: "start" } });
 };
 
-/** @param {number} count @param {string} one @param {string} [many] */
-const counted = (count, one, many = `${one}s`) =>
-  `${count} ${count === 1 ? one : many}`;
-
 /**
  * @param {AsyncContext} cx
  * @returns {Role}
@@ -160,12 +165,46 @@ export const start = (cx) => {
   let nextIdea = 0;
 
   const work = TextareaState.new({ rows: 4 });
-  const review = TextareaState.new({
-    placeholder: "One pull request URL a line: GitHub, GitLab or Azure DevOps",
-    rows: 6,
-  });
   work.on("change", (_event, cx) => cx.notify());
-  review.on("change", (_event, cx) => cx.notify());
+
+  /** @type {{ id: number, state: InputState }[]} the pull requests to review, a field each, one at least */
+  let urls = [];
+  let nextUrl = 0;
+
+  /** A field for one more pull request, last. @param {string} [value] */
+  const addUrl = (value = "") => {
+    const id = nextUrl;
+    nextUrl += 1;
+    const state = InputState.new({
+      placeholder: "A pull request URL: GitHub, GitLab or Azure DevOps",
+      value,
+    });
+    // Several URLs pasted into one field go a field each.
+    state.on("change", (_event, cx) => {
+      const [first = "", ...more] = state.value().trim().split(/\s+/);
+      if (more.length > 0) {
+        state.set_value(first);
+        for (const one of more) addUrl(one);
+      }
+      cx.notify();
+    });
+    state.on("submit", (_event, cx) => {
+      addUrl().focus();
+      cx.notify();
+    });
+    urls = [...urls, { id, state }];
+    return state;
+  };
+  addUrl();
+
+  /** @param {number} id */
+  const dropUrl = (id) => {
+    urls.find((one) => one.id === id)?.state.release();
+    urls = urls.filter((one) => one.id !== id);
+  };
+
+  // The pull requests given, a line each, as the preview reads them.
+  const urlLines = () => urls.map((one) => one.state.value()).join("\n");
 
   const kind = () =>
     info.state === "ready" ? modeKind(info.value.mode) : MODE.chat;
@@ -235,11 +274,11 @@ export const start = (cx) => {
 
   const launches = () => {
     if (tab === TAB.review)
-      return startLaunches(reviewRows(review.value()), way, REVIEW_PROMPT);
+      return startLaunches(reviewRows(urlLines()), way, REVIEW_PROMPT, MOD);
     const now = workNow();
     const mode = kind();
     return [
-      ...startLaunches(now.rows, way, REVIEW_PROMPT),
+      ...startLaunches(now.rows, way, REVIEW_PROMPT, MOD),
       ...ideaLaunches(now.ideas, { ...way, spec: mode === MODE.openspec }),
     ];
   };
@@ -252,7 +291,7 @@ export const start = (cx) => {
     const mode = kind();
     const shape = WORK[mode];
     const now = workNow();
-    const reviews = reviewRows(review.value());
+    const reviews = reviewRows(urlLines());
     const rows = tab === TAB.review ? reviews : now.rows;
 
     /**
@@ -635,8 +674,67 @@ export const start = (cx) => {
             .flex_1()
             .min_w(0)
             .gap(10)
-            .child(fieldLabel("Pull requests · one URL a line"))
-            .child(textBox(review, 160))
+            .child(fieldLabel("Pull requests · one URL a field"))
+            .child(
+              v_flex()
+                .id("start-urls")
+                .max_h(240)
+                .overflow_y_scrollbar()
+                .gap(6)
+                .children(
+                  urls.map((url) =>
+                    h_flex()
+                      .flex_none()
+                      .gap(8)
+                      .items_center()
+                      .child(
+                        div()
+                          .id(`start-url-${url.id}`)
+                          .flex_1()
+                          .min_w(0)
+                          .h(32)
+                          .px(8)
+                          .flex()
+                          .items_center()
+                          .bg(k.bg0)
+                          .border(2)
+                          .border_color(k.accent)
+                          .child(
+                            Input.new(url.state)
+                              .w_full()
+                              .text_size(13)
+                              .text_color(k.fg),
+                          ),
+                      )
+                      .when(urls.length > 1, (el) =>
+                        el.child(
+                          control(
+                            div().p(4).child(icon(ICON.close, k.muted)),
+                            `start-url-drop-${url.id}`,
+                            (cx) => {
+                              dropUrl(url.id);
+                              cx.notify();
+                            },
+                          ),
+                        ),
+                      ),
+                  ),
+                ),
+            )
+            .child(
+              control(
+                h_flex()
+                  .gap(6)
+                  .items_center()
+                  .child(icon(ICON.add, k.accent))
+                  .child(text("Add another", "ui", 13, k.accent)),
+                "start-url-add",
+                (cx) => {
+                  addUrl().focus();
+                  cx.notify();
+                },
+              ),
+            )
             .child(
               wrapped(
                 "Any provider, whatever the forge's mode: each review picks its CLI by the URL. Yours get review-own, others review-other.",
@@ -658,7 +756,7 @@ export const start = (cx) => {
       if (tab === TAB.review)
         return count === 0
           ? "Nothing to review yet"
-          : `${counted(count, "review")} in one tab`;
+          : `${counted(count, "review")}, a tab each`;
       if (count === 0) return "Nothing to start yet";
       const parts = [
         ...(now.rows.length === 0
@@ -728,7 +826,7 @@ export const start = (cx) => {
               .child(
                 fill(
                   tab === TAB.review
-                    ? "Review pull requests: a session each, in one tab."
+                    ? "Review pull requests: each in a tab of its own, its view beside its session."
                     : `As ${target.forge}'s mode takes it: ${label.name}.`,
                   "ui",
                   12,
@@ -812,7 +910,7 @@ export const start = (cx) => {
     close: () => {
       loading?.cancel();
       work.release();
-      review.release();
+      for (const url of urls) url.state.release();
     },
     render,
   };

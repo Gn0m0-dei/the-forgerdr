@@ -4,7 +4,7 @@ import { agentChip, tag } from "./chips.js";
 import { SIGN, sign } from "./motion.js";
 import { gnome, ICON, icon, MOOD } from "./sprites.js";
 import { fill, text } from "./text.js";
-import { BRAND, tokens, toneColour } from "./tokens.js";
+import { BRAND, motionOn, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./motion.js").SignName} SignName */
@@ -17,11 +17,19 @@ import { BRAND, tokens, toneColour } from "./tokens.js";
  * @property {string} [folder] where it is, after its title
  * @property {Tone} [tone] its golem's, when an agent runs in it
  * @property {boolean} [running] a program that is not a shell runs in it, such as a dev server
+ * @property {NativeElement} [review] the control that reviews what its agent changed, before the close
  * @property {NativeElement} [close] the control that closes the pane, last on its header
  */
 
 /** @param {PaneHeaderProps} props */
-export const paneHeader = ({ title, folder, tone, running = false, close }) => {
+export const paneHeader = ({
+  title,
+  folder,
+  tone,
+  running = false,
+  review,
+  close,
+}) => {
   const k = tokens();
   return h_flex()
     .size_full()
@@ -36,6 +44,7 @@ export const paneHeader = ({ title, folder, tone, running = false, close }) => {
     .child(fill(folder ? `— ${folder}` : "", "ui", 12, k.muted))
     .when(tone !== undefined, (el) => el.child(agentChip(tone)))
     .when(tone === undefined && running, (el) => el.child(tag("RUNNING", k.ok)))
+    .when(review !== undefined, (el) => el.child(review))
     .when(close !== undefined, (el) => el.child(close));
 };
 
@@ -144,6 +153,61 @@ export const emptyState = ({ caption, title, sub, look = {}, action }) => {
         .child(text(title, "ui", 16, k.fg))
         .child(text(sub, "ui", 12, k.muted))
         .when(action !== undefined, (el) => el.child(action)),
+    );
+};
+
+// The dots after a thinking gnome's words, a frame each, natively stepped.
+const THINKING = Object.freeze({ dots: ["", ".", "..", "..."], ms: 450 });
+
+/**
+ * @typedef {object} ThinkingProps
+ * @property {string} caption
+ * @property {string} title what the golem is doing: analyzing the pull request
+ * @property {string} sub
+ * @property {GnomeLook} [look]
+ */
+
+/**
+ * A gnome at work while its golem thinks: its words with dots that step after them (still with the motion off), and a
+ * line under them.
+ * @param {ThinkingProps} props
+ */
+export const thinkingState = ({ caption, title, sub, look = {} }) => {
+  const k = tokens();
+  const dots = text("...", "ui", 16, k.fg).w(28);
+  return v_flex()
+    .size_full()
+    .gap(12)
+    .p(16)
+    .bg(k.bg1)
+    .border(2)
+    .border_color(k.line)
+    .child(text(caption.toUpperCase(), "display", 10, k.muted))
+    .child(
+      v_flex()
+        .flex_1()
+        .items_center()
+        .justify_center()
+        .gap(14)
+        .child(
+          h_flex()
+            .items_start()
+            .child(gnome({ ...look, mood: MOOD.working, scale: 5 }))
+            .child(sign(SIGN.flame, 2)),
+        )
+        .child(
+          h_flex()
+            .items_end()
+            .child(text(title, "ui", 16, k.fg))
+            .child(
+              motionOn()
+                ? text("", "ui", 16, k.fg)
+                    .w(28)
+                    .frames(THINKING.dots, THINKING.ms)
+                : dots,
+            ),
+        )
+        .child(text(sub, "ui", 12, k.muted)),
     );
 };
 

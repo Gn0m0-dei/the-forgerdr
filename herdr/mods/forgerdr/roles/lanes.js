@@ -4,10 +4,11 @@
 // Unfolded, every lane. A lane goes to its terminal on a click (a subagent inside a session, to that session's). The
 // session bar sizes the block to the fold (roles/sessions.js).
 import { h_flex, v_flex } from "gpui-base";
-import { checking, run, spaces } from "herdr";
+import { checking, panes, run, spaces } from "herdr";
 import { lanesOpen, toggleLanes } from "../bridges/lanes.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
+import { reviewTabOf } from "../inbox.js";
 import { control } from "../kit/control.js";
 import { laneRow, lanesHead } from "../kit/lanes.js";
 import { fill } from "../kit/text.js";
@@ -30,6 +31,16 @@ const toneOfLane = (status) =>
 
 /** @param {Lane} lane the terminal it goes to: its own, or its session's for a subagent inside one */
 const terminalOf = (lane) => lane.id.split("/")[0];
+
+// A lane's golem: its pane; the review it works behind, parked (bin/forge-review.sh); else a peek at it.
+/** @param {string} terminal */
+const goTo = (terminal) => {
+  const reviewTab = reviewTabOf(terminal, readTerminals());
+  if (panes().some((pane) => pane.terminal === terminal))
+    run("pane.focus", { terminal });
+  else if (reviewTab !== "") run("tab.select", { id: reviewTab });
+  else run("terminal.peek", { terminal });
+};
 
 /**
  * @param {AsyncContext} cx
@@ -74,7 +85,7 @@ export const lanes = (cx) => {
         tone: toneOfLane(lane.status),
       }),
       `lane-${lane.id}`,
-      () => run("pane.focus", { terminal: terminalOf(lane) }),
+      () => goTo(terminalOf(lane)),
     );
 
   /** @param {Context} _cx */
@@ -88,7 +99,9 @@ export const lanes = (cx) => {
         seen[`${terminal.address}/${key}`] ??= now;
     }
     const shown =
-      space === undefined ? [] : spaceLanes(space.id, all, contexts, seen);
+      space === undefined
+        ? []
+        : spaceLanes(space.id, all, contexts, seen, spaces());
     ticking = shown.some(
       (lane) => lane.until === undefined && lane.status === "working",
     );

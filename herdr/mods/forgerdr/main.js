@@ -16,6 +16,8 @@ import { modeDialog } from "./roles/mode.js";
 import { newWorktree } from "./roles/new-worktree.js";
 import { pane } from "./roles/pane.js";
 import { worktreeRemoval } from "./roles/remove-worktree.js";
+import { review } from "./roles/review.js";
+import { round } from "./roles/round.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
 import { start } from "./roles/start.js";
@@ -44,6 +46,8 @@ const ROLES = {
   manual,
   mode: modeDialog,
   pane,
+  review,
+  round,
   sessions,
   sidebar,
   start,

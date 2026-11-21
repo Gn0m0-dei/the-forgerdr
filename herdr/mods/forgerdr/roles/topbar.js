@@ -10,7 +10,7 @@
 // moves its spaces there together. When the tabs do not fit, the strip scrolls under the trackpad and with the arrows
 // beside it. The bar, always shown, also sounds the crack of a golem an API error breaks (bridges/sounds.js).
 import { h_flex, ScrollHandle } from "gpui-base";
-import { agents, checking, keys, nextCommand, panes, run, spaces } from "herdr";
+import { checking, keys, nextCommand, panes, run, spaces } from "herdr";
 import { followFlows } from "../bridges/flows.js";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
@@ -20,7 +20,7 @@ import { toggleMotion } from "../bridges/motion.js";
 import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
 import { playCracked } from "../bridges/sounds.js";
-import { readTerminals } from "../bridges/terminals.js";
+import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { floorCounts, floorOf } from "../floor.js";
 import {
   crackedOf,
@@ -317,7 +317,7 @@ export const topbar = (cx) => {
   const render = (_cx) => {
     const all = spaces();
     const forges = groupForges(all, readSpacesGit());
-    const everyone = agents();
+    const everyone = readAgents();
     // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
     const cracked = crackedOf(readTerminals());
     const waiting = cardsOf(requests, readTerminals(), {

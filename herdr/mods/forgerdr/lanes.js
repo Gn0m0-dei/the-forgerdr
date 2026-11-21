@@ -21,7 +21,114 @@ export const GOLEM_KIND = Object.freeze({ clay: "clay", stone: "stone" });
  * @property {Record<string, string>} [labels]
  * @property {{ msg?: string | null }} [report] what the agent says it is doing
  * @property {Record<string, { state?: string, title?: string }>} [records] its in-session subagents, by id
+ * @property {import("herdr").Program} [program] what runs in front in it
  */
+
+/** @typedef {import("herdr").AgentInfo} AgentInfo */
+/** @typedef {import("herdr").SpaceInfo} SpaceInfo */
+/** @typedef {import("herdr").Status} Status */
+
+// A review session parked behind its view (bin/forge-review.sh) loses herdr's space label and keeps its view's tab.
+const REVIEW_TAB_LABEL = "forge.tab";
+
+/** @type {Readonly<Record<string, Status>>} */
+const AGENT_STATUS = Object.freeze({
+  blocked: "blocked",
+  done: "done",
+  idle: "idle",
+  working: "working",
+});
+
+/**
+ * The space a terminal shows in: its herdr space label, or, for a review session parked behind its view, the space of
+ * the view's tab; null when neither says.
+ * @param {LaneTerminal} terminal
+ * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
+ * @returns {string | null}
+ */
+export const spaceOfTerminal = (terminal, spaces) => {
+  const labelled = terminal.labels?.["herdr.space"] ?? "";
+  if (labelled !== "") return labelled;
+  const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+  if (tab === "") return null;
+  return (
+    spaces.find((space) => space.tabs.some((one) => one.id === tab))?.id ?? null
+  );
+};
+
+/**
+ * The review sessions parked behind a view whose tab is gone: their review was closed, so they end too. Only a tab seen
+ * alive in an earlier sweep counts as gone, so a start, before the app lists its spaces, ends none; and only a terminal
+ * carrying a review's tab, so a terminal that took an old address is never one. Answers them and the tabs seen alive so
+ * far, for the next sweep.
+ * @param {LaneTerminal[]} terminals
+ * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
+ * @param {Set<string>} seen the tabs seen alive in the sweeps before
+ * @returns {{ orphans: string[], seen: Set<string> }}
+ */
+export const orphanedReviews = (terminals, spaces, seen) => {
+  const live = new Set(
+    spaces.flatMap((space) => space.tabs.map((tab) => tab.id)),
+  );
+  const orphans = terminals
+    .filter((terminal) => {
+      const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+      return (
+        terminal.state !== "finished" &&
+        tab !== "" &&
+        seen.has(tab) &&
+        !live.has(tab)
+      );
+    })
+    .map((terminal) => terminal.address);
+  return { orphans, seen: new Set([...seen, ...live]) };
+};
+
+/**
+ * herdr's agents, with the review sessions parked behind their views among them, in the space and tab of their view, so
+ * the forge counts them as its golems.
+ * @param {AgentInfo[]} listed
+ * @param {LaneTerminal[]} terminals
+ * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
+ * @returns {AgentInfo[]}
+ */
+export const withParkedAgents = (listed, terminals, spaces) => {
+  const known = new Set(listed.map((agent) => agent.address));
+  /** @type {AgentInfo[]} */
+  const parked = terminals.flatMap((terminal) => {
+    const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+    const space = spaceOfTerminal(terminal, spaces);
+    const status = AGENT_STATUS[terminal.status ?? ""];
+    if (
+      known.has(terminal.address) ||
+      terminal.state === "finished" ||
+      tab === "" ||
+      space === null ||
+      status === undefined ||
+      terminal.program === undefined
+    )
+      return [];
+    return [
+      {
+        address: terminal.address,
+        app: null,
+        focused: false,
+        pane: "",
+        pinned: false,
+        program: terminal.program,
+        seq: 0,
+        space,
+        space_name: "",
+        status,
+        tab,
+        tab_index: 0,
+        tab_name: "",
+        title: terminal.title ?? "",
+      },
+    ];
+  });
+  return [...listed, ...parked];
+};
 
 /**
  * @typedef {object} Lane
@@ -153,15 +260,16 @@ export const rootOf = (terminal, byAddress) => {
  * @param {LaneTerminal[]} terminals
  * @param {Record<string, { used: number }>} contexts by terminal
  * @param {Record<string, number>} seen when each in-session subagent was first seen, in ms, by lane id
+ * @param {Pick<SpaceInfo, "id" | "tabs">[]} [spaces] for the review sessions parked behind their views
  */
-export const spaceLanes = (spaceId, terminals, contexts, seen) => {
+export const spaceLanes = (spaceId, terminals, contexts, seen, spaces = []) => {
   const byAddress = new Map(
     terminals.map((terminal) => [terminal.address, terminal]),
   );
   const sessions = terminals.filter(
     (terminal) =>
       terminal.state !== "finished" &&
-      rootOf(terminal, byAddress).labels?.["herdr.space"] === spaceId,
+      spaceOfTerminal(rootOf(terminal, byAddress), spaces) === spaceId,
   );
   const seenLanes = new Set();
   return byUrgency(

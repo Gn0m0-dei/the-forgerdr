@@ -6,14 +6,14 @@
 // tell, and publishes it for the top bar (bridges/git.js), keeping what it knew until git answers again.
 import { v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { agents, checking, focused, run, spaces, terminals } from "herdr";
+import { checking, focused, run, spaces, terminals } from "herdr";
 import { modesSaved, readForge } from "../bridges/forge.js";
 import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
-import { readTerminals } from "../bridges/terminals.js";
+import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
 import {
   forgeMood,
@@ -23,6 +23,7 @@ import {
   lookKeyOf,
 } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
+import { reviewTabOf } from "../inbox.js";
 import { startButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { SIGN } from "../kit/motion.js";
@@ -30,7 +31,7 @@ import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon, iconButton } from "../kit/sprites.js";
 import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
 import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
-import { parentOf } from "../lanes.js";
+import { orphanedReviews, parentOf } from "../lanes.js";
 import { modeLabel, shortLabel } from "../modes.js";
 import { newWorktreeOn, openForgeMenu } from "./forge-menu.js";
 import { openGnome } from "./gnome.js";
@@ -70,12 +71,15 @@ const syncOf = (git) =>
     .filter(Boolean)
     .join(" ") || undefined;
 
-// An agent's pane, or a peek at it when it has none.
+// An agent in a pane gets the focus; a review session parked behind its view shows its view's tab; any other agent
+// with no pane is peeked at.
 /** @param {AgentInfo} agent */
-const openAgent = (agent) =>
-  agent.pane
-    ? run("pane.focus", { terminal: agent.address })
-    : run("terminal.peek", { terminal: agent.address });
+const openAgent = (agent) => {
+  const reviewTab = reviewTabOf(agent.address, readTerminals());
+  if (agent.pane) run("pane.focus", { terminal: agent.address });
+  else if (reviewTab !== "") run("tab.select", { id: reviewTab });
+  else run("terminal.peek", { terminal: agent.address });
+};
 
 /** @param {AgentInfo} agent */
 const agentName = (agent) => agent.title || agent.tab_name;
@@ -231,13 +235,27 @@ export const sidebar = (cx) => {
     });
   };
 
+  // The review sessions parked behind a view whose tab is gone end with it (lanes.js orphanedReviews): their view does
+  // not end them, since herdr closes views on quit too.
+  /** @type {Set<string>} */
+  let reviewTabs = new Set();
+  const sweepReviews = () => {
+    const swept = orphanedReviews(readTerminals(), spaces(), reviewTabs);
+    reviewTabs = swept.seen;
+    for (const address of swept.orphans)
+      run("terminal.kill", { terminal: address });
+  };
+
   const task = checking()
     ? null
     : cx.spawn(async (cx) => {
         for (;;) {
+          sweepReviews();
           await refresh();
           await readMode();
-          contexts = await readContexts(agents().map((agent) => agent.address));
+          contexts = await readContexts(
+            readAgents().map((agent) => agent.address),
+          );
           cx.notify();
           for (
             let slept = 0;
@@ -364,7 +382,7 @@ export const sidebar = (cx) => {
         }),
       );
     }
-    const everyone = agents();
+    const everyone = readAgents();
     const forgeAgents = everyone.filter((agent) =>
       forge.spaces.some((space) => space.id === agent.space),
     );

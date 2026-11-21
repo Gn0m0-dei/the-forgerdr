@@ -63,6 +63,8 @@ import {
   questionAnswer,
   quietAfter,
   quietNow,
+  reviewAskOf,
+  reviewTabOf,
   shownIn,
   summaryOf,
   waitedFor,
@@ -73,7 +75,10 @@ import {
   golemStatus,
   lanesHeight,
   lanesOf,
+  orphanedReviews,
   spaceLanes,
+  spaceOfTerminal,
+  withParkedAgents,
 } from "../herdr/mods/forgerdr/lanes.js";
 import {
   backlogOf,
@@ -1256,6 +1261,7 @@ test("what starts: one session for the work, one tab of reviews", () => {
       [...work, ...reviewRows("https://github.com/northwind/orders/pull/42")],
       { dev: true, flow: "auto", where: "worktrees" },
       "/p/bin/forge-prompt.sh",
+      "forgerdr-dev",
     ),
     [
       {
@@ -1270,6 +1276,8 @@ test("what starts: one session for the work, one tab of reviews", () => {
           "bash",
           "/p/bin/forge-prompt.sh",
           "review",
+          "--mod",
+          "forgerdr-dev",
           "https://github.com/northwind/orders/pull/42",
         ],
         name: "forgerdr review",
@@ -2901,4 +2909,163 @@ test("the floor: every forge in the bar's order, its cards by urgency, then its 
     floorMood({ cracked: 0, done: 0, forging: 0, waiting: 0 }),
     "idle",
   );
+});
+
+test("a review session's pick and comment gate wait in its view, not as options in the inbox", () => {
+  /** @param {string} header @param {string} terminal */
+  const asked = (header, terminal) => ({
+    agent_type: "",
+    created: 1,
+    cwd: "/r",
+    id: "a",
+    kind: header.startsWith("Gate ") ? "gate" : "question",
+    session_id: "s",
+    terminal,
+    tool_input: {
+      questions: [
+        {
+          header,
+          options: [{ label: "Publish" }, { label: "Not yet" }],
+          question: "Publish?",
+        },
+      ],
+    },
+    tool_name: "AskUserQuestion",
+  });
+  const terminals = [
+    { address: "t7", labels: { "forge.review": "other" } },
+    { address: "t8", labels: {} },
+  ];
+  strictEqual(reviewAskOf(asked("Review pick", "t7"), terminals), true);
+  strictEqual(reviewAskOf(asked("Gate comment", "t7"), terminals), true);
+  strictEqual(reviewAskOf(asked("Gate commit", "t7"), terminals), false);
+  strictEqual(reviewAskOf(asked("Gate comment", "t8"), terminals), false);
+  strictEqual(reviewAskOf(asked("Review pick", "t9"), terminals), false);
+});
+
+test("a review session's question takes the human to its review's tab", () => {
+  const terminals = [
+    {
+      address: "t7",
+      labels: { "forge.review": "other", "forge.tab": "tb-42" },
+    },
+    { address: "t8", labels: {} },
+  ];
+  strictEqual(reviewTabOf("t7", terminals), "tb-42");
+  strictEqual(reviewTabOf("t8", terminals), "");
+  strictEqual(reviewTabOf("t9", terminals), "");
+});
+
+const REVIEW_SPACES = [
+  { id: "sp1", tabs: [{ id: "tb-1" }, { id: "tb-42" }] },
+  { id: "sp2", tabs: [{ id: "tb-9" }] },
+];
+const CLAUDE_PROGRAM = {
+  agent: true,
+  color: null,
+  icon: null,
+  key: "claude",
+  name: "Claude Code",
+  shell: false,
+  tile: null,
+  tint: false,
+};
+
+test("a review session parked behind its view is in the space of the view's tab", () => {
+  strictEqual(
+    spaceOfTerminal(
+      { address: "t7", labels: { "forge.tab": "tb-42" } },
+      REVIEW_SPACES,
+    ),
+    "sp1",
+  );
+  strictEqual(
+    spaceOfTerminal(
+      { address: "t8", labels: { "herdr.space": "sp2" } },
+      REVIEW_SPACES,
+    ),
+    "sp2",
+  );
+  strictEqual(
+    spaceOfTerminal({ address: "t9", labels: {} }, REVIEW_SPACES),
+    null,
+  );
+});
+
+test("a parked review session is a golem of its view's forge, at work as its terminal says", () => {
+  const listed = [{ address: "t5", space: "sp2", status: "idle" }];
+  const terminals = [
+    { address: "t5", labels: { "herdr.space": "sp2" }, status: "idle" },
+    {
+      address: "t7",
+      labels: { "forge.tab": "tb-42" },
+      program: CLAUDE_PROGRAM,
+      state: "live",
+      status: "working",
+      title: "PR 42",
+    },
+    {
+      address: "t8",
+      labels: { "forge.tab": "tb-gone" },
+      program: CLAUDE_PROGRAM,
+      state: "live",
+      status: "working",
+    },
+    {
+      address: "t9",
+      labels: { "forge.tab": "tb-42" },
+      program: CLAUDE_PROGRAM,
+      state: "finished",
+      status: "idle",
+    },
+  ];
+  deepStrictEqual(
+    withParkedAgents(listed, terminals, REVIEW_SPACES).map((agent) => [
+      agent.address,
+      agent.space,
+      agent.tab,
+      agent.status,
+      agent.pane,
+    ]),
+    [
+      ["t5", "sp2", undefined, "idle", undefined],
+      ["t7", "sp1", "tb-42", "working", ""],
+    ],
+  );
+});
+
+test("the golems a parked review session spawns have their lanes in its view's space", () => {
+  const terminals = [
+    {
+      address: "t7",
+      labels: { "forge.tab": "tb-42" },
+      records: { a1: { state: "working", title: "explore" } },
+      state: "live",
+      status: "working",
+      title: "PR 42",
+    },
+  ];
+  strictEqual(spaceLanes("sp1", terminals, {}, {}, REVIEW_SPACES).length, 1);
+  strictEqual(spaceLanes("sp2", terminals, {}, {}, REVIEW_SPACES).length, 0);
+});
+
+test("a parked review session goes once its view's tab, seen alive before, is gone; never at a start that has not seen it", () => {
+  const terminals = [
+    { address: "t7", labels: { "forge.tab": "tb-42" }, state: "live" },
+    { address: "t8", labels: { "forge.tab": "tb-9" }, state: "live" },
+    { address: "t9", labels: {}, state: "live" },
+  ];
+  const first = orphanedReviews(terminals, [], new Set());
+  deepStrictEqual(first.orphans, []);
+  const second = orphanedReviews(terminals, REVIEW_SPACES, first.seen);
+  deepStrictEqual(second.orphans, []);
+  const third = orphanedReviews(
+    terminals,
+    [
+      { id: "sp1", tabs: [{ id: "tb-1" }] },
+      { id: "sp2", tabs: [{ id: "tb-9" }] },
+    ],
+    second.seen,
+  );
+  deepStrictEqual(third.orphans, ["t7"]);
 });
