@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.36.0] - 2026-11-22
+
 ### Added
 
 - The smith's manual in the forgerdr layout (design 08), which `? MANUAL` on the status bar opens over the window: every key the app answers to, read from `keys.json` and grouped into forges and panes, golems and sessions, the forge and the terminal, each named as the manual names it and shown in keycaps, among them the forgerdr mod's own commands with no key yet, which read `no key` and the name `keys.json` binds them by, then forgerdr's commands from the cheat sheet `/forgerdr:help` prints; the search at its top narrows them as you type. It only reads the keys, which stay yours.
