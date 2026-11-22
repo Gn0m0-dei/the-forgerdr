@@ -41,7 +41,7 @@ A push gate, then `git push -u origin HEAD`. Then the pull request through the p
 
 Report the pull request URL. The work item's state changes only when the user says.
 
-Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azdo:apply` opens it linking the requirement and its tasks), on the branch forgerdr created, pushed on the yes of a `Gate push` and opened on the yes of a `Gate PR`, as above (standards, Gates). After the merge, `/azdo:archive` folds the delta into the spec store: say so in the report, it is the user's to run.
+Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azdo:apply` opens it linking the requirement and its tasks), on the branch forgerdr created, pushed on the yes of a `Gate push` and opened on the yes of a `Gate PR`, as above (standards, Gates), whose preview also names the work items it links, if any, and says that its merge closes them. After the merge, `/azdo:archive` folds the delta into the spec store: say so in the report, it is the user's to run.
 
 ## 8. Worktree
 
