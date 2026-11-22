@@ -1,0 +1,37 @@
+{
+  "name": "the-forgerdr-site",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The website of the forgerdr: landing page and documentation.",
+  "license": "MIT",
+  "type": "module",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22.23.4"
+  },
+  "imports": {
+    "#components/*": "./src/components/*",
+    "#config/*": "./src/config/*",
+    "#helpers/*": "./src/helpers/*",
+    "#layouts/*": "./src/layouts/*",
+    "#model/*": "./src/model/*",
+    "#scripts/*": "./src/scripts/*",
+    "#styles/*": "./src/styles/*"
+  },
+  "scripts": {
+    "dev": "astro dev",
+    "build": "astro check && astro build",
+    "preview": "astro preview",
+    "check": "astro check",
+    "test": "node --test \"src/**/*.spec.ts\" \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@astrojs/starlight": "0.43.1",
+    "astro": "7.4.13",
+    "starlight-image-zoom": "0.16.3"
+  },
+  "devDependencies": {
+    "@astrojs/check": "0.9.12",
+    "typescript": "6.0.3"
+  }
+}
