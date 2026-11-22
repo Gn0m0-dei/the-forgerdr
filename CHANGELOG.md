@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.38.0] - 2026-11-22
+
 ### Added
 
 - `Check for updates` at the foot of the smith's manual, beside forgerdr's version: it looks for a release at once (`bin/forge-update.sh check`, which the status bar runs only every six hours) and, when there is one, opens the gnome's notice with its `Update now` in place of the manual, even when the notice already opened for that release; otherwise it reads `Up to date`, or `Could not check · try again`.
