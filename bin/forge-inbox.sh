@@ -8,6 +8,9 @@
 #                       that names another one, is skipped.
 #   answer <id> <json>  the answer to request <id> (one JSON object), for its hook to take or throw away. Fails when
 #                       there is no such request.
+#   dismiss <id>        takes request <id> out of the inbox with no answer, for one answered elsewhere that stayed: a
+#                       hook still waiting on it leaves with no decision, so its pane's own dialog stands. One already
+#                       gone is nothing to do.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
@@ -61,8 +64,16 @@ answer() {
   jq -cn --arg id "$id" '{answered: $id}'
 }
 
+dismiss() {
+  local id="${1:-}"
+  [[ "$id" =~ ^[0-9a-f]{16}$ ]] || forge_die "no request is named $id"
+  rm -f "$inbox/$id.json"
+  jq -cn --arg id "$id" '{dismissed: $id}'
+}
+
 case "${1:-}" in
   list) list ;;
   answer) answer "${2:-}" "${3:-}" ;;
-  *) forge_die "usage: forge-inbox.sh list | answer <id> <json>" ;;
+  dismiss) dismiss "${2:-}" ;;
+  *) forge_die "usage: forge-inbox.sh list | answer <id> <json> | dismiss <id>" ;;
 esac

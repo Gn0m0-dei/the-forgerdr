@@ -45,6 +45,7 @@ import {
   answersOf,
   approvable,
   armed,
+  armingIn,
   cardsOf,
   countsOf,
   denyAnswer,
@@ -1862,7 +1863,7 @@ const reposQuestion = {
   question: "Which repositories?",
 };
 
-test("what waits is a card each, the newest first; a blocked agent with no request waits in its pane", () => {
+test("what waits is a card each, the oldest first, so one that comes goes under the rest; a blocked agent with no request waits in its pane", () => {
   const requests = [
     inboxRequest("a1", "permission", 1000, "Bash", { command: "git push" }),
     inboxRequest(
@@ -1899,12 +1900,12 @@ test("what waits is a card each, the newest first; a blocked agent with no reque
   deepStrictEqual(
     cards.map((card) => [card.id, card.kind, card.terminal, card.since]),
     [
-      ["b2", INBOX_KIND.question, "t6", 3000],
-      ["waiting:t7", INBOX_KIND.waiting, "t7", 2500],
       ["a1", INBOX_KIND.permission, "t5", 1000],
+      ["waiting:t7", INBOX_KIND.waiting, "t7", 2500],
+      ["b2", INBOX_KIND.question, "t6", 3000],
     ],
   );
-  strictEqual(cards[2].request, requests[0]);
+  strictEqual(cards[0].request, requests[0]);
   strictEqual(cards[1].request, null);
 });
 
@@ -1923,7 +1924,7 @@ test("a session whose request just went is not shown waiting in its pane while t
       terminals,
       { quiet: new Set(["t5"]) },
     ).map((card) => card.id),
-    ["a1", "waiting:t7"],
+    ["waiting:t7", "a1"],
   );
 });
 
@@ -1960,9 +1961,9 @@ test("an agent has waited in its pane since the inbox first saw it blocked, neve
   deepStrictEqual(
     cards.map((card) => [card.terminal, card.since]),
     [
-      ["t7", 9000],
-      ["t5", 7000],
       ["t8", 4000],
+      ["t5", 7000],
+      ["t7", 9000],
     ],
   );
 });
@@ -1988,7 +1989,7 @@ test("each filter counts its kind; all counts everything, the agents waiting in 
   });
   deepStrictEqual(
     shownIn(cards, FILTER.permissions).map((card) => card.id),
-    ["a2", "a1"],
+    ["a1", "a2"],
   );
   strictEqual(shownIn(cards, FILTER.all).length, 4);
   deepStrictEqual(FILTER_ORDER, [
@@ -2141,6 +2142,23 @@ test("a card is armed from when it shows open: one held shut by a stamp is armed
   const shown = openedNow(held, "c", "d", 2900);
   strictEqual(armed(shown, "c", 3000), false);
   strictEqual(armed(shown, "c", 3400), true);
+});
+
+test("the open card is armed again when the drawer opens again, though nothing moved while it was shut", () => {
+  const open = { above: "", at: 1000, id: "c" };
+  strictEqual(armed(open, "c", 1600, 0), true);
+  // Shut, then opened again at 5000 on the same card under the same cards.
+  strictEqual(armed(openedNow(open, "c", "", 5000), "c", 5100, 5000), false);
+  strictEqual(armed(open, "c", 5400, 5000), false);
+  strictEqual(armed(open, "c", 5500, 5000), true);
+});
+
+test("the drawer looks again when the open card is armed: from its opening or the drawer's, whichever came later", () => {
+  const open = { above: "", at: 1000, id: "c" };
+  strictEqual(armingIn(open, 1200), 300);
+  strictEqual(armingIn(open, 1700), 0);
+  strictEqual(armingIn(open, 5100, 5000), 400);
+  strictEqual(armingIn(open, 5600, 5000), 0);
 });
 
 test("a card's heading names its kind and what it is about", () => {
@@ -2424,9 +2442,9 @@ test("what shows above the open card is noted, so a card that moved under the po
     ],
     live,
   );
-  strictEqual(aboveOf(cards, "b"), "c");
-  strictEqual(aboveOf(cards, "a"), "c b");
-  strictEqual(aboveOf(cards, "c"), "");
+  strictEqual(aboveOf(cards, "b"), "a");
+  strictEqual(aboveOf(cards, "c"), "a b");
+  strictEqual(aboveOf(cards, "a"), "");
   strictEqual(aboveOf(cards, "gone"), "");
 });
 

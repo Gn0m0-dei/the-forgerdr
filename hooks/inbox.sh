@@ -8,8 +8,9 @@
 #           away, since anything running as the user can write there. The decision comes from the request as Claude
 #           Code sent it, kept by the hook: its file only shows it, and rewriting the file changes nothing it runs.
 #           Answered in the pane, the request is settled (below), Claude Code ends this hook (Esc, No, the timeout),
-#           which takes the request away, or the session's next stop sweeps it (Chat about this, which does neither):
-#           in every case it leaves with no decision and the pane's answer stands.
+#           which takes the request away, or the session's next stop sweeps it (Chat about this, which does neither);
+#           one that stayed anyway is dismissed from the inbox (bin/forge-inbox.sh dismiss): in every case it leaves
+#           with no decision and the pane's answer stands.
 #   settle  PostToolUse, PostToolUseFailure: the tool ran, so the pane answered: the oldest request of this session for
 #           the same call goes, and its waiting hook leaves with no decision. Claude Code reports a call with what the
 #           pane added to it (a question's answers) or without its input (a plan), so the same call is the same tool

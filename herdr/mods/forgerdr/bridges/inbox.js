@@ -1,7 +1,7 @@
-// The approval inbox's requests and answers, through bin/forge-inbox.sh (a mod cannot list a folder), and whether its
-// drawer shows: its block in the layout, which the top bar's INBOX and forgerdr.inbox toggle, with the state in shared
-// so the drawer knows when it opened. The requests are hooks/inbox.sh's (forge_inbox_dir); the format is tested from
-// bash (test/inbox.test.sh).
+// The approval inbox's requests, answers and dismissals, through bin/forge-inbox.sh (a mod cannot list a folder), and
+// whether its drawer shows: its block in the layout, which the top bar's INBOX and forgerdr.inbox toggle, with the
+// state and when it last opened in shared, so the drawer knows when it opened whichever copy opened it. The requests
+// are hooks/inbox.sh's (forge_inbox_dir); the format is tested from bash (test/inbox.test.sh).
 import { exec, home, run, setShared, shared } from "herdr";
 import { ROOT } from "../name.js";
 import { followFolder } from "./follow.js";
@@ -14,6 +14,7 @@ import { followFolder } from "./follow.js";
 const SCRIPT = `${ROOT}/bin/forge-inbox.sh`;
 const TIMEOUT = 10_000;
 const OPEN_KEY = "forgerdr.inbox.open";
+const SHOWN_KEY = "forgerdr.inbox.shown";
 
 // The drawer's block in herdr/layouts/forgerdr.json.
 export const INBOX_BLOCK = "inbox";
@@ -39,23 +40,33 @@ export const readInbox = async () => {
 };
 
 /**
- * Hands an answer to the hook waiting on request `id`; what went wrong, or null.
- * @param {string} id
- * @param {InboxAnswer} answer
+ * Runs forge-inbox.sh with `args`, for an answer or a dismissal: what went wrong, or null.
+ * @param {string[]} args
+ * @param {string} failure what it says when the script fails without a word
  * @returns {Promise<string | null>}
  */
-export const answerInbox = async (id, answer) => {
+const tellInbox = async (args, failure) => {
   try {
-    const result = await exec(
-      "bash",
-      [SCRIPT, "answer", id, JSON.stringify(answer)],
-      { timeout: TIMEOUT },
-    );
-    return result.code === 0 ? null : result.stderr.trim() || "not answered";
+    const result = await exec("bash", [SCRIPT, ...args], { timeout: TIMEOUT });
+    return result.code === 0 ? null : result.stderr.trim() || failure;
   } catch (error) {
     return String(error);
   }
 };
+
+/**
+ * Hands an answer to the hook waiting on request `id`; what went wrong, or null.
+ * @param {string} id
+ * @param {InboxAnswer} answer
+ */
+export const answerInbox = (id, answer) =>
+  tellInbox(["answer", id, JSON.stringify(answer)], "not answered");
+
+/**
+ * Takes request `id` out of the inbox with no answer: its pane's own dialog still asks it. What went wrong, or null.
+ * @param {string} id
+ */
+export const dismissInbox = (id) => tellInbox(["dismiss", id], "not dismissed");
 
 /**
  * Reads the inbox now and again on every change in its folder, handing each read to `take`, until the copy closes.
@@ -72,8 +83,15 @@ export const followInbox = (cx, take) =>
 
 export const inboxOpen = () => shared(OPEN_KEY) === true;
 
+/** When the drawer last opened, in ms (kept across restarts, as shared is); 0 when it never has. */
+export const inboxShownAt = () => {
+  const at = shared(SHOWN_KEY);
+  return typeof at === "number" ? at : 0;
+};
+
 export const toggleInbox = () => {
   const open = !inboxOpen();
+  if (open) setShared(SHOWN_KEY, Date.now());
   setShared(OPEN_KEY, open);
   run(open ? "layout.show" : "layout.hide", { id: INBOX_BLOCK });
 };

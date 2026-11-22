@@ -1,16 +1,17 @@
 // The approval inbox (design 05): a drawer at the window's right, under the top bar, with what waits on the human's
-// mark, a card each (inbox.js), the newest first: a tool's permission, a question, one of forgerdr's gates, a plan, or
-// an agent waiting in its pane. Each card shows the gnome and the name of the forge it comes from, then the branch and
-// the session. A click opens a card (while a stamp shows, once it goes): Allow once and Deny with reason for a
-// permission; the options, an answer of one's own and Answer (Stamp on a gate) for a question; the plan, the mode its
-// session takes after it, Approve and Revise for a plan; and Discuss on every card, which goes to the agent's pane and
-// leaves the card open. Everything is a click; the text field alone takes Enter. An answer goes
-// through bin/forge-inbox.sh to the hook that waits on it (hooks/inbox.sh); the pane's own dialog stays open meanwhile,
-// whichever answers first wins, and a card answered in the pane goes. An answer stamps its card with the gnomemark
-// (design 05b, after the mark), gold for a yes and red for a no, over what showed of the card when it was clicked: it
-// comes down with a thump and the stamp's sound, stays a moment and slides off right with the card; with the motion
-// off the card just goes, to the same sound. Anything running as the user could write an answer too, as it could type
-// in a pane: the foot says so.
+// mark, a card each (inbox.js), the oldest first, so one that comes goes under the rest: a tool's permission, a
+// question, one of forgerdr's gates, a plan, or an agent waiting in its pane. Each card shows the gnome and the name of
+// the forge it comes from, then the branch and the session. A click opens a card (while a stamp shows, once it goes):
+// Allow once and Deny with reason for a permission; the options, an answer of one's own and Answer (Stamp on a gate)
+// for a question; the plan, the mode its session takes after it, Approve and Revise for a plan; and Discuss on every
+// card, which goes to the agent's pane and leaves the card open. Everything is a click; the text field alone takes
+// Enter. An answer goes through bin/forge-inbox.sh to the hook that waits on it (hooks/inbox.sh); the pane's own dialog
+// stays open meanwhile, whichever answers first wins, and a card answered in the pane goes. An answer stamps its card
+// with the gnomemark (design 05b, after the mark), gold for a yes and red for a no, over what showed of the card when
+// it was clicked: it comes down with a thump and the stamp's sound, stays a moment and slides off right with the card;
+// with the motion off the card just goes, to the same sound. The open card's ✕, on a request, takes it out with no
+// answer, for one answered elsewhere that stayed: its pane's own dialog still asks it. Anything running as the user
+// could write an answer too, as it could type in a pane: the foot says so.
 import { h_flex, Input, InputState, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, panes, run, settings, spaces } from "herdr";
@@ -18,8 +19,10 @@ import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import {
   answerInbox,
+  dismissInbox,
   followInbox,
   inboxOpen,
+  inboxShownAt,
   toggleInbox,
 } from "../bridges/inbox.js";
 import { playStamp } from "../bridges/sounds.js";
@@ -27,11 +30,11 @@ import { readTerminals } from "../bridges/terminals.js";
 import { groupForges, lookKeyOf } from "../forges.js";
 import { gnomeLookOf } from "../identity.js";
 import {
-  ARM_MS,
   aboveOf,
   answersOf,
   approvable,
   armed,
+  armingIn,
   cardsOf,
   countsOf,
   denyAnswer,
@@ -42,6 +45,7 @@ import {
   MARK,
   markedAt,
   markOf,
+  oldestFirst,
   openCardOf,
   openedNow,
   originOf,
@@ -95,8 +99,9 @@ import { motionOn, NONE, tokens, withAlpha } from "../kit/tokens.js";
 /** @typedef {import("../kit/sprites.js").IconName} IconName */
 /** @typedef {import("./role.js").Role} Role */
 
-// How often the cards' times move while the drawer shows; hidden, it only looks whether it opened.
-const TIMING = Object.freeze({ armed: 20, open: 1000, shut: 2000 });
+// How often the cards' times move while the drawer shows; hidden, it only looks whether it opened, often enough that
+// the card open in it lights up soon after it is armed again.
+const TIMING = Object.freeze({ armed: 20, open: 1000, shut: 500 });
 
 // The stamp's life, in ms: raised over the card, it lands a moment later with a thump (a spring from its raised size
 // down to its own, which overshoots a little), stays while it is read, then slides off to the right with the card, and
@@ -135,6 +140,9 @@ const STAMP_PHASE = Object.freeze({
 
 // The room between cards, inside each card's slot, so a slot closing takes its room with it.
 const CARD_GAP = 10;
+
+// How a button that cannot act yet shows: its card not armed, or its question not answered.
+const FAINT = 0.5;
 
 /** @typedef {typeof STAMP_PHASE[keyof typeof STAMP_PHASE]} StampPhase */
 
@@ -265,6 +273,8 @@ export const inbox = (cx) => {
   const discussing = new Set();
   /** @type {Map<string, number>} cards answered here, and when: gone at once, before their hook takes their request */
   const answered = new Map();
+  /** @type {Set<string>} requests taken out with their ✕: gone at once, before the inbox is read again without them */
+  const dismissed = new Set();
   /** @type {Map<string, Marked>} the cards whose stamp shows, by card */
   const marks = new Map();
   /** @type {Map<string, number>} sessions whose request just went, until when: not shown waiting meanwhile */
@@ -290,6 +300,7 @@ export const inbox = (cx) => {
         requests = read;
         const ids = new Set(read.map((request) => request.id));
         for (const id of answered.keys()) if (!ids.has(id)) answered.delete(id);
+        for (const id of dismissed) if (!ids.has(id)) dismissed.delete(id);
         untaken(Date.now());
         // A card under its stamp keeps what it shows until the stamp is gone.
         const gone = (/** @type {string} */ id) =>
@@ -320,7 +331,7 @@ export const inbox = (cx) => {
           if (open) pin();
           if (open && (allCards().length > 0 || marks.size > 0)) cx.notify();
           // While the open card is not armed yet, it looks again the moment it is, so its buttons light up then.
-          const arming = opened.at + ARM_MS - Date.now();
+          const arming = armingIn(opened, Date.now(), inboxShownAt());
           await cx.sleep(
             !open
               ? TIMING.shut
@@ -336,7 +347,7 @@ export const inbox = (cx) => {
       now: Date.now(),
       quiet: quietNow(quiet, Date.now()),
       seen: blockedSince,
-    }).filter((card) => !answered.has(card.id));
+    }).filter((card) => !answered.has(card.id) && !dismissed.has(card.id));
   const shownCards = () => shownIn(allCards(), filter);
   /** Whether a stamp still shows, on a card the filter shows: until its card closes. */
   const stamping = () =>
@@ -345,19 +356,20 @@ export const inbox = (cx) => {
         marked.phase !== STAMP_PHASE.closing &&
         shownIn([marked.card], filter).length > 0,
     );
-  // forge: a card that arrives above a stamp still showing, or goes from there, still moves the stamped card by its
-  // closed height; holding back from listed() the cards that arrive above a showing stamp until it closes would keep
-  // it still.
+  // forge: a card that goes from above a stamp still showing (answered in its pane) moves the stamped card up by its
+  // closed height. One that comes goes under it (oldestFirst), except an agent waiting in its pane since before, such
+  // as a dismissed request's whose dialog still asks. Listing the cards as they were when the stamp came down, until
+  // it closes, would keep it still.
   /**
-   * The open card: the one clicked while it still waits, else the first; none while a stamp shows, so nothing grows
-   * or moves under it: the next card opens as the stamped one closes.
+   * The open card: the one clicked while it still waits, else the first, the oldest; none while a stamp shows, so
+   * nothing grows or moves under it: the next card opens as the stamped one closes.
    */
   const current = () => {
     const cards = shownCards();
     const card = cards.find((each) => each.id === selected) ?? cards[0];
     return card === undefined || stamping() ? undefined : card;
   };
-  /** The cards as the drawer lists them: those waiting and those under their stamp, the newest first. */
+  /** The cards as the drawer lists them: those waiting and those under their stamp, the oldest first. */
   const listed = () =>
     [
       ...shownCards(),
@@ -365,7 +377,7 @@ export const inbox = (cx) => {
         [...marks.values()].map((marked) => marked.card),
         filter,
       ),
-    ].sort((one, other) => other.since - one.since);
+    ].toSorted(oldestFirst);
   /**
    * Keeps the open card open by its id, and notes since when the card shown open has shown (inbox.js openedNow): when
    * it changes, the cards above it change so it moved under the pointer, or a card held shut by a stamp opens, it
@@ -483,8 +495,14 @@ export const inbox = (cx) => {
     );
   };
 
-  // The card goes at once, before the hook takes the request away; the next one (below it, else above) opens once its
-  // stamp is gone (current).
+  /** The card to open when one goes: the one below it, else the one above. @param {InboxCard} card */
+  const nextAfter = (card) => {
+    const cards = shownCards();
+    const at = cards.findIndex((each) => each.id === card.id);
+    return (cards[at + 1] ?? cards[at - 1])?.id ?? "";
+  };
+
+  // The card goes at once, before the hook takes the request away; the next one opens once its stamp is gone (current).
   /**
    * @param {InboxCard} card
    * @param {InboxAnswer} answer
@@ -493,9 +511,7 @@ export const inbox = (cx) => {
    */
   const send = (card, answer, top, cx) => {
     if (card.request === null || answered.has(card.id)) return;
-    const cards = shownCards();
-    const at = cards.findIndex((each) => each.id === card.id);
-    selected = (cards[at + 1] ?? cards[at - 1])?.id ?? "";
+    selected = nextAfter(card);
     answered.set(card.id, Date.now());
     failed = { id: "", text: "" };
     const words = typing === card.id ? typed.value() : null;
@@ -511,6 +527,32 @@ export const inbox = (cx) => {
         marks.delete(card.id);
         failed = { id: card.id, text: refused };
         // Its stamp gone, the next card opens: armed again from now.
+        pin();
+      }
+      task.notify();
+    });
+    cx.notify();
+  };
+
+  /**
+   * The open request's ✕, once it is armed: it goes with no answer, for one answered elsewhere that stayed, at once and
+   * with no stamp, and the next opens, armed afresh. Its hook leaves with no decision, so its pane's own dialog still
+   * asks it, and a session that still waits there shows again as waiting in its pane; one that cannot go comes back,
+   * saying why.
+   * @param {InboxCard} card
+   * @param {Context} cx
+   */
+  const dismiss = (card, cx) => {
+    if (!clickCounts(card)) return;
+    selected = nextAfter(card);
+    if (typing === card.id) stopTyping(cx);
+    dismissed.add(card.id);
+    pin();
+    cx.spawn(async (task) => {
+      const refused = await dismissInbox(card.id);
+      if (refused !== null) {
+        dismissed.delete(card.id);
+        failed = { id: card.id, text: refused };
         pin();
       }
       task.notify();
@@ -591,7 +633,7 @@ export const inbox = (cx) => {
   // armed again, and this click does not count.
   const clickCounts = (card) => {
     pin();
-    return armed(opened, card.id, Date.now());
+    return armed(opened, card.id, Date.now(), inboxShownAt());
   };
 
   /** The card's first button, clicked. @param {InboxCard} card @param {Context} cx */
@@ -630,9 +672,10 @@ export const inbox = (cx) => {
     const cards = listed();
     const card = current();
     const now = Date.now();
+    const shownAt = inboxShownAt();
     // A button that approves lights up once its card is armed (inbox.js armed): until then a click on it does nothing.
     const armedNow = (/** @type {InboxCard} */ each) =>
-      armed(opened, each.id, now);
+      armed(opened, each.id, now, shownAt);
     const terminals = readTerminals();
     const forges = groupForges(spaces(), readSpacesGit());
     const gnomes = readGnomes();
@@ -885,7 +928,7 @@ export const inbox = (cx) => {
                 "Allow once",
                 `inbox-allow-${each.id}`,
                 (cx) => approve(each, cx),
-              ).opacity(armedNow(each) ? 1 : 0.5),
+              ).opacity(armedNow(each) ? 1 : FAINT),
             ],
             [
               button(
@@ -977,7 +1020,7 @@ export const inbox = (cx) => {
                 gate ? "Stamp" : "Answer",
                 `inbox-answer-${each.id}`,
                 (cx) => approve(each, cx),
-              ).opacity(ready && armedNow(each) ? 1 : 0.5),
+              ).opacity(ready && armedNow(each) ? 1 : FAINT),
               button(
                 KEY_BUTTON.secondary,
                 "Other…",
@@ -1036,7 +1079,7 @@ export const inbox = (cx) => {
                 "Approve plan",
                 `inbox-approve-${each.id}`,
                 (cx) => approve(each, cx),
-              ).opacity(armedNow(each) ? 1 : 0.5),
+              ).opacity(armedNow(each) ? 1 : FAINT),
             ],
             [
               button(
@@ -1131,7 +1174,8 @@ export const inbox = (cx) => {
     };
 
     /**
-     * A card's frame: its kind, what it asks or (open) its body, where it comes from and a time.
+     * A card's frame: its kind, what it asks or (open) its body, where it comes from and a time; open on a request
+     * still waiting, its ✕, lit once it is armed.
      * @param {InboxCard} each
      * @param {boolean} open
      * @param {string} time how long it has waited, or when it was answered
@@ -1161,6 +1205,15 @@ export const inbox = (cx) => {
                   .border(1)
                   .border_color(k.working)
                   .child(text("DISCUSSING", "display", 8, k.working)),
+              ),
+            )
+            .when(open && each.request !== null && !marks.has(each.id), (el) =>
+              el.child(
+                control(
+                  iconButton(ICON.close, k.muted),
+                  `inbox-dismiss-${each.id}`,
+                  (cx) => dismiss(each, cx),
+                ).opacity(armedNow(each) ? 1 : FAINT),
               ),
             ),
         )

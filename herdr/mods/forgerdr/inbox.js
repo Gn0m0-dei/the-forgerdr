@@ -137,7 +137,15 @@ const GATE_HEADER = /^Gate /;
  */
 
 /**
- * The cards, the newest first: a request each while its session's terminal is live, and an agent blocked with none,
+ * The order cards wait in, the oldest first: one that comes goes under the rest, so the card being read and a stamp
+ * coming down on one never move for it.
+ * @param {Pick<InboxCard, "since">} one
+ * @param {Pick<InboxCard, "since">} other
+ */
+export const oldestFirst = (one, other) => one.since - other.since;
+
+/**
+ * The cards, the oldest first: a request each while its session's terminal is live, and an agent blocked with none,
  * unless its request has just gone: the app reports it blocked a moment longer, and it would flash up as waiting. An
  * agent has waited since its status changed when the app says so, else since the inbox first saw it blocked.
  * @param {InboxRequest[]} requests
@@ -177,7 +185,7 @@ export const cardsOf = (
         since: terminal.status_ms ?? seen.get(terminal.address) ?? now,
         terminal: terminal.address,
       })),
-  ].sort((one, other) => other.since - one.since);
+  ].toSorted(oldestFirst);
 };
 
 // How long a session whose request went stays out of the waiting cards, while the app catches up with its status.
@@ -593,8 +601,8 @@ export const approvable = (card) =>
   card.request !== null && card.request.cut !== true;
 
 /**
- * The card to keep open: the one open while it still waits, else the first. Kept by id, so a newer request, which
- * comes first, never takes the place of the one being read.
+ * The card to keep open: the one open while it still waits, else the first, the oldest. Kept by id, so a card that
+ * goes from above it never hands its place to another.
  * @param {InboxCard[]} cards
  * @param {string} open
  */
@@ -625,12 +633,22 @@ export const aboveOf = (cards, id) => {
  */
 
 /**
+ * How long until the card shown open is armed, in ms: none left once it is.
+ * @param {Opened} opened
+ * @param {number} now ms
+ * @param {number} [shown] when the drawer last opened, in ms: a card shut away with it shows open only from then
+ */
+export const armingIn = (opened, now, shown = 0) =>
+  Math.max(0, Math.max(opened.at, shown) + ARM_MS - now);
+
+/**
  * @param {Opened} opened
  * @param {string} id the card clicked
  * @param {number} now ms
+ * @param {number} [shown] when the drawer last opened, in ms (armingIn)
  */
-export const armed = (opened, id, now) =>
-  opened.id === id && now - opened.at >= ARM_MS;
+export const armed = (opened, id, now, shown = 0) =>
+  opened.id === id && armingIn(opened, now, shown) === 0;
 
 /**
  * The card shown open, and since when: the same as before while it is the same card under the same cards, else from

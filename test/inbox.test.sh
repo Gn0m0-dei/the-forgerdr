@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Smallest check that fails if the approval inbox breaks: hooks/inbox.sh puts a Claude Code permission request in the
 # inbox and turns the answer the forgerdr mod writes into Claude Code's decision, or leaves without one when the pane
-# answered first; bin/forge-inbox.sh lists the requests for the mod and writes its answers.
+# answered first; bin/forge-inbox.sh lists the requests for the mod, writes its answers and dismisses what stayed.
 # Run: bash test/inbox.test.sh
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -414,6 +414,22 @@ done
 expect "an answer must be a JSON object" "1" "$(bash "$cli" answer 00000000000000d4 'allow' >/dev/null 2>&1; echo $?)"
 expect "and one only" "1" "$(bash "$cli" answer 00000000000000d4 '{"behavior":"allow"}{"behavior":"allow"}' >/dev/null 2>&1; echo $?)"
 expect "none of those were written" "00000000000000a1.answer.json 00000000000000b2.answer.json" "$(cd "$inbox" && echo ./*.answer.json | sed 's#\./##g')"
+
+# A request answered elsewhere that stays in the inbox is dismissed: it goes with no answer, and a hook still waiting on
+# it leaves with no decision, so the pane's own dialog stands.
+rm -rf "$inbox"
+asking "$push"
+id="$(requests)"
+waiting 00000000000000b2 "$now_ms" "pnpm test"
+expect "a request is dismissed" "{\"dismissed\":\"$id\"}" "$(bash "$cli" dismiss "$id")"
+wait "${pids[asked]}"
+expect "its hook leaves with no decision" "" "$(decision)"
+expect "and it goes, alone" "00000000000000b2.json" "$(ls "$inbox")"
+expect "one already gone is no error" "0" "$(bash "$cli" dismiss "$id" >/dev/null 2>&1; echo $?)"
+for wrong in "../00000000000000b2" "00000000000000B2" "00000000000000b2.json" ""; do
+  expect "nothing is dismissed by a name that is not a request's: '$wrong'" "1" "$(bash "$cli" dismiss "$wrong" >/dev/null 2>&1; echo $?)"
+done
+expect "the other request still waits" "00000000000000b2.json" "$(ls "$inbox")"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'
