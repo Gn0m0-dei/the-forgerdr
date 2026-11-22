@@ -42,13 +42,30 @@ For each cell: where the design and the tasks live, which branch is used and who
 ## Releasing
 
 A release is a version bump in `.claude-plugin/plugin.json` and `package.json`,
-a `## [x.y.z] - date` section in `CHANGELOG.md`, one
-commit, and a tag: `git tag vx.y.z && git push origin vx.y.z`. The tag creates
-the GitHub Release with that changelog section as notes. Installed copies pick
+a `## [x.y.z] - date` section in `CHANGELOG.md`, one commit, merged through a
+pull request like any other change, and a tag on the merged commit:
+`git tag vx.y.z && git push origin vx.y.z`. The tag creates the GitHub Release
+with that changelog section as notes.
+
+`main` takes nothing but pull requests whose CI (`check`) passes, and neither
+`main`, `site`, `tui` nor a `v*` tag can be deleted or force-pushed. Workflows
+from outside contributors run once the maintainer approves them, and only
+GitHub's own actions and `pnpm/action-setup` run, the third-party one pinned
+to a commit. Installed copies pick
 the new version up with `claude plugin update forgerdr@the-forgerdr`; the
 version bump is what makes the update visible, so never skip it.
 
+## The website
+
+The website, <https://gn0m0-dei.github.io/the-forgerdr/>, holds what the
+README used to explain: the landing page and the documentation. Its source
+lives on the `site` branch, apart from `main`, so the plugin's installed copies
+never carry its images and video; its own README says how to build and test
+it. A change on `main` that alters behaviour comes with a pull request against
+`site` that changes the page documenting it, and every push to `site` deploys.
+
 ## Keep it lean
 
-Procedure goes in the skill that runs it, not in `README.md`; `README.md` links,
-it does not duplicate. No new dependency for what a few lines of bash do.
+Procedure goes in the skill that runs it, not in `README.md` or the website;
+they link, they do not duplicate. No new dependency for what a few lines of
+bash do.
