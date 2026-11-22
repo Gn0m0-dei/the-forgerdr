@@ -4,6 +4,7 @@
 import { deepStrictEqual, strictEqual } from "node:assert";
 import { test } from "node:test";
 import {
+  afterRead,
   auditLine,
   detailOf,
   fixAnswer,
@@ -344,6 +345,70 @@ test("a triage's key changes when its findings are sent again or it opens afresh
     triageKey(triage(100, FINDINGS.slice(1))) === triageKey(read),
     false,
   );
+});
+
+const OPENING = Object.freeze({
+  gone: false,
+  key: "",
+  seen: false,
+  stamped: false,
+  triage: null,
+});
+
+test("a triage that is not there before one was read is still opening, not gone", () => {
+  deepStrictEqual(afterRead(OPENING, null), {
+    hold: OPENING,
+    restart: false,
+  });
+});
+
+test("a triage that goes after it showed is gone; the view drops it unless it stamped it", () => {
+  const shown = afterRead(OPENING, triage(100, FINDINGS)).hold;
+  deepStrictEqual(afterRead(shown, null).hold, {
+    ...shown,
+    gone: true,
+    triage: null,
+  });
+  deepStrictEqual(afterRead({ ...shown, stamped: true }, null).hold, {
+    ...shown,
+    gone: true,
+    stamped: true,
+  });
+});
+
+test("a triage opened again after one went starts the view over, stamped or not", () => {
+  const read = triage(100, FINDINGS);
+  const gone = {
+    ...afterRead(OPENING, read).hold,
+    gone: true,
+    stamped: true,
+  };
+  const next = triage(0, []);
+  deepStrictEqual(afterRead(gone, next), {
+    hold: {
+      gone: false,
+      key: triageKey(next),
+      seen: true,
+      stamped: false,
+      triage: next,
+    },
+    restart: true,
+  });
+});
+
+test("the same key read again keeps the view's picks, after it went too", () => {
+  const read = triage(0, []);
+  const gone = afterRead(afterRead(OPENING, read).hold, null).hold;
+  deepStrictEqual(afterRead(gone, read), {
+    hold: {
+      gone: false,
+      key: triageKey(read),
+      seen: true,
+      stamped: false,
+      triage: read,
+    },
+    restart: false,
+  });
 });
 
 /** @param {string} id @param {string} terminal @param {string} header @param {number} created */

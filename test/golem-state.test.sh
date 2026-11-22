@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Smallest check that fails if hooks/golem-state.sh breaks: a turn that ends in an API error marks the session's herdr
-# terminal cracked, with the error's kind; a prompt or a new session mends it; outside herdr nothing is marked.
+# terminal cracked, with the error's kind; a prompt or a new session mends it, and a new session forgets the security
+# triage of the one before it; outside herdr nothing is marked.
 # Run: bash test/golem-state.test.sh
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -12,11 +13,14 @@ trap 'rm -rf "$sandbox"' EXIT
 fakes_install "$sandbox"
 # A session dispatched by another runs with its dispatcher's terminal; the hook must not see it here.
 unset FORGE_PARENT_TERMINAL FORGE_AGENT_TYPE
+export FORGE_SECURITY_DIR="$sandbox/security"
+mkdir -p "$FORGE_SECURITY_DIR"
 
 failures=0
 expect() {
   if [ "$2" = "$3" ]; then printf 'ok   %s\n' "$1"; else printf 'FAIL %s\n  expected: %s\n  actual:   %s\n' "$1" "$2" "$3"; failures=$((failures + 1)); fi
 }
+exists() { [ -e "$1" ] && echo true || echo false; }
 # The last hc label call, with each timestamp put as <ms>.
 calls() { jq -c 'select(.[1] == "label") | map(sub("=[0-9]{13}$"; "=<ms>"))' "$FAKE_CALLS" | tail -n 1; }
 
@@ -38,8 +42,15 @@ printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t8 FORGE_PARENT_TER
 expect "and says what agent it is" '["hc","label","t8","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.review=","forge.view=","forge.parent=t5","forge.agent=forgerdr:reviewer"]' "$(calls)"
 printf '{"hook_event_name":"SessionStart"}' | HC_TERMINAL_ID=t5 bash "$hook" born
 expect "a session of its own mends, and forgets the review or security view of the session before it" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>","forge.review=","forge.view="]' "$(calls)"
+printf '{}' > "$FORGE_SECURITY_DIR/t5.json"
 printf '{"hook_event_name":"SessionStart","source":"compact"}' | HC_TERMINAL_ID=t5 bash "$hook" born
 expect "a session compacted, or resumed, keeps its review or security view" '["hc","label","t5","forge.state=","forge.error=","forge.stopped=","forge.started=<ms>"]' "$(calls)"
+expect "and its security triage" true "$(exists "$FORGE_SECURITY_DIR/t5.json")"
+printf '{"hook_event_name":"SessionStart","source":"clear"}' | HC_TERMINAL_ID=t5 bash "$hook" born
+expect "a /clear forgets the security triage of the session before it, which the view then calls over" false "$(exists "$FORGE_SECURITY_DIR/t5.json")"
+printf '{}' > "$FORGE_SECURITY_DIR/t5.json"
+printf '{"hook_event_name":"SessionStart","source":"startup"}' | HC_TERMINAL_ID=t5 bash "$hook" born
+expect "and so does claude started again in the terminal" false "$(exists "$FORGE_SECURITY_DIR/t5.json")"
 
 : > "$FAKE_CALLS"
 printf '{"error":"rate_limit"}' | bash "$hook" crack

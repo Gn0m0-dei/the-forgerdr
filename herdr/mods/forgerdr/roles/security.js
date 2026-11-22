@@ -38,6 +38,7 @@ import { landStamp, STAMP_PHASE, stampOver } from "../kit/stamp.js";
 import { wrapped } from "../kit/text.js";
 import { tokens } from "../kit/tokens.js";
 import {
+  afterRead,
   auditLine,
   detailOf,
   FINDING_STATUS,
@@ -51,7 +52,6 @@ import {
   securityGroups,
   stampedWords,
   stampWords,
-  triageKey,
   verdictTag,
   verdictTone,
   verifierLine,
@@ -126,15 +126,14 @@ const firstOpened = (groups) => {
  */
 export const security = (cx) => {
   const terminal = readProps()?.terminal ?? "";
+  // What the view holds of the triage (TriageHold): triage, seen, picksOf as its key, stamped and gone.
   /** @type {Triage | null} */
   let triage = null;
   let loaded = false;
-  // A triage was read: a null read before one (the tab opens before the file is written) is still opening.
   let seen = false;
   /** @type {InboxRequest[]} */
   let requests = [];
   let picks = noPicks();
-  // The triage the view's picks rest on (triageKey): another starts the view over.
   let picksOf = "";
   /** @type {Set<string>} the finding rows opened */
   const opened = new Set();
@@ -143,36 +142,19 @@ export const security = (cx) => {
   let failed = "";
   /** @type {StampPhase} */
   let stamp = STAMP_PHASE.none;
-  // This view's answer went through: the golem fixes the picks, and the session closes the tab once it is done.
   let stamped = false;
-  // The triage went after it showed (bin/forge-security.sh done removes it; open rewrites it, never removes it) and the
-  // tab stayed: it holds more, is its space's last, or the app did not close it (no answer, or tab.close failed).
   let gone = false;
 
   /** @param {Triage | null} read */
   const take = (read) => {
-    // Gone, the view is over, stamped or not: a later /forgerdr:security in the same session opens a tab of its own, and
-    // this one must not start over on that triage, which both could stamp.
-    // forge: later reads are ignored, not stopped; cancel the follow if a task can end itself from its own callback.
-    if (gone) return;
     loaded = true;
-    if (read === null) {
-      gone = seen;
-      // Stamped, the view keeps the triage it stamped, and says so until the tab closes.
-      if (!stamped) triage = null;
-      return;
-    }
-    triage = read;
-    seen = true;
-    const key = triageKey(read);
-    if (key !== picksOf) {
-      picksOf = key;
-      picks = noPicks();
-      opened.clear();
-      touched = false;
-      failed = "";
-      stamped = false;
-    }
+    const next = afterRead({ gone, key: picksOf, seen, stamped, triage }, read);
+    ({ gone, key: picksOf, seen, stamped, triage } = next.hold);
+    if (!next.restart) return;
+    picks = noPicks();
+    opened.clear();
+    touched = false;
+    failed = "";
   };
 
   const following =

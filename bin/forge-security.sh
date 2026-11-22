@@ -25,6 +25,10 @@
 #   done               the triage is over: the labels and the triage go, and the view's tab with them when it holds
 #                      the view alone and is not the last tab of its space; the sidebar then ends the session parked
 #                      behind it, as it ends a review's. A terminal whose questions go to a review view keeps them all.
+# From the session start hook (hooks/golem-state.sh born), in any herdr terminal (HC_TERMINAL_ID):
+#   forget             a new Claude session started in the terminal (/clear, claude started again), as the hook takes
+#                      the labels away: the triage of the session before it goes, so the view says it is over, and the
+#                      view's tab stays, since closing it would end the new session.
 # From the mod, for a terminal:
 #   show <terminal>    its triage, or null.
 # A file a week untouched goes; one that is not a triage shows as none.
@@ -280,6 +284,13 @@ finish() {
   fi
 }
 
+forget() {
+  local terminal file
+  terminal="$(own_terminal)"
+  file="$(file_of "$terminal")"
+  rm -f "$file"
+}
+
 show() {
   local file shown
   file="$(file_of "${1:-}")"
@@ -294,6 +305,7 @@ case "$command" in
   open) open "${1:-}" ;;
   findings) findings "${1:-}" ;;
   done) finish ;;
+  forget) forget ;;
   show) show "${1:-}" ;;
-  *) forge_die "usage: forge-security.sh launch [options] | open | findings | done | show" ;;
+  *) forge_die "usage: forge-security.sh launch [options] | open | findings | done | forget | show" ;;
 esac

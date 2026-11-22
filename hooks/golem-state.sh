@@ -6,10 +6,11 @@
 #   rest   Stop: forge.stopped=<now, ms>.
 #   mend   UserPromptSubmit: a task starts (forge.started=<now, ms>); the cracked mark and the stop go.
 #   born   SessionStart: mends it, forgets the review or security view a session before it had (forge.review and
-#          forge.view, bin/forge-pr.sh and bin/forge-security.sh) unless the session is the same one resumed or
-#          compacted, and ties an agent's golem to the session that dispatched it (forge.parent, from
-#          FORGE_PARENT_TERMINAL, which hooks/agent-dispatch.sh sets), so the lanes and the sidebar list it under it,
-#          saying what agent it is (forge.agent, from FORGE_AGENT_TYPE), so the forge floor lights its review cell.
+#          forge.view, bin/forge-pr.sh and bin/forge-security.sh) and its security triage (forge-security.sh forget)
+#          unless the session is the same one resumed or compacted, and ties an agent's golem to the session that
+#          dispatched it (forge.parent, from FORGE_PARENT_TERMINAL, which hooks/agent-dispatch.sh sets), so the lanes
+#          and the sidebar list it under it, saying what agent it is (forge.agent, from FORGE_AGENT_TYPE), so the
+#          forge floor lights its review cell.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
@@ -34,6 +35,7 @@ case "${1:-}" in
     case "$(jq -r '.source // "startup"' 2>/dev/null || printf startup)" in resume|compact) view=() ;; esac
     forge_hc label "$terminal" forge.state= forge.error= forge.stopped= "forge.started=$now_ms" ${view[@]+"${view[@]}"} \
       ${FORGE_PARENT_TERMINAL:+"forge.parent=$FORGE_PARENT_TERMINAL"} ${FORGE_AGENT_TYPE:+"forge.agent=$FORGE_AGENT_TYPE"} \
-      >/dev/null 2>&1 || true ;;
+      >/dev/null 2>&1 || true
+    [ ${#view[@]} -eq 0 ] || "$plugin_root/bin/forge-security.sh" forget >/dev/null 2>&1 || true ;;
   *) forge_die "usage: golem-state.sh crack|rest|mend|born" ;;
 esac

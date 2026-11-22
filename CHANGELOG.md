@@ -9,6 +9,8 @@ All notable changes to this project are documented here. The format follows
 ### Fixed
 
 - Every write to Azure Boards in spec mode `azure` waits for its gate. `/forgerdr:build`'s ledger is `mem_save` in every mode: a task done changes its work item's state only on the yes of a `Gate state`, and the milestones go on the requirement as a progress comment, offered at a blocker and once at the end, only on the yes of a `Gate comment`. azdospec's procedures (`/azdo:propose`, `/azdo:apply`, `/azdo:archive`) follow forgerdr's gates over their own wording: their questions go through `AskUserQuestion`, and their writes wait for a `Gate item`, `Gate comment`, `Gate state`, `Gate push` or `Gate PR`, one per step, so they reach the herdr app's inbox. `/forgerdr:plan` has `/azdo:apply` create the tasks only after the plan is approved, and the `Gate PR` of its pull request names the work items its merge closes.
+- A `/clear` in a security session no longer leaves its triage in the security view: the new session forgets the triage of the one before it (`bin/forge-security.sh forget`, run by the session start hook), and the view says the triage is over (once stamped, that the golem is done) and keeps its tab.
+- `/forgerdr:security` run again in a security session whose triage went (after a `/clear`, or a `done` that left its tab open) opens the next triage in the same view, which before went on saying the triage was over while the session waited on its stamp.
 
 ## [0.36.0] - 2026-11-22
 

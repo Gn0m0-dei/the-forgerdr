@@ -399,6 +399,55 @@ export const triageKey = ({ sent, findings }) =>
   [sent, ...findings.map((finding) => finding.id)].join(" ");
 
 /**
+ * What the view holds of its session's triage, as the reads leave it.
+ * @typedef {object} TriageHold
+ * @property {Triage | null} triage the triage it shows; a stamped one stays once it goes
+ * @property {boolean} seen a triage was read: a null read before one (the tab opens before the file is written) is
+ * still opening
+ * @property {boolean} gone the triage went after it showed: bin/forge-security.sh done removes it, and so does a new
+ * Claude session in the terminal (/clear), which leaves the tab; open rewrites it, never removes it
+ * @property {boolean} stamped the view's answer went through: the golem fixes the picks
+ * @property {string} key the triage the view's picks rest on (triageKey)
+ */
+
+/**
+ * @typedef {object} TriageRead
+ * @property {TriageHold} hold
+ * @property {boolean} restart the view's picks start over: the triage read is another
+ */
+
+/**
+ * What the view holds after a read of its triage. A triage read after one went is the session's next, as
+ * /forgerdr:security run again in the session opens it in this same tab: its key starts the view over.
+ * @param {TriageHold} hold
+ * @param {Triage | null} read
+ * @returns {TriageRead}
+ */
+export const afterRead = (hold, read) => {
+  if (read === null)
+    return {
+      hold: {
+        ...hold,
+        gone: hold.seen,
+        triage: hold.stamped ? hold.triage : null,
+      },
+      restart: false,
+    };
+  const key = triageKey(read);
+  const restart = key !== hold.key;
+  return {
+    hold: {
+      gone: false,
+      key,
+      seen: true,
+      stamped: hold.stamped && !restart,
+      triage: read,
+    },
+    restart,
+  };
+};
+
+/**
  * @typedef {object} PendingFix
  * @property {InboxRequest} request
  * @property {Question} question

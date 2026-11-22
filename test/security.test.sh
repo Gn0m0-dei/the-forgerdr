@@ -81,6 +81,7 @@ outside='forgerdr: not inside the herdr app: triage in the chat'
 expect "open outside the herdr app is refused, saying so once" "$outside" "$(bash "$script" open audit.json 2>&1 || true)"
 expect "and so are findings" "$outside" "$(bash "$script" findings findings.json 2>&1 || true)"
 expect "and done" "$outside" "$(bash "$script" "done" 2>&1 || true)"
+expect "and forget" "$outside" "$(bash "$script" forget 2>&1 || true)"
 expect "and nothing is written" false "$(exists "$dir")"
 # open runs in the session launch opened alone: told so (FORGE_SECURITY_VIEW) and parked behind a listed tab.
 elsewhere='forgerdr: open runs inside the security session launch opens: run forge-security.sh launch'
@@ -274,6 +275,18 @@ expect "and when the terminal keeps its labels" \
   $'forgerdr: the terminal keeps its security labels: the inbox may still send its questions to the view\nexit 0' \
   "$(hc_failing label "done")"
 expect "done with no triage succeeds" 0 "$(status_of sec "done")"
+# A new Claude session in the terminal (/clear, claude started again: hooks/golem-state.sh born) forgets the triage the
+# session before it opened, so the view says it is over, and leaves the view's tab, whose closing would end the session.
+listed tb-view '[]'
+sec open audit.json >/dev/null
+printf '{}' > "$dir/t9.json"
+: > "$FAKE_CALLS"
+sec forget
+expect "forget removes the terminal's triage" false "$(exists "$dir/t7.json")"
+expect "and no other terminal's" true "$(exists "$dir/t9.json")"
+expect "and leaves the view's tab open" no "$(called herdr-app "do" tab.close)"
+expect "forget with no triage succeeds" 0 "$(status_of sec forget)"
+rm "$dir/t9.json"
 expect "an unknown command shows the usage" 1 "$(status_of mod close t7)"
 
 # launch: the security session of a folder in a tab of its own, parked behind its view, as forge-review.sh opens a
