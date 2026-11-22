@@ -1,0 +1,42 @@
+---
+title: The inbox
+description: One drawer holds everything that waits on your mark, from every session in every forge.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+The inbox is a drawer at the right that `INBOX` (or `forgerdr.inbox`) opens and its ✕ closes. It holds what waits on your mark in every session, a card each, the oldest first, with filters for permissions, questions, plans and the forgerdr's gates.
+
+<img src={withBase("screens/05-inbox.png")} width="1440" height="900" alt="The inbox drawer: a plan to approve, a commit gate, a permission, and the comments waiting in their views." />
+
+## What it holds
+
+| Card | What it shows | Your answer |
+|---|---|---|
+| Permission | every field of what the tool runs, whole (a file's new content, an edit's old and new text, a command's flags), and why | `Allow once`, `Deny with reason` |
+| Question | its options (several on a multi-select one, a draft beside the one picked when it carries one) and an answer of your own | `Answer` |
+| Gate | a question headed `Gate commit`, `Gate push`, `Gate PR`, `Gate comment`, `Gate state` or `Gate item`, with its draft | `Stamp` |
+| Plan | the plan as plain text, with the mode its session takes after it | `Approve plan`, `Revise` with what to change |
+| An agent waiting | an agent waiting in its pane with nothing the inbox can answer | the card takes you to its pane |
+
+Each card shows the gnome and the name of the forge it comes from, then the branch and the session, and how long it has waited. `Discuss` takes you to its pane and leaves the decision open.
+
+## Answering a card
+
+It is all clicks. The card open stays open when a newer one comes, and a click approves only once it has been open half a second, counted again each time the drawer opens, so a double click, a card that moved or a drawer just opened never approves one you did not see.
+
+## The stamp
+
+An answer stamps the card with the gnomemark, gold for a yes and red for a no, with the stamp's thump: the card trembles under the blow, then slides off to the right, and the cards below rise into its place. With the motion off, only the sound.
+
+Claude Code's own dialog stays open in the pane meanwhile, and whichever answers first wins: a card answered in its pane goes. The open card's ✕ takes a request out with no answer, for one answered elsewhere that stayed.
+
+## Questions typed in the chat
+
+A session whose final message asks a question typed in the chat, which no inbox sees, is sent back once to ask it as a question with options. An agent the forgerdr dispatched asks the session that dispatched it instead.
+
+:::caution[A convenience, not a lock]
+Anything running as you can write an answer to the inbox, as it can type in a pane. The drawer saves you from hunting prompts in panes you are not looking at; it is not a security boundary.
+:::
+
+Outside the herdr app nothing changes: Claude Code's dialogs work as always.

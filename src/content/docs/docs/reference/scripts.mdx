@@ -1,0 +1,43 @@
+---
+title: Scripts
+description: The bash scripts that drive the herdr app, with their flags, and what they refuse to do.
+---
+
+The forgerdr talks to the herdr app through its two command-line tools: `herdr-app do` for the window (spaces, tabs, the focus) and `hc` for the terminals and agents in it. The fan-outs and the agent dispatch work only inside a terminal of the app (`HC_TERMINAL_ID` set); outside it, the worktree hook still makes and removes plain git worktrees. New tabs and spaces open without taking the focus unless the command is about what you look at next.
+
+The scripts are plain bash over `herdr-app`, `hc` and `jq`:
+
+```bash
+bin/forge-worktree.sh  [--plan] [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--no-dev] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT | --kind KIND --title TEXT] <item>...
+bin/forge-review.sh    [--cwd PATH] [--mod NAME] [--no-agent] <pr-url>...
+bin/forge-security.sh  launch [--cwd PATH] [--mod NAME] [--title TITLE] [--item ID] [--scope TEXT] [--report-to ADDRESS] [--no-agent]
+bin/forge-session.sh   [--cwd PATH] [--no-agent] [--no-focus] --title TITLE <prompt>
+bin/forge-session.sh   [--cwd PATH] [--no-agent] --group NAME --title TITLE <prompt> [--title TITLE <prompt>...]
+bin/forge-worktree-remove.sh [--discard | --force] <path>
+bin/forge-worktree-remove.sh --plan <folder>
+bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
+bin/forge-update.sh     check|apply
+bin/forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
+```
+
+They print one JSON line per worktree, tab or pull request.
+
+## Worktrees
+
+`forge-worktree.sh` makes each worktree where the app keeps its own (`worktrees.directory` in the app's `settings.json`, `~/.herdr/worktrees` by default), so the app's Open and Remove worktree see them. `forge-worktree-remove.sh` removes one the way the app does: its spaces closed first, its branch kept.
+
+- It refuses uncommitted work and a space where an agent is at work. `--discard` throws the uncommitted work away and still refuses an agent at work; `--force` does both.
+- The ignored env files are copied into a new worktree only where no symlink its branch carries stands in their way, so a branch cannot send them outside the worktree.
+- What the scripts cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the skills decide and pass as flags.
+- `--kind` and `--title` before an item name its branch without asking the provider, from the kind, the item's id (a URL, `#12`, `AB#12`, `12`, `EXT-12` or `""` for none) and the title. The kinds are `feature`, `fix`, `chore` and `release` from the base, and `hotfix` from the production branch.
+- A name git would refuse is refused in the plan, and an item of an external backlog never reuses the branch of the repository's own item with the same number.
+- Each dev server gets the first port from `--port-base` (3000) that nothing listens on.
+- `--plan` says what a run would make, and makes nothing.
+
+## The app's look
+
+`forge-herdr-install.sh` copies the layout, the theme and the mod into the app's home. Run again, it updates what it installed and leaves what you changed, naming it (`--force` replaces it, keeping a copy beside it); `--remove` takes it away, except the theme, which any layout may use. `--dev` installs the checkout beside it as `forgerdr-dev`, and `--watch` keeps that copy in step with the checkout until Ctrl-C.
+
+## Trying a change before installing it
+
+`FORGE_CLAUDE_ARGS`, when set, adds its words to every `claude` the scripts and hooks start: for example `--plugin-dir <checkout>` or `--settings <file>`.

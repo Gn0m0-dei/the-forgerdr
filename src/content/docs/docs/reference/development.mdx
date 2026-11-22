@@ -1,0 +1,32 @@
+---
+title: Development
+description: Linting, testing and validating the plugin, and how the forgerdr mod draws its pixel art.
+---
+
+```bash
+pnpm install
+pnpm lint             # biome and shellcheck (install.sh, bin, hooks, test, herdr/tools)
+pnpm test             # the pure functions, the hooks, and the scripts against fake hc and herdr-app (test/fakes.sh)
+pnpm validate         # claude plugin validate .
+pnpm typecheck:herdr  # the forgerdr mod against the type files the herdr app writes
+```
+
+The fan-out scripts and the agent dispatch are also exercised by hand inside the herdr app: `--no-agent` creates the topology without starting agents, and `FORGE_CLAUDE_ARGS="--plugin-dir $PWD"` makes the agents load the checkout. Say in the pull request what you ran. [CONTRIBUTING.md](https://github.com/Gn0m0-dei/the-forgerdr/blob/main/CONTRIBUTING.md) has the rest.
+
+## The mod's kit and pixel art
+
+The mod draws with a kit of the design's pieces (`herdr/mods/forgerdr/kit/`: chips, key buttons, tabs, tree rows, pane headers, meters, the empty state, the toast) and the design's pixel art: 12×12 icons in one ink, gnome heads in parts (hat, face by eyes and mood, beard, accessory) and golems, as SVG layers under `img/`.
+
+- `node herdr/tools/sprites.mts` generates them from the design's exports in `herdr/tools/design/`; a layer of fixed colours is drawn with `image()`, and one colour that changes (a hat, a theme tone) with `svg()`, which the app tints, so the art follows the theme. `test/herdr-sprites.test.sh` fails when `img/` drifts from the generator.
+- The motion signs are a font of frames, `fonts/ForgerdrGlyphs.ttf`, which `node herdr/tools/glyphs.mts` makes from `herdr/tools/design/motion-frames.txt`.
+- The alert sounds are synthesised by `node herdr/tools/sounds.mts`.
+
+The `gallery` role shows every piece and sprite on one page, to compare with the design:
+
+```bash
+herdr-app do tab.new --name gallery --mod forgerdr-dev --props '{"role":"gallery"}'
+```
+
+## This website
+
+The website lives on the [`site`](https://github.com/Gn0m0-dei/the-forgerdr/tree/site) branch, apart from `main`, so the plugin's installed copies never carry its images and video. When a change on `main` alters behaviour, the page that documents it changes there too.

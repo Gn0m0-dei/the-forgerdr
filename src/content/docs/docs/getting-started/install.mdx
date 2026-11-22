@@ -1,0 +1,47 @@
+---
+title: Install
+description: What the forgerdr needs, the one-command installer, and how to take it away.
+---
+
+## Before you start
+
+The forgerdr lives in tools you install yourself, and never installs or removes them:
+
+- [Claude Code](https://claude.com/claude-code);
+- the [herdr app](https://herdr.dev/download/), which brings herdr-core (`hc`);
+- git;
+- [Homebrew](https://brew.sh), on macOS.
+
+## Install
+
+On macOS or openSUSE Tumbleweed:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
+```
+
+The installer checks the prerequisites, shows every piece as *here* or *to install*, and asks before it starts. Then it installs what is missing, a line per piece with a spinner meanwhile, and ends with a summary. What is already there is left as it is, so running it again changes nothing.
+
+The pieces it brings:
+
+- **The tools:** jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI and the Maple Mono NF font the forgerdr layout uses. `~/.local/bin` is put on the PATH in your shell's rc when it was not there.
+- **The plugins:** `forgerdr@the-forgerdr` and `azdo@azdospec`, with their marketplaces.
+- **The look in the herdr app:** the layout, the forge-night theme, the mod and the forge's alert sounds, and its status line, brought up to date on every run.
+- **The sign-ins it finds missing:** `az login`, `gh auth login`, `glab auth login`, each asked first.
+
+A piece that fails does not stop the rest: the summary names it, with the last lines it left in the log (`~/.local/state/forgerdr/install.log`, where the commands' own output goes). On openSUSE, sudo is asked once at the start, when zypper needs it. `NO_COLOR` turns the colours off. On another distribution, install the pieces by hand.
+
+Then open the herdr app (`ctrl-shift-l` switches to the forgerdr layout) and start Claude Code in one of its terminals. [`/forgerdr:setup`](../setup/) checks every piece whenever you want.
+
+## Uninstall
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/uninstall.sh | bash
+```
+
+It lists the pieces on the machine now, a tool you had before among them, and removes only the ones you tick; then it names whatever could not be removed. Claude Code, the herdr app, git and your data stay: `~/.claude`, engram's memories in `~/.engram`, the forgerdr's settings, the app's settings and the sign-ins. `uninstall.sh` runs `install.sh --uninstall`, the one place that knows the pieces.
+
+## Other ways in
+
+- **A local checkout instead of the marketplace:** `claude --plugin-dir /path/to/the-forgerdr`.
+- **Still on the herdr TUI:** install the forgerdr 0.14.x from the `tui` branch instead, with `/plugin marketplace add Gn0m0-dei/the-forgerdr#tui` and then `/plugin install forgerdr@the-forgerdr`. Both branches name the marketplace `the-forgerdr`, so remove the other one first (`/plugin marketplace remove the-forgerdr`). The README on that branch covers its herdr TUI plugin and keys.

@@ -1,0 +1,39 @@
+---
+title: The forge floor
+description: Every item every session works, in every forge, with its pipeline step by step.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+The forge floor opens over the window with `FLOOR` (or `forgerdr.floor`), and Esc or its ✕ closes it. It shows every item the Claude sessions work, in every forge, and `FLOOR` counts the items that wait on you.
+
+<img src={withBase("screens/13-forge-floor.png")} width="1440" height="900" alt="The forge floor: every item's steps, the build's tasks red then green." />
+
+## A header per forge
+
+Each forge has a header with its gnome, its name and its counts; a click folds and unfolds its items, and each forge stays as you left it.
+
+## A card per item
+
+Each item is a card with its key and title, its type and its mode, its branch and its dev server's port, and what it waits on or does:
+
+`WAITING · COMMIT GATE` · `WAITING · PLAN GATE` · `FORGING · BUILD` · `CRACKED · REPRODUCE` · `DONE · PR #40` · `ENDED` once its session is gone.
+
+## The cells of its flow
+
+The card shows the cells of the item's flow. An auto flow's pipeline is known beforehand:
+
+| Item | Cells |
+|---|---|
+| A feature | brief, spec, research, plan, build, review, security, ship |
+| A bug | brief, reproduce, root cause, proposal, fix, review, security, ship |
+| Content | brief, verdict, comment |
+| An OpenSpec change | spec, plan, build, review, security, ship |
+
+In the manual flow, every step that can be launched is shown, lit only where it ran. A step that will not run shows a ✕. A cell launched more than once says how often (`×3`); `REVIEW` counts every reviewing agent and lights while one works.
+
+Under the strip, its progress pass by pass, a square each, so it reads `8 OF 10 DONE`. While the build runs, its tasks follow, each red or green, with the one at work and the test the red one is on.
+
+## What you can do from it
+
+`WAITING` opens the inbox, or the item's pane when what it waits on is asked only there: the floor never answers anything itself. `discuss` goes to the item's pane. A finished item leaves the floor once its session ends; nothing is dismissed by hand, and a flow untouched for a week goes.

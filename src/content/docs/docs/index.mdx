@@ -3,4 +3,29 @@ title: Documentation
 description: How the forgerdr works, from installing it to every view of the herdr app.
 ---
 
-The forgerdr is a Claude Code plugin and a look for the herdr app. These pages explain how to install it, the way of working it carries, every command and every view.
+import { withBase } from "#helpers/url.ts";
+
+The forgerdr is a Claude Code plugin for the [herdr](https://herdr.dev) desktop app. It carries a whole way of working: coding standards, a terse communication mode, a lazy build philosophy, a persistent-memory protocol, a spec → plan → build flow, an interactive pull request reviewer and a backlog item workflow. And the two things that make a window full of agents worth it: N pull requests in N tabs, and N items (backlog items, OpenSpec changes or plain tasks) in N worktrees, each opened as its own space with its env files, its dev server and its own agent.
+
+The agents do the forging. You do the reviewing: nothing is built before you approve its design, and nothing leaves your machine before you stamp it.
+
+<img src={withBase("screens/04-main-window.png")} width="1440" height="900" alt="The herdr app with the forgerdr layout on the-forgerdr's own repository: a session waits at its commit gate while the other golems work in their worktrees." />
+
+## What it brings
+
+| Layer | Pieces | What it gives |
+|---|---|---|
+| Rules, every session | standards · communication · build · memory | one way of coding, talking, building and remembering |
+| Design to delivery | `spec` → `plan` → `build` → `ship` | design gate, TDD plan, verified execution, pull request |
+| In the session | `review-other` · `review-own` · `debug` · `security` · `research` | interactive and gated, with fresh-context agents where a second pair of eyes helps |
+| A session per item, in the herdr app | `workitem` · `worktree` · `review` | one item or many, a titled session each, worktrees and dev servers when asked |
+
+## Where to start
+
+- [Install](getting-started/install/) the plugin and the app's look, then run [setup](getting-started/setup/).
+- Read [the flow and its gates](way-of-working/flow-and-gates/): what waits for you, and when.
+- Open [the forgerdr layout](herdr-app/layout/) to know what every pixel of the app tells you.
+
+:::note[The herdr app, not the herdr TUI]
+From 0.15.0 the forgerdr drives the herdr desktop app (`herdr-app`) and herdr-core (`hc`), which runs its terminals and agents. The app and the TUI run separate servers and share no agents, workspaces or plugins. The TUI version is 0.14.x and lives on the [`tui`](https://github.com/Gn0m0-dei/the-forgerdr/tree/tui) branch.
+:::

@@ -1,0 +1,26 @@
+---
+title: Heat, updates and the manual
+description: The subscription's forge heat, how the forgerdr updates itself only when you say, and the smith's manual of keys.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+## The forge heat
+
+The status bar shows the subscription's heat: the 5-hour window and the week, each with its steps and the time until it resets. From 80 % it turns the needs colour and from 95 % the failed one, with a notification the first time each is crossed in a window. The account's profile opens its forge heat: each window with its steps, its use, when it resets and its history.
+
+The heat comes from Claude Code's status line, which only passes the subscription's limits to its status line command. `bin/forge-statusline.sh install` (which [setup](../../getting-started/setup/) offers) makes the forgerdr's script the status line: it keeps the windows in `~/.local/state/forgerdr/usage/` and hands the same JSON on to the status line you had, whose output is still what you see. It backs `settings.json` up first, and `remove` puts your line back. A model's own weekly limit, which `/usage` shows, is not passed to status lines.
+
+## Updates
+
+The forgerdr looks for a new release when the status bar starts and its last look is an hour old, then every six hours: the installed version from `claude plugin list`, the newest `vX.Y.Z` tag of the repository, and its release notes from the `CHANGELOG.md` at that tag.
+
+<img src={withBase("screens/10b-update-notice.png")} width="720" height="600" alt="The gnome's update notice: a new version is forged, with its release notes." />
+
+The first time it finds one, the gnome's notice opens: forgerdr x.y.z is forged, with the release notes below. `FORGERDR x.y.z` on the status bar opens it again, and `Check for updates`, at the foot of the manual, looks at once. **Nothing updates by itself:** `Update now` runs `bin/forge-update.sh apply` (the marketplace update, the plugin update and the new version's look), and the notice says when it is in or which step stopped it, with `Try again`. Open new sessions to load the new rules and hooks; the open ones keep the old ones.
+
+## The smith's manual
+
+`? MANUAL` opens the smith's manual over the window: every key the app answers to, read from `keys.json` and grouped into forges and panes, golems and sessions, the forge and the terminal, each with its keycaps; the forgerdr mod's own commands with no key yet; and the forgerdr's commands from the cheat sheet `/forgerdr:help` prints. The search at its top narrows it as you type. The keys stay yours, in `keys.json`, which the manual only reads.
+
+<img src={withBase("screens/08-manual.png")} width="1440" height="900" alt="The smith's manual: every key the app answers to, grouped, with its keycaps." />

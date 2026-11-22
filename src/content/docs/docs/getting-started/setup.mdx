@@ -1,0 +1,28 @@
+---
+title: Setup
+description: What /forgerdr:setup checks, and the pieces of the app's look it offers to install.
+---
+
+`/forgerdr:setup` verifies and completes the environment on this machine whenever you want. It is idempotent, and it reports a table:
+
+- the engram server;
+- the MCP servers reaching through the plugin;
+- the herdr app and its optional keys;
+- the provider sign-ins;
+- the Claude Code settings;
+- the leftovers the plugin now replaces, the herdr TUI's forgerdr plugin among them.
+
+## What it offers to install
+
+| Piece | Script | What it does |
+|---|---|---|
+| The layout, the theme and the mod | `bin/forge-herdr-install.sh` | copies the `forgerdr` layout, the `forge-night` theme and the `forgerdr` mod into the app's home ([scripts](../../reference/scripts/)) |
+| The forge's alert sounds | `bin/forge-herdr-install.sh --sounds` | the hammer on the anvil when a golem needs you, the hiss of a quench when one is done ([sounds](../../herdr-app/sounds-and-motion/)) |
+| The keys | `bin/forge-setup-keys.sh` | the fan-out keys and the layout's own keys in the app's `keys.json` ([keys](../../herdr-app/keys/)) |
+| The status line | `bin/forge-statusline.sh install` | keeps the subscription's windows for the [forge heat](../../herdr-app/heat-updates-manual/) and hands the same JSON on to the status line you had |
+
+Each of them asks first, keeps what you changed by hand, and has a `--remove` (or `remove`) that takes it away.
+
+## Memory and MCP servers come with the plugin
+
+`mcp-servers.json` declares the four MCP servers the way of working depends on, so nothing is registered by hand: **engram** (memory), **codebase-memory** (the code graph), **context7** (official library docs; export `CONTEXT7_API_KEY` for a higher rate limit) and **chrome-devtools** (browser verification). See [memory and MCP servers](../../way-of-working/memory/).

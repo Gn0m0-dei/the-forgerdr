@@ -1,0 +1,31 @@
+---
+title: Sounds and motion
+description: How the forge moves, sounds and notifies, and how to turn each of them off.
+---
+
+## Motion
+
+The look moves as the design's motion table says, in steps and never eased:
+
+- a **flame** beside the gnome of a forge at work;
+- a **`!`** that blinks beside it and on its tab while a golem waits on you;
+- a **spark** when one is done;
+- a rising **zZ** over a forge with no golem, and over the empty state.
+
+Each sign is a font of frames that the app steps natively, so nothing runs while the window is not drawn. `herdr-app do forgerdr.motion`, or a key bound to `forgerdr.motion` in `keys.json`, turns the motion off and on again.
+
+## Sounds
+
+The app's alerts sound like the forge with `bin/forge-herdr-install.sh --sounds` ([setup](../../getting-started/setup/) offers it):
+
+| When | The sound |
+|---|---|
+| A golem needs you | the hammer working the piece on the anvil |
+| A golem is done | the hiss of a quench |
+| A golem cracks on an API error | its stone splitting, played by the mod while the app's sounds are on |
+
+A sound of your own is kept, and `--remove` takes them away. The three are synthesised by a script in the repository, so they carry no one else's licence.
+
+## Notifications
+
+Notifications, the app's own and every mod's, are the forge's too: the gnome of the forge they are about tells them, in the colour and mood of their level, coming in three steps and never taking the keyboard. A click goes where they point.

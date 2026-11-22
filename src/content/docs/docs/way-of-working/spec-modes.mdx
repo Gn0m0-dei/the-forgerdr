@@ -1,0 +1,23 @@
+---
+title: Spec modes
+description: Where the design and the tasks live, in the chat, in OpenSpec or in Azure Boards, with the same commands.
+---
+
+The commands are always the same; a setting decides where the design and the tasks live. `/forgerdr:mode spec <value>` sets it globally, `--project` for the current workspace only, and the session start prints it. It is stored in `~/.config/forgerdr/config.toml`. The herdr app's [forge mode](../../herdr-app/start-work/#the-forges-mode) sets it too, per project.
+
+| Value | Design and tasks live in | Backend |
+|---|---|---|
+| `chat` (default) | the conversation | nothing written; approval in the chat |
+| `openspec` / `openspec:<store>` | the repository's `openspec/`, or a registered OpenSpec store (a separate specs repository) | OpenSpec 1.x through its CLI: `new change`, artifacts from its own templates, `validate --strict`, `archive` on the branch before the pull request |
+| `azure` | Azure Boards: a Feature, backlog items with Gherkin acceptance criteria, child tasks, progress comments | the [azdospec](https://github.com/Gn0m0-dei/azdospec) plugin when installed (the forgerdr wraps `/azdo:propose`, `/azdo:apply` and `/azdo:archive`), the forgerdr's own `az` commands otherwise |
+
+The mode also decides what `workitem` and `worktree` take as an item and how its branch is named: see [items and branches](../items-and-branches/).
+
+- In `azure`, branches follow azdospec's naming, so `/azdo:apply` works on the branch the forgerdr created instead of opening its own.
+- In `openspec`, a work item's change is named `<id>-<slug>` and links the item; a bug that only restores specified behaviour creates no change.
+
+## A backlog in another organization
+
+The backlog may live in another Azure DevOps organization than the code, as when one company hosts the repository and another runs the backlog. Nothing links across organizations, and a `#<id>` in a commit would link the item with that id in the repository's organization. So such an item is named `EXT-<id>` in everything that stays in the repository: the branch (`feature/EXT-1234-login-button`), the commit footer (`Refs: EXT-1234`) and the pull request title, never with a link or a backlog URL. Where the backlog is lives in the clone's `.git/config` (`azdospec.organization`, `azdospec.project`), shared with azdospec and never committed.
+
+The gates do not move with the mode: no implementation before an approved design, no commit without permission, nothing published without a yes.
