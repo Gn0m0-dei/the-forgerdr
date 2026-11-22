@@ -440,7 +440,9 @@ expect "a security session whose claude did not come up keeps the tab until Ente
 # forge-setup-keys.sh: two bindings that open a prompt tab, from wherever the plugin is installed, and the forgerdr
 # layout's own keys in a section only that layout reads, skipping a key already in use.
 mkdir -p "$sandbox/keys"
-printf '{"global":{"cmd-t":"tab.new","cmd-alt-x":"tab.next","cmd-alt-l":"app.lock"},"terminal":{"cmd-c":"terminal.copy"}}\n' > "$sandbox/keys/keys.json"
+# The layout's keys take the platform's modifier, as the script does.
+case "$(uname -s)" in Darwin) mod=cmd-alt ;; *) mod=ctrl-alt ;; esac
+printf '{"global":{"cmd-t":"tab.new","cmd-alt-x":"tab.next","%s-l":"app.lock"},"terminal":{"cmd-c":"terminal.copy"}}\n' "$mod" > "$sandbox/keys/keys.json"
 cache="$HOME/.claude/plugins/cache/the-forgerdr/forgerdr/9.9.9"
 mkdir -p "$cache" && cp -R "$bin" "$cache/bin"
 HERDR_APP_HOME="$sandbox/keys" bash "$cache/bin/forge-setup-keys.sh" --review cmd-alt-p --worktree cmd-alt-y >/dev/null
@@ -451,9 +453,9 @@ locate="$(jq -r '.global["cmd-alt-p"].args.argv[2]' "$keys")"
 prompted="$(printf '\n' | sh -c "$locate" sh review)"
 expect "an installed plugin is found when the key runs" yes "$([[ "$prompted" == "forgerdr review"* ]] && echo yes || echo no)"
 expect "the forgerdr layout's keys run the mod's commands" \
-  "cmd-alt-/=forgerdr.manual cmd-alt-f=forgerdr.floor cmd-alt-i=forgerdr.inbox cmd-alt-m=forgerdr.mode cmd-alt-s=forgerdr.start" \
+  "$mod-/=forgerdr.manual $mod-f=forgerdr.floor $mod-i=forgerdr.inbox $mod-m=forgerdr.mode $mod-s=forgerdr.start" \
   "$(jq -r '.["layout:forgerdr"] | to_entries | sort_by(.key) | map("\(.key)=\(.value)") | join(" ")' "$keys")"
-expect "a layout key the user already uses is left out and theirs kept" "app.lock" "$(jq -r '.global["cmd-alt-l"]' "$keys")"
+expect "a layout key the user already uses is left out and theirs kept" "app.lock" "$(jq -r --arg key "$mod-l" '.global[$key]' "$keys")"
 HERDR_APP_HOME="$sandbox/keys" bash "$bin/forge-setup-keys.sh" --review cmd-alt-p --worktree cmd-alt-y >/dev/null
 expect "running it again keeps one key each" 5 "$(jq '.["layout:forgerdr"] | length' "$keys")"
 expect "a key in use is refused" 1 "$(HERDR_APP_HOME="$sandbox/keys" status_of bash "$bin/forge-setup-keys.sh" --review cmd-t)"
