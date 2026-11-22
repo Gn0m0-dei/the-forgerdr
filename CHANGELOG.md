@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.37.0] - 2026-11-22
+
 ### Added
 
 - A ✕ on the inbox's open card, when it is a request, takes it out with no answer, for one answered elsewhere that stayed in the inbox. It counts once the card is armed, as its approval does. `bin/forge-inbox.sh dismiss` removes the request, its hook leaves with no decision and the pane's own dialog still asks it, so a session that still waits there comes back as an agent waiting in its pane.
