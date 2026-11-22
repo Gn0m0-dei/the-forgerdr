@@ -6,6 +6,10 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Every write to Azure Boards in spec mode `azure` waits for its gate. `/forgerdr:build`'s ledger is `mem_save` in every mode, and a milestone goes on the work item as a progress comment only on the yes of a `Gate comment`. azdospec's procedures (`/azdo:propose`, `/azdo:apply`, `/azdo:archive`) follow forgerdr's gates over their own wording: their questions go through `AskUserQuestion`, and their writes wait for a `Gate item`, `Gate comment`, `Gate state`, `Gate push` or `Gate PR`, so they reach the herdr app's inbox.
+
 ## [0.36.0] - 2026-11-22
 
 ### Added
