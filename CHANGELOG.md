@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.34.1] - 2026-11-22
+
 ### Fixed
 
 - A question answered in its pane with `Chat about this` stayed in the herdr app's inbox, its hook waiting, for a day: Claude Code neither ends that hook nor runs the tool, so nothing settled it. `hooks/inbox.sh stop` now takes away, at the session's next `Stop`, every request its main thread still asks, and their hooks leave without a decision; a subagent's requests stay, told apart by the `agent_id` each request now records.
