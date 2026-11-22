@@ -129,7 +129,9 @@ import {
   wheeled,
 } from "../herdr/mods/forgerdr/strip.js";
 import {
+  CHECK,
   checkDue,
+  checkFound,
   newerVersion,
   parseUpdate,
   phaseOf,
@@ -3636,6 +3638,17 @@ test("an update is offered, under way, failed or applied, and an apply that neve
     ),
     UPDATE_PHASE.none,
   );
+});
+
+test("a look by hand finds a newer release, none, or no answer", () => {
+  strictEqual(checkFound(true, UPDATE), CHECK.newer);
+  strictEqual(checkFound(true, { ...UPDATE, applying: 1000 }), CHECK.newer);
+  strictEqual(
+    checkFound(true, { ...UPDATE, installed: "0.36.0" }),
+    CHECK.upToDate,
+  );
+  strictEqual(checkFound(false, UPDATE), CHECK.failed);
+  strictEqual(checkFound(true, null), CHECK.failed);
 });
 
 test("a check is due with none yet and an hour after the last", () => {

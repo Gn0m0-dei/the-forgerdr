@@ -51,7 +51,7 @@ const stateOf = (text) => {
 };
 
 /** @returns {Promise<UpdateRead>} */
-const readUpdate = async () => {
+export const readUpdate = async () => {
   const [state, notes] = await Promise.all([
     readOrNull("state.json"),
     readOrNull("notes.md"),

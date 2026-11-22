@@ -1,7 +1,9 @@
 // The smith's manual (design 08), over the window: every key the app answers to, from keys(), grouped as manual.js groups
 // them, and forgerdr's commands from the cheat sheet /forgerdr:help prints, read from the plugin the mod came from
 // (name.js). Typing narrows them; Esc or its close control closes it. The keys are the person's, in keys.json: the
-// manual only reads them, since an edit there stops the app adding its new default keys.
+// manual only reads them, since an edit there stops the app adding its new default keys. Check for updates, beside the
+// version at its foot, looks for a release at once (bin/forge-update.sh check, which the status bar runs every few
+// hours) and opens the gnome's notice when there is one, in place of the manual.
 import { h_flex, Input, InputState, v_flex } from "gpui-base";
 import {
   checking,
@@ -11,19 +13,24 @@ import {
   props,
   readTextFile,
 } from "herdr";
+import { checkUpdate, readUpdate } from "../bridges/update.js";
 import { keyCaps } from "../format.js";
-import { kbdHint } from "../kit/buttons.js";
+import { KEY_BUTTON, kbdHint, keyButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
 import { fill, text, wrapped } from "../kit/text.js";
 import { BRAND, tokens } from "../kit/tokens.js";
 import { commandRows, filterRows, keyRows, MANUAL_SECTION } from "../manual.js";
 import { MOD, ROOT } from "../name.js";
+import { CHECK, checkFound } from "../update.js";
+import { openNews } from "./news.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
+/** @typedef {import("gpui-kit").Task} Task */
 /** @typedef {import("../manual.js").ManualRow} ManualRow */
 /** @typedef {import("../manual.js").ManualSection} ManualSection */
+/** @typedef {import("../update.js").CheckState} CheckState */
 /** @typedef {import("./role.js").Role} Role */
 
 /** @type {() => { overlay?: string } | null} */
@@ -47,6 +54,16 @@ const COLUMNS = Object.freeze([
 const COMMAND_WIDTH = 440;
 
 const DIALOG = Object.freeze({ height: 720, kind: "dialog", width: 1040 });
+
+// What Check for updates reads while it looks and after; a newer release closes the manual for its notice.
+/** @type {Readonly<Record<CheckState, string>>} */
+const CHECK_SAYS = Object.freeze({
+  checking: "Checking…",
+  failed: "Could not check · try again",
+  idle: "Check for updates",
+  newer: "A new release is out",
+  upToDate: "Up to date",
+});
 
 // From ? MANUAL on the status bar, or the forgerdr.manual key the top bar takes.
 export const openManual = () =>
@@ -75,6 +92,10 @@ export const manual = (cx) => {
   let commands = [];
   let version = "";
   let query = "";
+  /** @type {CheckState} */
+  let check = CHECK.idle;
+  /** @type {Task | null} */
+  let looking = null;
   const search = InputState.new({ placeholder: "Search keys and commands" });
   search.on("change", (_event, cx) => {
     query = search.value();
@@ -100,6 +121,31 @@ export const manual = (cx) => {
         }
         cx.notify();
       });
+
+  /** @param {Context} cx */
+  const lookForRelease = (cx) => {
+    check = CHECK.checking;
+    cx.notify();
+    looking = cx.spawn(async (cx) => {
+      const ran = await checkUpdate().catch((error) => {
+        console.error("forgerdr: forge-update.sh check could not run", error);
+        return false;
+      });
+      const { state } = await readUpdate();
+      check = checkFound(ran, state);
+      if (check === CHECK.newer) {
+        openNews();
+        closeOverlay(readProps()?.overlay ?? "");
+      } else cx.notify();
+    });
+  };
+
+  const checkButton = () => {
+    const button = keyButton(KEY_BUTTON.ghost, CHECK_SAYS[check]);
+    return check === CHECK.checking
+      ? button
+      : control(button, "manual-check", lookForRelease);
+  };
 
   /**
    * A binding's keys, a cap each; a numbered run reads first – last, several bindings first / second. A forgerdr
@@ -283,7 +329,14 @@ export const manual = (cx) => {
             ),
           )
           .when(version !== "", (el) =>
-            el.child(text(`forgerdr ${version}`, "ui", 13, k.muted)),
+            el.child(
+              h_flex()
+                .flex_none()
+                .items_center()
+                .gap(16)
+                .child(text(`forgerdr ${version}`, "ui", 13, k.muted))
+                .child(checkButton()),
+            ),
           ),
       );
   };
@@ -291,6 +344,7 @@ export const manual = (cx) => {
   return {
     close: () => {
       task?.cancel();
+      looking?.cancel();
       search.release();
     },
     render,

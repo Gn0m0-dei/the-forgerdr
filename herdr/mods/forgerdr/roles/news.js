@@ -1,9 +1,10 @@
 // The gnome's update notice (design 10b), over the window: a newer forgerdr is out, told by the gnome of the forge on
 // show, with its release notes from GitHub below. Update now applies it (bin/forge-update.sh apply): the notice follows it
 // from the state file, since the apply replaces this mod as it installs the new look, and says when it is in, or why it
-// stopped. Later, Esc or a click beside it closes it; FORGERDR x.y.z on the status bar opens it again.
+// stopped. Later, Esc or a click beside it closes it; FORGERDR x.y.z on the status bar opens it again, and so does the
+// manual's Check for updates when it finds the release.
 import { h_flex, TextView, v_flex } from "gpui-base";
-import { checking, closeOverlay, props, spaces } from "herdr";
+import { checking, closeOverlay, openOverlay, props, spaces } from "herdr";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { readNames } from "../bridges/names.js";
@@ -15,6 +16,7 @@ import { control } from "../kit/control.js";
 import { gnome } from "../kit/sprites.js";
 import { text, wrapped } from "../kit/text.js";
 import { BRAND, tokens } from "../kit/tokens.js";
+import { MOD } from "../name.js";
 import { phaseOf, UPDATE_PHASE } from "../update.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -52,6 +54,11 @@ const SAYS = Object.freeze({
     `The swap to forgerdr ${latest} stopped: ${error ?? "it never finished"}. Nothing after that step changed.`,
   none: ({ installed }) => `forgerdr ${installed} is the newest there is.`,
 });
+
+const DIALOG = Object.freeze({ height: 600, kind: "dialog", width: 720 });
+
+export const openNews = () =>
+  openOverlay({ ...DIALOG, mod: MOD, props: { role: "news" } });
 
 const close = () => closeOverlay(readProps()?.overlay ?? "");
 

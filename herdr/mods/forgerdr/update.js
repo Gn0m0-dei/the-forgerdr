@@ -111,6 +111,31 @@ export const phaseOf = (state, now) => {
     : UPDATE_PHASE.none;
 };
 
+// Where a look asked for by hand (the manual's Check for updates) stands, and what it found.
+export const CHECK = Object.freeze({
+  checking: "checking",
+  failed: "failed",
+  idle: "idle",
+  newer: "newer",
+  upToDate: "upToDate",
+});
+
+/** @typedef {typeof CHECK[keyof typeof CHECK]} CheckState */
+
+/**
+ * What a look by hand found: a newer release (offered, going in or stopped short of it), none, or no answer, when
+ * forge-update.sh check failed or left no state.
+ * @param {boolean} ran
+ * @param {UpdateState | null} state
+ * @returns {CheckState}
+ */
+export const checkFound = (ran, state) => {
+  if (!ran || state === null) return CHECK.failed;
+  return newerVersion(state.latest, state.installed)
+    ? CHECK.newer
+    : CHECK.upToDate;
+};
+
 /**
  * Whether to look for a release now: never looked, or the last look an hour old.
  * @param {UpdateState | null} state

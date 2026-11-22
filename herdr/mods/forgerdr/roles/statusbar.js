@@ -28,6 +28,7 @@ import {
   warningsDue,
 } from "../usage.js";
 import { openManual } from "./manual.js";
+import { openNews } from "./news.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
@@ -51,7 +52,6 @@ const NAMES = {
 };
 
 const HEAT = Object.freeze({ height: 560, kind: "dialog", width: 620 });
-const NEWS = Object.freeze({ height: 600, kind: "dialog", width: 720 });
 
 // What forgerdr's chip adds to its version in each phase that shows it.
 /** @type {Readonly<Partial<Record<import("../update.js").UpdatePhase, string>>>} */
@@ -83,9 +83,6 @@ const saveTold = (told) => {
     // Storage is away: a restart may tell a threshold again.
   }
 };
-
-const openNews = () =>
-  openOverlay({ ...NEWS, mod: MOD, props: { role: "news" } });
 
 /** @returns {string} */
 const readAnnounced = () => {
