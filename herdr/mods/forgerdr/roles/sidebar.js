@@ -1,9 +1,13 @@
 // The forge's sidebar (design 04): its gnome, the tree of the forge the window shows (the repository, its main
 // checkout and worktrees, the golems at work in each and their subagents) and the forge's heat at its foot. Narrower
 // than a rail, it shows the golems alone (design 04b). Under the gnome, START WORK opens the forge's Start work
-// (roles/start.js), a hammer on the rail; at its foot, the forge's mode opens the mode dialog (roles/mode.js). A double click on the gnome opens its dialog (roles/gnome.js), a right click
-// the forge's menu, as on its tab. It also asks git about every space's place, which the app does not
-// tell, and publishes it for the top bar (bridges/git.js), keeping what it knew until git answers again.
+// (roles/start.js), a hammer on the rail; at its foot, the forge's mode opens the mode dialog (roles/mode.js). A double
+// click on the gnome opens its dialog (roles/gnome.js), a right click the forge's menu, as on its tab. A review session
+// is drawn as the reviewer golem (specials.js), and once parked behind its view leaves the tree for its PULL REQUESTS
+// group, a row each, which a click takes to the review; a security session, parked behind its Security tab, is drawn
+// as the warden reading TRIAGE, under the session that launched it, and a click takes to its tab. It also asks git
+// about every space's place, which the app does not tell, and publishes it for the top bar (bridges/git.js), keeping
+// what it knew until git answers again.
 import { v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, focused, run, spaces, terminals } from "herdr";
@@ -13,6 +17,7 @@ import { readGnomes } from "../bridges/gnomes.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
+import { readReviews } from "../bridges/reviews.js";
 import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
 import {
@@ -30,9 +35,24 @@ import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
 import { gnome, golem, ICON, icon, iconButton } from "../kit/sprites.js";
 import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
-import { agentRow, repoRow, subagentRow, worktreeRow } from "../kit/tree.js";
+import {
+  agentRow,
+  prRow,
+  pullRequestsRow,
+  repoRow,
+  subagentRow,
+  worktreeRow,
+} from "../kit/tree.js";
 import { orphanedReviews, parentOf } from "../lanes.js";
 import { modeLabel, shortLabel } from "../modes.js";
+import {
+  reviewLine,
+  reviewLook,
+  reviewsOfSpaces,
+  rowLook,
+  terminalGolem,
+  treeLeads,
+} from "../specials.js";
 import { newWorktreeOn, openForgeMenu } from "./forge-menu.js";
 import { openGnome } from "./gnome.js";
 import { openMode } from "./mode.js";
@@ -44,6 +64,8 @@ import { openStart } from "./start.js";
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 /** @typedef {import("../forges.js").PlaceGit} PlaceGit */
+/** @typedef {import("../lanes.js").LaneTerminal} LaneTerminal */
+/** @typedef {import("../review.js").Review} Review */
 /** @typedef {import("./role.js").Role} Role */
 
 // A space git has not answered for yet (a new one) is asked at the next step, not the next poll.
@@ -71,8 +93,8 @@ const syncOf = (git) =>
     .filter(Boolean)
     .join(" ") || undefined;
 
-// An agent in a pane gets the focus; a review session parked behind its view shows its view's tab; any other agent
-// with no pane is peeked at.
+// An agent in a pane gets the focus; a session parked behind its view (a review, a security triage) shows its view's
+// tab; any other agent with no pane is peeked at.
 /** @param {AgentInfo} agent */
 const openAgent = (agent) => {
   const reviewTab = reviewTabOf(agent.address, readTerminals());
@@ -132,6 +154,8 @@ export const sidebar = (cx) => {
   const tried = new Set();
   /** @type {Record<string, { used: number, at: number }>} each golem's session context, by its terminal */
   let contexts = {};
+  /** @type {Review[]} every review kept (bin/forge-pr.sh list), the last list read */
+  let reviews = [];
   let width = Number.POSITIVE_INFINITY;
 
   /** @param {{ on: string | null, where: string }} place */
@@ -246,11 +270,21 @@ export const sidebar = (cx) => {
       run("terminal.kill", { terminal: address });
   };
 
+  // A list that cannot be read keeps the last one: the group stays as it was until the next poll.
+  const refreshReviews = async () => {
+    try {
+      reviews = await readReviews();
+    } catch (error) {
+      console.error("forgerdr sidebar: the reviews could not be listed", error);
+    }
+  };
+
   const task = checking()
     ? null
     : cx.spawn(async (cx) => {
         for (;;) {
           sweepReviews();
+          await refreshReviews();
           await refresh();
           await readMode();
           contexts = await readContexts(
@@ -267,14 +301,16 @@ export const sidebar = (cx) => {
       });
 
   /**
-   * The golems of one space: its agents, each with what works under it at any depth: the agents it dispatched, theirs
-   * in turn, and the subagents inside each one's session (Claude Code's records: a Task, a background shell).
+   * The golems of one space: its agents, each with what works under it at any depth: the agents it dispatched and the
+   * security sessions it launched, theirs in turn, and the subagents inside each one's session (Claude Code's records: a
+   * Task, a background shell).
    * @param {SpaceInfo} space
    * @param {AgentInfo[]} everyone
    * @param {Map<string, string | null>} parents
    * @param {string | null} looking the terminal that has the keyboard
    * @param {(agent: AgentInfo) => import("../kit/tokens.js").Tone} toneOfAgent
-   * @param {Map<string, Record<string, { state?: string, title?: string }>>} records each session's subagents inside it
+   * @param {Map<string, LaneTerminal>} byAddress every terminal, for its subagents inside it and its special
+   * @param {Review[]} pullRequests the forge's PULL REQUESTS group, whose sessions the tree leaves out
    */
   const golemsOf = (
     space,
@@ -282,12 +318,16 @@ export const sidebar = (cx) => {
     parents,
     looking,
     toneOfAgent,
-    records,
+    byAddress,
+    pullRequests,
   ) => {
     const mine = everyone.filter((agent) => agent.space === space.id);
     const agentAddresses = new Set(everyone.map((agent) => agent.address));
-    const leads = mine.filter(
-      (agent) => !agentAddresses.has(parents.get(agent.address) ?? ""),
+    const leads = treeLeads(
+      mine.filter(
+        (agent) => !agentAddresses.has(parents.get(agent.address) ?? ""),
+      ),
+      pullRequests,
     );
     /**
      * The subagents inside an agent's session: no terminal of their own, so a click goes to the agent.
@@ -295,23 +335,27 @@ export const sidebar = (cx) => {
      * @param {number} depth
      */
     const inside = (owner, depth) =>
-      Object.entries(records.get(owner.address) ?? {}).map(([id, record]) =>
-        clickable(
-          subagentRow({
-            depth,
-            name: record.title || "subagent",
-            role: "clay",
-            tone: toneOf(
-              /** @type {import("herdr").Status} */ (record.state ?? "working"),
-            ),
-          }),
-          `subagent-${owner.address}-${id}`,
-          () => openAgent(owner),
-        ),
+      Object.entries(byAddress.get(owner.address)?.records ?? {}).map(
+        ([id, record]) =>
+          clickable(
+            subagentRow({
+              depth,
+              name: record.title || "subagent",
+              role: "clay",
+              tone: toneOf(
+                /** @type {import("herdr").Status} */ (
+                  record.state ?? "working"
+                ),
+              ),
+            }),
+            `subagent-${owner.address}-${id}`,
+            () => openAgent(owner),
+          ),
       );
     /**
-     * What works under an agent, a step further in each level: the agents it dispatched, each with what works under it
-     * in turn (an agent can dispatch agents of its own), then the subagents inside its session.
+     * What works under an agent, a step further in each level: the agents it dispatched and the security sessions it
+     * launched (the warden, reading TRIAGE), each with what works under it in turn (an agent can dispatch agents of its
+     * own), then the subagents inside its session.
      * @param {AgentInfo} owner
      * @param {number} depth
      * @param {Set<string>} seen the agents already in the tree above, so two that name each other end
@@ -327,10 +371,10 @@ export const sidebar = (cx) => {
         .flatMap((sub) => [
           clickable(
             subagentRow({
+              ...rowLook(byAddress.get(sub.address)),
               context: contexts[sub.address]?.used,
               depth,
               name: agentName(sub),
-              role: "stone",
               tone: toneOfAgent(sub),
             }),
             `agent-${sub.address}`,
@@ -343,6 +387,7 @@ export const sidebar = (cx) => {
     return leads.flatMap((lead) => [
       clickable(
         agentRow({
+          ...rowLook(byAddress.get(lead.address)),
           context: contexts[lead.address]?.used,
           name: agentName(lead),
           selected: lead.address === looking,
@@ -386,9 +431,14 @@ export const sidebar = (cx) => {
     const forgeAgents = everyone.filter((agent) =>
       forge.spaces.some((space) => space.id === agent.space),
     );
+    const terminalList = readTerminals();
+    /** @type {Map<string, LaneTerminal>} */
+    const byAddress = new Map(
+      terminalList.map((terminal) => [terminal.address, terminal]),
+    );
     /** @type {Map<string, string | null>} */
     const parents = new Map(
-      readTerminals().map((terminal) => [terminal.address, parentOf(terminal)]),
+      terminalList.map((terminal) => [terminal.address, parentOf(terminal)]),
     );
     // A golem marked cracked (hooks/golem-state.sh) shows so, whatever herdr says of it.
     const cracked = new Set(
@@ -399,15 +449,9 @@ export const sidebar = (cx) => {
     /** @param {AgentInfo} agent */
     const toneOfAgent = (agent) =>
       cracked.has(agent.address) ? TONE.failed : toneOf(agent.status);
-    const looking = focused()?.terminal ?? null;
+    const focus = focused();
+    const looking = focus?.terminal ?? null;
     const key = lookKeyOf(forge);
-    /** @type {Map<string, Record<string, { state?: string, title?: string }>>} */
-    const records = new Map(
-      readTerminals().map((terminal) => [
-        terminal.address,
-        terminal.records ?? {},
-      ]),
-    );
     // The forge's golems as the forge counts them, a cracked one as cracked.
     const golems = forgeAgents.map((agent) => ({
       status: cracked.has(agent.address) ? "cracked" : agent.status,
@@ -459,7 +503,7 @@ export const sidebar = (cx) => {
           forgeAgents.map((agent) =>
             clickable(
               golem(
-                parents.get(agent.address) ? "stone" : "iron",
+                terminalGolem(byAddress.get(agent.address)),
                 toneOfAgent(agent),
                 2,
                 contexts[agent.address]?.used,
@@ -470,6 +514,32 @@ export const sidebar = (cx) => {
           ),
         );
     }
+
+    const agentOf = new Map(everyone.map((agent) => [agent.address, agent]));
+    const pullRequests = reviewsOfSpaces(
+      reviews,
+      terminalList,
+      all,
+      forge.spaces.map((space) => space.id),
+    );
+    /** @param {Review} review */
+    const pullRequestRow = (review) => {
+      const agent = agentOf.get(review.terminal);
+      const tab = reviewTabOf(review.terminal, terminalList);
+      const look = reviewLook(review);
+      return clickable(
+        prRow({
+          chip: look.chip,
+          context: contexts[review.terminal]?.used,
+          line: reviewLine(review),
+          role: look.golem,
+          selected: tab === focus?.tab,
+          tone: agent === undefined ? TONE.quiet : toneOfAgent(agent),
+        }),
+        `pull-request-${review.terminal}`,
+        () => run("tab.select", { id: tab }),
+      );
+    };
 
     return root
       .child(
@@ -564,10 +634,16 @@ export const sidebar = (cx) => {
                   parents,
                   looking,
                   toneOfAgent,
-                  records,
+                  byAddress,
+                  pullRequests,
                 ),
               ];
             }),
+          )
+          .when(pullRequests.length > 0, (el) =>
+            el
+              .child(pullRequestsRow())
+              .children(pullRequests.map(pullRequestRow)),
           ),
       )
       .child(

@@ -28,8 +28,19 @@ export const GOLEM_KIND = Object.freeze({ clay: "clay", stone: "stone" });
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("herdr").Status} Status */
 
-// A review session parked behind its view (bin/forge-review.sh) loses herdr's space label and keeps its view's tab.
-const REVIEW_TAB_LABEL = "forge.tab";
+/**
+ * The labels the forge scripts set on the terminal of a session parked behind a view of its own: `review`, which view
+ * answers its questions (bin/forge-pr.sh writes a review's kind, bin/forge-security.sh "security"; inbox.js
+ * REVIEW_VIEW); `tab`, the tab of the view it is parked behind (bin/forge-review.sh for a review session, `launch` of
+ * bin/forge-security.sh for a security one), which keeps it in that tab's space once it loses herdr's space label;
+ * `view`, the tab of its security view (`open` of bin/forge-security.sh, inside the session `launch` opened: the same
+ * tab as its `tab`).
+ */
+export const FORGE_LABEL = Object.freeze({
+  review: "forge.review",
+  tab: "forge.tab",
+  view: "forge.view",
+});
 
 /** @type {Readonly<Record<string, Status>>} */
 const AGENT_STATUS = Object.freeze({
@@ -40,8 +51,8 @@ const AGENT_STATUS = Object.freeze({
 });
 
 /**
- * The space a terminal shows in: its herdr space label, or, for a review session parked behind its view, the space of
- * the view's tab; null when neither says.
+ * The space a terminal shows in: its herdr space label, or, for a session parked behind its view (a review session, the
+ * security session bin/forge-security.sh launch opens), the space of the view's tab; null when neither says.
  * @param {LaneTerminal} terminal
  * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
  * @returns {string | null}
@@ -49,7 +60,7 @@ const AGENT_STATUS = Object.freeze({
 export const spaceOfTerminal = (terminal, spaces) => {
   const labelled = terminal.labels?.["herdr.space"] ?? "";
   if (labelled !== "") return labelled;
-  const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+  const tab = terminal.labels?.[FORGE_LABEL.tab] ?? "";
   if (tab === "") return null;
   return (
     spaces.find((space) => space.tabs.some((one) => one.id === tab))?.id ?? null
@@ -57,10 +68,10 @@ export const spaceOfTerminal = (terminal, spaces) => {
 };
 
 /**
- * The review sessions parked behind a view whose tab is gone: their review was closed, so they end too. Only a tab seen
- * alive in an earlier sweep counts as gone, so a start, before the app lists its spaces, ends none; and only a terminal
- * carrying a review's tab, so a terminal that took an old address is never one. Answers them and the tabs seen alive so
- * far, for the next sweep.
+ * The sessions parked behind a view whose tab is gone (a review session, the security session bin/forge-security.sh
+ * launch opens): their view was closed, so they end too. Only a tab seen alive in an earlier sweep counts as gone, so a
+ * start, before the app lists its spaces, ends none; and only a terminal carrying a parked view's tab, so a terminal
+ * that took an old address is never one. Answers them and the tabs seen alive so far, for the next sweep.
  * @param {LaneTerminal[]} terminals
  * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
  * @param {Set<string>} seen the tabs seen alive in the sweeps before
@@ -72,7 +83,7 @@ export const orphanedReviews = (terminals, spaces, seen) => {
   );
   const orphans = terminals
     .filter((terminal) => {
-      const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+      const tab = terminal.labels?.[FORGE_LABEL.tab] ?? "";
       return (
         terminal.state !== "finished" &&
         tab !== "" &&
@@ -85,8 +96,8 @@ export const orphanedReviews = (terminals, spaces, seen) => {
 };
 
 /**
- * herdr's agents, with the review sessions parked behind their views among them, in the space and tab of their view, so
- * the forge counts them as its golems.
+ * herdr's agents, with the sessions parked behind their views among them (the review sessions, the security sessions
+ * bin/forge-security.sh launch opens), in the space and tab of their view, so the forge counts them as its golems.
  * @param {AgentInfo[]} listed
  * @param {LaneTerminal[]} terminals
  * @param {Pick<SpaceInfo, "id" | "tabs">[]} spaces
@@ -96,7 +107,7 @@ export const withParkedAgents = (listed, terminals, spaces) => {
   const known = new Set(listed.map((agent) => agent.address));
   /** @type {AgentInfo[]} */
   const parked = terminals.flatMap((terminal) => {
-    const tab = terminal.labels?.[REVIEW_TAB_LABEL] ?? "";
+    const tab = terminal.labels?.[FORGE_LABEL.tab] ?? "";
     const space = spaceOfTerminal(terminal, spaces);
     const status = AGENT_STATUS[terminal.status ?? ""];
     if (

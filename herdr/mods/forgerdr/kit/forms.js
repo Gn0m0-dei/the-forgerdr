@@ -103,9 +103,9 @@ export const fieldLabel = (content) =>
   text(content.toUpperCase(), "display", 8, tokens().muted);
 
 /**
- * What a row of a preview is, in a colour of its own: an issue or a change works, a pull request is reviewed, a line
- * skipped failed.
- * @param {"item" | "change" | "pr" | "skip"} kind
+ * What a row of a preview is, in a colour of its own: an issue or a change works, a pull request is reviewed, a
+ * checkout is audited, a line skipped failed.
+ * @param {import("../start.js").PreviewRow["kind"]} kind
  */
 export const kindChip = (kind) => {
   const k = tokens();
@@ -113,6 +113,7 @@ export const kindChip = (kind) => {
     change: { colour: k.done, label: "CHANGE" },
     item: { colour: k.working, label: "ISSUE" },
     pr: { colour: k.accent, label: "PR" },
+    security: { colour: k.needs, label: "AUDIT" },
     skip: { colour: k.failed, label: "SKIP" },
   }[kind];
   return h_flex()

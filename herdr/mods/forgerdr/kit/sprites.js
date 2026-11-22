@@ -37,6 +37,7 @@ export const ICON = Object.freeze({
   search: "search",
   server: "server",
   settings: "settings",
+  shield: "shield",
   splitDown: "split-down",
   splitRight: "split-right",
   terminal: "terminal",
@@ -80,17 +81,35 @@ export const HAT_COLOURS = Object.freeze({
  * @property {number} [scale]
  */
 
-// The side of each golem's grid: iron is a main session, clay a subagent, stone a teammate.
-export const GOLEM = Object.freeze({ clay: 8, iron: 12, stone: 12 });
+// The side of each golem's grid.
+export const GOLEM = Object.freeze({
+  clay: 8,
+  iron: 12,
+  reviewer: 12,
+  stone: 12,
+  warden: 12,
+});
 
-/** @typedef {keyof typeof GOLEM} GolemRole */
+/**
+ * What a golem is: iron a main Claude session, stone an agent in a terminal of its own, clay a subagent, reviewer a
+ * session reviewing a pull request, warden a session triaging a security review (specials.js golemOf).
+ * @typedef {keyof typeof GOLEM} GolemRole
+ */
 
 // Where each golem's chest is, the crucible its context fills: its top-left pixel, its side and its levels.
-/** @type {Record<GolemRole, { x: number, y: number, side: number, levels: number }>} */
+/** @typedef {{ x: number, y: number, side: number, levels: number }} Chest */
+
+// Every 12x12 golem has iron's chest: the custom ones are drawn on iron's body, so theirs cannot drift from it.
+/** @type {Chest} */
+const IRON_CHEST = Object.freeze({ levels: 4, side: 4, x: 4, y: 5 });
+
+/** @type {Record<GolemRole, Chest>} */
 const CHEST = {
   clay: { levels: 2, side: 2, x: 3, y: 4 },
-  iron: { levels: 4, side: 4, x: 4, y: 5 },
-  stone: { levels: 4, side: 4, x: 4, y: 5 },
+  iron: IRON_CHEST,
+  reviewer: IRON_CHEST,
+  stone: IRON_CHEST,
+  warden: IRON_CHEST,
 };
 
 /** @type {Record<Tone, string>} */

@@ -24,6 +24,7 @@ import { fill, text, wrapped } from "../kit/text.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import { MOD } from "../name.js";
 import { PROGRAM_KIND } from "../sessions.js";
+import { terminalGolem } from "../specials.js";
 import {
   closingPanes,
   golemsAtWork,
@@ -149,6 +150,9 @@ export const worktreeRemoval = (cx) => {
     const ready = plan.state === "ready" ? plan.value : null;
     const branch = ready?.branch || "this worktree";
     const golems = keepers();
+    const byAddress = new Map(
+      readTerminals().map((terminal) => [terminal.address, terminal]),
+    );
     const dirty = ready !== null && ready.changes.length > 0;
     const closing =
       ready === null
@@ -265,7 +269,13 @@ export const worktreeRemoval = (cx) => {
               h_flex()
                 .items_center()
                 .gap(10)
-                .child(golem("iron", toneOf(one.status), 2))
+                .child(
+                  golem(
+                    terminalGolem(byAddress.get(one.id)),
+                    toneOf(one.status),
+                    2,
+                  ),
+                )
                 .child(
                   fill(
                     `${one.name} is still ${one.status === "blocked" ? "waiting on you" : "forging"} here`,

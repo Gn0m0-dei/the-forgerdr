@@ -635,6 +635,13 @@ forge_reviews_dir() {
   printf '%s\n' "${FORGE_REVIEWS_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/reviews}"
 }
 
+# The security views' triages: one file per herdr terminal, <terminal>.json, the audit the security session in it runs
+# and its findings, which bin/forge-security.sh keeps for the security skill and the forgerdr mod. FORGE_SECURITY_DIR
+# moves it.
+forge_security_dir() {
+  printf '%s\n' "${FORGE_SECURITY_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/security}"
+}
+
 # The review rounds of the agents' work: one file per herdr terminal, <terminal>.json, its base and its rounds, which
 # bin/forge-round.sh keeps; the snapshots themselves are git commits under refs/forgerdr/rounds/<terminal>/.
 # FORGE_ROUNDS_DIR moves it.
@@ -1038,6 +1045,34 @@ forge_json_rewrite_locked() {
   fi
   chmod 600 "$tmp"
   mv "$tmp" "$file"
+}
+
+# A JSON file a script is given, or - for stdin, whole, on stdout. It must be one JSON value, or the script dies.
+forge_json_given() {
+  local path="${1:-}" json
+  [ -n "$path" ] || forge_die "no JSON file given"
+  if [ "$path" = - ]; then json="$(cat)"; else [ -r "$path" ] || forge_die "no such file: $path"; json="$(cat "$path")"; fi
+  jq -se 'length == 1' >/dev/null 2>&1 <<<"$json" || forge_die "not one JSON value: $path"
+  printf '%s\n' "$json"
+}
+
+# A state file read back, compact on stdout, when the jq filter that checks its shape holds for it: nothing when there
+# is no file, when it is a symlink, or when it is a week untouched (.updated), which removes it. One the filter does not
+# hold for is skipped, naming the file and what it is not. The filter gets $terminal (the file's name without .json) and
+# the jq arguments after it.
+# Arguments: the file, what a state is called (review, triage), the filter, jq arguments.
+forge_json_entry() {
+  local file="$1" noun="$2" shape="$3" week=604800000 now entry
+  shift 3
+  [ -f "$file" ] && [ ! -L "$file" ] || return 0
+  now=$(($(date +%s) * 1000))
+  if ! entry="$(jq -c --arg terminal "$(basename "$file" .json)" --argjson now "$now" --argjson week "$week" "$@" \
+    "if ($shape) | not then error(\"not one\") elif \$now - .updated >= \$week then empty else . end" "$file" \
+    2>/dev/null)"; then
+    printf 'forgerdr: skipped %s: not a %s\n' "$file" "$noun" >&2
+    return 0
+  fi
+  if [ -z "$entry" ]; then rm -f "$file"; else printf '%s\n' "$entry"; fi
 }
 
 forge_agent_mark() {

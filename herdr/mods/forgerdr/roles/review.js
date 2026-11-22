@@ -37,6 +37,7 @@ import {
   findingRow,
   groupHead,
   metaItem,
+  SEVERITY_LABEL,
   sectionTitle,
   severityChip,
   severityColour,
@@ -565,21 +566,22 @@ export const review = (cx) => {
           togglePick(row.id, cx),
         )
       : stillBox(picked);
-    const note = {
-      discarded: "USUALLY DISCARDED",
-      group: `GROUP · ${row.findings.length}`,
-      single: "",
+    const tags = {
+      discarded: [{ text: "USUALLY DISCARDED" }],
+      group: [{ text: `GROUP · ${row.findings.length}` }],
+      single: [],
     }[
       row.discarded ? "discarded" : row.findings.length > 1 ? "group" : "single"
     ];
     const line = control(
       findingRow({
-        id: row.id,
-        note,
+        actions: [],
+        colour: severityColour(row.severity),
+        label: `[${row.id}]`,
         open: isOpen,
         picked,
         place: locationsLabel(row.findings),
-        severity: row.severity,
+        tags,
         tick,
         title: lead.title,
       }),
@@ -705,8 +707,9 @@ export const review = (cx) => {
         .children(
           groups.flatMap((group) => [
             groupHead(
-              group.severity,
+              SEVERITY_LABEL[group.severity],
               group.rows.reduce((sum, row) => sum + row.findings.length, 0),
+              severityColour(group.severity),
             ),
             ...group.rows.map((row) => findingOf(row, waiting, first)),
           ]),

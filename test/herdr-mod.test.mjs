@@ -70,6 +70,7 @@ import {
   shownIn,
   stampTop,
   summaryOf,
+  viewTabOf,
   waitedFor,
 } from "../herdr/mods/forgerdr/inbox.js";
 import {
@@ -96,15 +97,22 @@ import {
   newSwipe,
   paneLabel,
   programKind,
+  specialTabLook,
   swipeTab,
   tabLabel,
 } from "../herdr/mods/forgerdr/sessions.js";
 import {
   belongsTo,
   changeRows,
+  checkoutName,
+  checkoutsOf,
   ideaLaunches,
+  launchPlace,
   linkOf,
+  pickedCheckout,
   reviewRows,
+  securityLaunches,
+  securityRows,
   startLaunches,
   titleOf,
   workRows,
@@ -392,6 +400,71 @@ test("a pane is named for its agent, its shell or its program", () => {
   strictEqual(
     [CLAUDE, ZSH, VITE, undefined].map(programKind).join(" "),
     "agent shell program shell",
+  );
+});
+
+const VIEW_TERMINALS = [
+  {
+    address: "t1",
+    labels: { "forge.review": "security", "forge.view": "tb-9" },
+  },
+  { address: "t2", labels: { "forge.review": "other", "forge.tab": "tb-7" } },
+  {
+    address: "t3",
+    labels: {
+      "forge.review": "own",
+      "forge.state": "cracked",
+      "forge.tab": "tb-5",
+    },
+  },
+];
+
+// Each view's tab holds its view alone, a mod pane; the sessions' own panes are in a tab of their own.
+const VIEW_PANES = [
+  { tab: "tb-9", terminal: null },
+  { tab: "tb-7", terminal: null },
+  { tab: "tb-5", terminal: null },
+  { tab: "tb-1", terminal: "t1" },
+];
+
+test("a tab holding a special session's view alone looks like the view: its icon, its session's status, failed while cracked", () => {
+  const agents = [
+    { address: "t1", status: "blocked" },
+    { address: "t2", status: "working" },
+    { address: "t3", status: "working" },
+  ];
+  deepStrictEqual(specialTabLook("tb-9", VIEW_PANES, VIEW_TERMINALS, agents), {
+    icon: "shield",
+    status: "blocked",
+  });
+  deepStrictEqual(specialTabLook("tb-7", VIEW_PANES, VIEW_TERMINALS, agents), {
+    icon: "pull-request",
+    status: "working",
+  });
+  deepStrictEqual(specialTabLook("tb-5", VIEW_PANES, VIEW_TERMINALS, agents), {
+    icon: "pull-request",
+    status: "failed",
+  });
+});
+
+test("a special session herdr no longer lists as an agent gives its view's tab no status, cracked or not", () => {
+  deepStrictEqual(specialTabLook("tb-9", VIEW_PANES, VIEW_TERMINALS, []), {
+    icon: "shield",
+    status: null,
+  });
+  deepStrictEqual(specialTabLook("tb-5", VIEW_PANES, VIEW_TERMINALS, []), {
+    icon: "pull-request",
+    status: null,
+  });
+});
+
+test("a special session's view with a terminal beside it in its tab gives no special look", () => {
+  const beside = [...VIEW_PANES, { tab: "tb-9", terminal: "t6" }];
+  strictEqual(
+    specialTabLook("tb-9", beside, VIEW_TERMINALS, [
+      { address: "t1", status: "blocked" },
+    ]),
+    null,
   );
 });
 
@@ -1401,6 +1474,125 @@ test("ideas start a spec session each, or one session that works them", () => {
   );
   strictEqual(titleOf("a".repeat(50)), "a".repeat(40));
   strictEqual(titleOf("  short one  "), "short one");
+});
+
+test("a forge's checkouts are its spaces in git, each on the branch git last told", () => {
+  const space = (id, branch) => ({ branch, folder: `/f/${id}`, id });
+  const git = (branch, linked) => ({
+    ahead: 0,
+    behind: 0,
+    branch,
+    linked,
+    repo: "/f/orders/.git",
+  });
+  deepStrictEqual(
+    checkoutsOf(
+      [
+        space("orders", "main"),
+        space("orders-18", null),
+        space("notes", null),
+        space("orders-21", "feature/#21-old"),
+        space("orders-30", "feature/#30-new"),
+      ],
+      {
+        notes: null,
+        orders: git("develop", false),
+        "orders-18": git("feature/#18-audit", true),
+      },
+      (one) => (one.id === "orders-21" ? "" : `/w/${one.id}`),
+    ),
+    [
+      { branch: "develop", folder: "/w/orders", space: "orders" },
+      {
+        branch: "feature/#18-audit",
+        folder: "/w/orders-18",
+        space: "orders-18",
+      },
+      { branch: "feature/#30-new", folder: "/w/orders-30", space: "orders-30" },
+    ],
+  );
+});
+
+test("the checkout picked is the space's given, else the forge's first, else none", () => {
+  const checkouts = [
+    { branch: "main", folder: "/w/orders", space: "orders" },
+    { branch: "feature/#18-audit", folder: "/w/orders-18", space: "orders-18" },
+  ];
+  strictEqual(pickedCheckout(checkouts, "orders-18"), checkouts[1]);
+  strictEqual(pickedCheckout(checkouts, "notes"), checkouts[0]);
+  strictEqual(pickedCheckout([], "orders"), undefined);
+});
+
+test("a launch's tab opens where it says, else in the main checkout or the space shown", () => {
+  const shown = { folder: "/w/orders-18", space: "orders-18" };
+  const main = { folder: "/w/orders", space: "orders" };
+  const at = { folder: "/w/orders-21", space: "orders-21" };
+  deepStrictEqual(
+    launchPlace({ argv: [], at, main: true, name: "x" }, shown, main),
+    at,
+  );
+  deepStrictEqual(launchPlace({ argv: [], at, name: "x" }, shown, main), at);
+  deepStrictEqual(
+    launchPlace({ argv: [], main: true, name: "x" }, shown, main),
+    main,
+  );
+  deepStrictEqual(launchPlace({ argv: [], name: "x" }, shown, main), shown);
+});
+
+test("a security audit runs on the checkout picked, with its work item when given", () => {
+  const pick = {
+    branch: "feature/#18-audit",
+    folder: "/w/orders-18",
+    space: "orders-18",
+  };
+  deepStrictEqual(securityRows(pick, ""), [
+    {
+      action: "security · /forgerdr:security on feature/#18-audit",
+      kind: "security",
+      label: "orders-18",
+      value: "/w/orders-18",
+    },
+  ]);
+  strictEqual(
+    securityRows(pick, " #18 ")[0]?.action,
+    "security · /forgerdr:security on feature/#18-audit · #18",
+  );
+  deepStrictEqual(securityRows(undefined, "#18"), [
+    {
+      action: "no checkout of this forge known on this computer",
+      kind: "skip",
+      label: "nothing to audit",
+    },
+  ]);
+  deepStrictEqual(
+    securityLaunches(pick, " #18 ", "/p/bin/forge-prompt.sh", "forgerdr-dev"),
+    [
+      {
+        argv: [
+          "bash",
+          "/p/bin/forge-prompt.sh",
+          "security",
+          "--mod",
+          "forgerdr-dev",
+          "--cwd",
+          "/w/orders-18",
+          "--item",
+          "#18",
+        ],
+        at: { folder: "/w/orders-18", space: "orders-18" },
+        name: "forgerdr security",
+      },
+    ],
+  );
+  deepStrictEqual(securityLaunches(pick, "  ", "/p"), [
+    {
+      argv: ["bash", "/p", "security", "--cwd", "/w/orders-18"],
+      at: { folder: "/w/orders-18", space: "orders-18" },
+      name: "forgerdr security",
+    },
+  ]);
+  strictEqual(checkoutName(pick), "orders-18");
+  deepStrictEqual(securityLaunches(undefined, "#18", "/p", "forgerdr"), []);
 });
 
 const TREE = "/h/.herdr/worktrees/front/fix-#9-crash";
@@ -3051,12 +3243,71 @@ test("a review session's pick and comment gate wait in its view, not as options 
   const terminals = [
     { address: "t7", labels: { "forge.review": "other" } },
     { address: "t8", labels: {} },
+    { address: "t5", labels: { "forge.review": "own" } },
   ];
   strictEqual(reviewAskOf(asked("Review pick", "t7"), terminals), true);
   strictEqual(reviewAskOf(asked("Gate comment", "t7"), terminals), true);
   strictEqual(reviewAskOf(asked("Gate commit", "t7"), terminals), false);
   strictEqual(reviewAskOf(asked("Gate comment", "t8"), terminals), false);
   strictEqual(reviewAskOf(asked("Review pick", "t9"), terminals), false);
+  strictEqual(reviewAskOf(asked("Security fix", "t7"), terminals), false);
+  strictEqual(reviewAskOf(asked("Review pick", "t5"), terminals), true);
+  strictEqual(reviewAskOf(asked("Gate comment", "t5"), terminals), true);
+  strictEqual(reviewAskOf(asked("Security fix", "t5"), terminals), false);
+});
+
+test("a security session's fix question waits in its security view, and nothing else it asks does", () => {
+  /** @param {string} header @param {string} terminal */
+  const asked = (header, terminal) => ({
+    agent_type: "",
+    created: 1,
+    cwd: "/r",
+    id: "a",
+    kind: header.startsWith("Gate ") ? "gate" : "question",
+    session_id: "s",
+    terminal,
+    tool_input: {
+      questions: [
+        {
+          header,
+          options: [{ label: "Fix" }, { label: "Skip" }],
+          question: "Fix which?",
+        },
+      ],
+    },
+    tool_name: "AskUserQuestion",
+  });
+  const terminals = [
+    {
+      address: "t6",
+      labels: { "forge.review": "security", "forge.view": "tb-sec" },
+    },
+  ];
+  strictEqual(reviewAskOf(asked("Security fix", "t6"), terminals), true);
+  strictEqual(reviewAskOf(asked("Gate comment", "t6"), terminals), false);
+  strictEqual(reviewAskOf(asked("Review pick", "t6"), terminals), false);
+});
+
+test("a session's questions take the human to the tab of the view that answers them", () => {
+  const terminals = [
+    {
+      address: "t6",
+      labels: { "forge.review": "security", "forge.view": "tb-sec" },
+    },
+    { address: "t7", labels: { "forge.tab": "tb-42" } },
+    {
+      address: "t8",
+      labels: { "forge.tab": "tb-42", "forge.view": "tb-sec" },
+    },
+    { address: "t9", labels: {} },
+    { address: "t5", labels: { "forge.tab": "tb-42", "forge.view": "" } },
+  ];
+  strictEqual(viewTabOf("t6", terminals), "tb-sec");
+  strictEqual(viewTabOf("t7", terminals), "tb-42");
+  strictEqual(viewTabOf("t8", terminals), "tb-sec");
+  strictEqual(viewTabOf("t9", terminals), "");
+  strictEqual(viewTabOf("t5", terminals), "tb-42");
+  strictEqual(viewTabOf("t10", terminals), "");
 });
 
 test("a review session's question takes the human to its review's tab", () => {

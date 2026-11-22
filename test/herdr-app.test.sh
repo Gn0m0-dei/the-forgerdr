@@ -412,6 +412,30 @@ fakes_reset
 out="$(cd "$repo" && FAKE_APP_DOWN=1 in_herdr bash "$bin/forge-prompt.sh" review https://example.com/o/r/pull/7 </dev/null 2>&1 || true)"
 expect "a review that fails keeps the tab until Enter, to say why" yes \
   "$([[ "$out" == *"Press Enter to close this tab."* ]] && echo yes || echo no)"
+fakes_reset
+(cd "$repo" && FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-prompt.sh" security --mod forgerdr-dev --cwd "$repo" --item '#18') </dev/null >/dev/null
+made="$(call_of herdr-app "do" tab.new)"
+expect "security launches the security session of the folder given, for the item, in the mod copy given" \
+  "Security #18|$repo|forgerdr-dev" \
+  "$(printf '%s' "$made" | jq -r '[.[(index("--name")) + 1, (index("--folder")) + 1]] | join("|")')|$(call_of herdr-app "do" pane.split | option_of --mod)"
+expect "with nobody waiting for its report" "/forgerdr:security the branch diff (git diff origin/main...HEAD) The work item is #18." \
+  "$(printf '%s' "$made" | option_of --argv | jq -r '.[-1]')"
+expect "and closes its tab once it is open" yes "$(called hc kill t5)"
+fakes_reset
+out="$(cd "$repo" && FAKE_APP_DOWN=1 in_herdr bash "$bin/forge-prompt.sh" security --mod forgerdr </dev/null 2>&1 || true)"
+expect "a security launch that fails keeps the tab until Enter, to say why" yes \
+  "$([[ "$out" == *"cannot open the security session"*"Press Enter to close this tab."* ]] && echo yes || echo no)"
+# A claude that does not come up (hc no longer knows its terminal) keeps the tab until Enter, to say so.
+cat > "$sandbox/hc-no-claude" <<'SH'
+#!/usr/bin/env bash
+[ "$1 ${2:-}" != "get t40" ] || exit 3
+exec "$FAKE_DIR/hc" "$@"
+SH
+chmod +x "$sandbox/hc-no-claude"
+fakes_reset
+out="$(cd "$repo" && FORGE_HC="$sandbox/hc-no-claude" FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 in_herdr bash "$bin/forge-prompt.sh" security --mod forgerdr </dev/null 2>&1 || true)"
+expect "a security session whose claude did not come up keeps the tab until Enter, to say so" yes \
+  "$([[ "$out" == *"claude did not come up"*"Press Enter to close this tab."* ]] && echo yes || echo no)"
 
 # forge-setup-keys.sh: two bindings that open a prompt tab, from wherever the plugin is installed.
 mkdir -p "$sandbox/keys"

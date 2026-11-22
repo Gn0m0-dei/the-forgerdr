@@ -3,7 +3,7 @@
 // forgerdr's gates (a question headed "Gate ...") or a plan; or an agent herdr reports blocked with no request, such as
 // a session started before forgerdr's hook, which waits in its pane. The answers are the ones hooks/inbox.sh takes.
 // Pure: Node tests it (test/herdr-mod.test.mjs).
-import { parentOf } from "./lanes.js";
+import { FORGE_LABEL, parentOf } from "./lanes.js";
 
 /** @typedef {import("gpui-kit").Point} Point */
 /** @typedef {import("gpui-kit").Size} Size */
@@ -289,15 +289,23 @@ export const questionsOf = (request) => {
   return Array.isArray(questions) ? questions : [];
 };
 
-// What a review session with a view beside it asks there instead (bin/forge-review.sh, roles/review.js): its picks and
-// its comment gate. Its terminal carries the label bin/forge-pr.sh open sets.
+// What a session with a view beside it asks there instead: a review session (bin/forge-review.sh, roles/review.js) its
+// picks and its comment gate, a security session (bin/forge-security.sh) its fix question. Its terminal carries the
+// label bin/forge-pr.sh open or bin/forge-security.sh open sets, whose value says which view it is.
 export const REVIEW_ASK_HEADER = Object.freeze({
+  fix: "Security fix",
   gate: "Gate comment",
   pick: "Review pick",
 });
-const REVIEW_LABEL = "forge.review";
-// The tab of a review session's view, which bin/forge-review.sh labels the session's terminal with.
-const REVIEW_TAB_LABEL = "forge.tab";
+// The review label's value, which view a session's questions go to: a review's kind (review.js REVIEW_KIND), which
+// bin/forge-pr.sh open writes, or the security view, which bin/forge-security.sh open writes (its ROLE).
+export const REVIEW_VIEW = Object.freeze({
+  other: "other",
+  own: "own",
+  security: "security",
+});
+
+/** @typedef {typeof REVIEW_VIEW[keyof typeof REVIEW_VIEW]} ReviewView */
 
 /**
  * The tab of the review view a session's terminal was opened for, or "" when it has none.
@@ -306,25 +314,45 @@ const REVIEW_TAB_LABEL = "forge.tab";
  */
 export const reviewTabOf = (terminal, terminals) =>
   terminals.find((one) => one.address === terminal)?.labels?.[
-    REVIEW_TAB_LABEL
+    FORGE_LABEL.tab
   ] ?? "";
-/** @type {ReadonlySet<string>} */
-const REVIEW_HEADERS = new Set(Object.values(REVIEW_ASK_HEADER));
 
 /**
- * Whether a request waits in a review view rather than in the inbox: a review session's picks or comment gate, from a
- * terminal its view was opened for.
+ * The tab of the view that answers a session's questions: the one its view's label names, else its parked review's,
+ * or "" when it has neither.
+ * @param {string} terminal
+ * @param {LaneTerminal[]} terminals
+ */
+export const viewTabOf = (terminal, terminals) => {
+  const labels =
+    terminals.find((one) => one.address === terminal)?.labels ?? {};
+  return labels[FORGE_LABEL.view] || labels[FORGE_LABEL.tab] || "";
+};
+
+/** @type {ReadonlySet<string>} */
+const REVIEW_HEADERS = new Set([
+  REVIEW_ASK_HEADER.gate,
+  REVIEW_ASK_HEADER.pick,
+]);
+// The questions a session's view answers, by its review label's value: none with no view, the fix question in a
+// security view, and the review's own for any other value (other, own), which takes the default.
+/** @type {ReadonlyMap<string, ReadonlySet<string>>} */
+const VIEW_HEADERS = new Map([
+  ["", new Set()],
+  [REVIEW_VIEW.security, new Set([REVIEW_ASK_HEADER.fix])],
+]);
+
+/**
+ * Whether a request waits in a view rather than in the inbox: a question the view its terminal was opened for answers.
  * @param {InboxRequest} request
  * @param {LaneTerminal[]} terminals
  */
 export const reviewAskOf = (request, terminals) => {
   const header = questionsOf(request)[0]?.header ?? "";
-  const viewed = terminals.some(
-    (terminal) =>
-      terminal.address === request.terminal &&
-      (terminal.labels?.[REVIEW_LABEL] ?? "") !== "",
-  );
-  return viewed && REVIEW_HEADERS.has(header);
+  const view =
+    terminals.find((terminal) => terminal.address === request.terminal)
+      ?.labels?.[FORGE_LABEL.review] ?? "";
+  return (VIEW_HEADERS.get(view) ?? REVIEW_HEADERS).has(header);
 };
 
 /** @param {string} plan its first line with words, without the heading's marks */

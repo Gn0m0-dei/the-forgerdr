@@ -45,16 +45,26 @@ import {
   diffLine,
   draftCard,
   fileHeader,
+  findingFrame,
   findingRow,
+  groupHead,
   hunkHead,
   proposalChip,
   roundChip,
   severityChip,
+  severityColour,
   stillBox,
   stillText,
   threadCard,
   tickLabel,
 } from "../kit/review.js";
+import {
+  actionToggle,
+  fixCard,
+  lockNote,
+  securityDetail,
+  securityToneColour,
+} from "../kit/security.js";
 import {
   ACCESSORY,
   BEARD,
@@ -72,11 +82,15 @@ import { text } from "../kit/text.js";
 import { BRAND, TONE, tokens } from "../kit/tokens.js";
 import {
   agentRow,
+  prRow,
+  pullRequestsRow,
   repoRow,
   subagentRow,
   warningRow,
   worktreeRow,
 } from "../kit/tree.js";
+import { SECURITY_TONE } from "../security.js";
+import { SPECIAL_LOOK } from "../specials.js";
 
 /** @typedef {import("./role.js").Role} Role */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
@@ -102,7 +116,7 @@ const MOODS = [
 ];
 
 /** @type {GolemRole[]} */
-const GOLEMS = ["iron", "stone", "clay"];
+const GOLEMS = ["iron", "reviewer", "warden", "stone", "clay"];
 
 /** @type {GlyphName[]} */
 const GLYPHS = ["flame", "needs", "spark", "smoke", "asleep"];
@@ -260,7 +274,38 @@ const navigation = () =>
         agentRow({ context: 93, name: "claude · login", tone: TONE.needs }),
       )
       .child(warningRow("claude · login asks about src/cart.rs"))
-      .child(agentRow({ name: "claude · resize", tone: TONE.failed })),
+      .child(agentRow({ name: "claude · resize", tone: TONE.failed }))
+      .child(
+        agentRow({ context: 52, name: "claude · checkout", tone: TONE.done }),
+      )
+      .child(
+        subagentRow({
+          chip: SPECIAL_LOOK.security.chip,
+          context: 48,
+          name: "Security #18",
+          role: SPECIAL_LOOK.security.golem,
+          tone: TONE.needs,
+        }),
+      )
+      .child(pullRequestsRow())
+      .child(
+        prRow({
+          chip: SPECIAL_LOOK.review.chip,
+          context: 22,
+          line: "#42 review · @quench-dev",
+          role: SPECIAL_LOOK.review.golem,
+          selected: true,
+          tone: TONE.done,
+        }),
+      )
+      .child(
+        prRow({
+          chip: SPECIAL_LOOK.mine.chip,
+          line: "#40 mine · 4 threads",
+          role: SPECIAL_LOOK.mine.golem,
+          tone: TONE.working,
+        }),
+      ),
   ]);
 
 const containers = () =>
@@ -450,12 +495,13 @@ const reviewPieces = () =>
       proposalChip("ask"),
     ]),
     findingRow({
-      id: "2-6",
-      note: "GROUP · 2",
+      actions: [],
+      colour: severityColour("should"),
+      label: "[2-6]",
       open: false,
       picked: true,
       place: "resize.rs:22 · pane.rs:64",
-      severity: "should",
+      tags: [{ text: "GROUP · 2" }],
       tick: stillBox(true),
       title: "magic 16 ms → named debounce constant",
     }),
@@ -559,6 +605,84 @@ const reviewPieces = () =>
       ),
   ]);
 
+// The security view's pieces (design 06d), with made-up data.
+const securityPieces = () => {
+  const critical = securityToneColour(SECURITY_TONE.failed);
+  return section("SECURITY TRIAGE", [
+    groupHead("CONFIRMED · CRITICAL", 1, critical),
+    findingFrame(
+      findingRow({
+        actions: [],
+        colour: critical,
+        label: "S1",
+        open: true,
+        picked: true,
+        place: "relay/src/listener.rs:57",
+        tags: [
+          { colour: critical, text: "RECOMMENDED" },
+          {
+            colour: securityToneColour(SECURITY_TONE.ok),
+            text: "VERIFIER: CONFIRMED",
+          },
+        ],
+        tick: stillBox(true),
+        title: "the socket is world-connectable until chmod runs",
+      }),
+      securityDetail([
+        { label: "WHO", text: "Another local user on the same machine." },
+        { label: "INPUT", text: "A connection to the relay's socket path." },
+        {
+          label: "PATH",
+          text: "bind() creates the socket under the default umask → listen() → chmod(0600) a few ms later.",
+        },
+        {
+          label: "FIX",
+          text: "Bind inside a 0700 runtime folder with the umask set before bind.",
+        },
+        { label: "TEST", text: "socket_is_private_before_listen" },
+      ]),
+      critical,
+    ),
+    groupHead("NEEDS VALIDATION", 1, securityToneColour(SECURITY_TONE.accent)),
+    findingRow({
+      actions: [
+        actionToggle("Note on the issue", true),
+        actionToggle("Remember", false),
+      ],
+      colour: securityToneColour(SECURITY_TONE.accent),
+      label: "N1",
+      open: false,
+      picked: false,
+      place: "release/src/sign.rs",
+      tags: [],
+      tick: null,
+      title:
+        "is the signing key kept only in the CI secrets? Check the repository's secret list.",
+    }),
+    groupHead("REJECTED", 1, securityToneColour(SECURITY_TONE.muted)),
+    findingRow({
+      actions: [],
+      colour: securityToneColour(SECURITY_TONE.muted),
+      label: "R1",
+      open: false,
+      picked: false,
+      place: "",
+      tags: [],
+      tick: null,
+      title:
+        "path traversal in the export viewer: refuted, paths are canonicalized first",
+    }),
+    fixCard({
+      id: "S1",
+      test: "socket_is_private_before_listen",
+      title: "socket world-connectable",
+    }),
+    lockNote(
+      "Findings never leave this machine. Nothing here can be published: a note on the issue is a separate draft you stamp.",
+    ),
+  ]);
+};
+
 const page = () =>
   v_flex()
     .id("gallery")
@@ -574,6 +698,7 @@ const page = () =>
     .child(containers())
     .child(floorPieces())
     .child(reviewPieces())
+    .child(securityPieces())
     .child(sprites())
     .child(icons());
 

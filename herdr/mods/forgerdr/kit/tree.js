@@ -5,25 +5,40 @@ import { golem, ICON, icon } from "./sprites.js";
 import { fill, text } from "./text.js";
 import { NONE, tokens } from "./tokens.js";
 
+/** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("./sprites.js").GolemRole} GolemRole */
+/** @typedef {import("./sprites.js").IconName} IconName */
 /** @typedef {import("./tokens.js").Tone} Tone */
 
 /**
+ * The head of a group of the tree: its icon, its name in capitals and what it offers after it.
+ * @param {IconName} glyph
  * @param {string} name
- * @param {import("gpui-kit").NativeElement} [action] what the repository offers, after its name: a new worktree
+ * @param {NativeElement} [action]
  */
-export const repoRow = (name, action) => {
+const groupRow = (glyph, name, action) => {
   const k = tokens();
   return h_flex()
     .items_center()
     .gap(8)
     .px(8)
     .py(5)
-    .child(icon(ICON.repo, k.muted))
+    .child(icon(glyph, k.muted))
     .child(text(name.toUpperCase(), "display", 11, k.fg))
     .when(action !== undefined, (el) =>
       el.child(div().flex_1()).child(action ?? div()),
     );
 };
+
+/**
+ * @param {string} name
+ * @param {NativeElement} [action] what the repository offers, after its name: a new worktree
+ */
+export const repoRow = (name, action) => groupRow(ICON.repo, name, action);
+
+// The head of the PULL REQUESTS group, a step below the tree above it.
+export const pullRequestsRow = () =>
+  groupRow(ICON.pullRequest, "PULL REQUESTS").mt(8);
 
 /**
  * @typedef {object} WorktreeRowProps
@@ -68,6 +83,9 @@ export const worktreeRow = ({
  * @property {boolean} [selected] marked with the accent
  * @property {boolean} [unseen] changed since it was looked at
  * @property {number} [context] its session's context used, in percent: beside the golem, and in its chest
+ * @property {GolemRole} [role] its golem: iron for a session, the reviewer for a review session, the warden for a
+ *   security session (specials.js golemOf)
+ * @property {string} [chip] what its chip reads, else its status (AGENT_LABEL): TRIAGE for a security session
  */
 
 /**
@@ -93,6 +111,8 @@ export const agentRow = ({
   selected = false,
   unseen = false,
   context,
+  role = "iron",
+  chip,
 }) => {
   const k = tokens();
   return h_flex()
@@ -112,9 +132,46 @@ export const agentRow = ({
         .bg(unseen ? k.accent : NONE),
     )
     .child(contextLabel(context))
-    .child(golem("iron", tone, 2, context))
+    .child(golem(role, tone, 2, context))
     .child(fill(name, "ui", 13, k.fg))
-    .child(agentChip(tone));
+    .child(agentChip(tone, chip));
+};
+
+/**
+ * @typedef {object} PrRowProps
+ * @property {string} line what the pull request is: its number and its author, or its threads (specials.js reviewLine)
+ * @property {GolemRole} role its review session's golem
+ * @property {string} chip what its chip reads: TRIAGE for another's, THREADS for the user's own
+ * @property {Tone} tone what its review session's golem does
+ * @property {number} [context] its review session's context used, in percent: in its golem's chest
+ * @property {boolean} [selected] its review shows, marked with the accent
+ */
+
+/**
+ * A pull request under review, in the PULL REQUESTS group.
+ * @param {PrRowProps} props
+ */
+export const prRow = ({
+  line,
+  role,
+  chip,
+  tone,
+  context,
+  selected = false,
+}) => {
+  const k = tokens();
+  return h_flex()
+    .items_center()
+    .gap(8)
+    .pl(selected ? 22 : 24)
+    .pr(8)
+    .py(5)
+    .bg(selected ? k.bg3 : NONE)
+    .border_l(selected ? 2 : 0)
+    .border_color(k.accent)
+    .child(golem(role, tone, 2, context))
+    .child(fill(line, "ui", 13, k.fg))
+    .child(agentChip(tone, chip));
 };
 
 /**
@@ -122,9 +179,10 @@ export const agentRow = ({
  * @property {string} name
  * @property {Tone} tone
  * @property {number} [context] its session's context used, in percent
- * @property {import("./sprites.js").GolemRole} [role] stone for an agent in a terminal of its own (a teammate), clay
- *   for a subagent inside its session
+ * @property {GolemRole} [role] stone for an agent in a terminal of its own (a teammate), clay
+ *   for a subagent inside its session, warden for a security session it launched (specials.js terminalGolem)
  * @property {number} [depth] how far under its session: 1 for one inside an agent that is itself under the session
+ * @property {string} [chip] what its chip reads, else its status (AGENT_LABEL)
  */
 
 // How far a row of the tree steps in for each level under its session.
@@ -137,6 +195,7 @@ export const subagentRow = ({
   context,
   role = "clay",
   depth = 0,
+  chip,
 }) =>
   h_flex()
     .items_center()
@@ -147,7 +206,7 @@ export const subagentRow = ({
     .child(contextLabel(context))
     .child(golem(role, tone, 2, context))
     .child(fill(name, "ui", 13, tokens().fg))
-    .child(agentChip(tone));
+    .child(agentChip(tone, chip));
 
 /** @param {string} message */
 export const warningRow = (message) => {

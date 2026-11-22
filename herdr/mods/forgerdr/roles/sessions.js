@@ -1,10 +1,10 @@
 // The shown forge's session bar (design 04): a tab per session of the open space, with the icon of what runs in it (a
-// golem for an agent, a terminal for a shell, a server for anything else) in the colour of what its golem does; then the
-// tab that opens a session, the switches of the side panels (Files, Changes) and the controls that split and zoom the
-// focused pane. A tab does what the app's own tab bar does: a click shows it, a double click renames it, a right click
-// opens the app's tab menu, its ✕ closes it and dragging it onto another reorders the tabs; the wheel goes from tab to
-// tab. Each space keeps its own side panel, as the app's tab bar does, and with no space left the work area shows the
-// forge's empty state (the empty role) instead of the panes.
+// golem for an agent, a terminal for a shell, a server for anything else, the view's own for a special session's view)
+// in the colour of what its golem does; then the tab that opens a session, the switches of the side panels (Files,
+// Changes) and the controls that split and zoom the focused pane. A tab does what the app's own tab bar does: a click
+// shows it, a double click renames it, a right click opens the app's tab menu, its ✕ closes it and dragging it onto
+// another reorders the tabs; the wheel goes from tab to tab. Each space keeps its own side panel, as the app's tab bar
+// does, and with no space left the work area shows the forge's empty state (the empty role) instead of the panes.
 import { h_flex, ScrollHandle } from "gpui-base";
 import { div } from "gpui-kit";
 import {
@@ -18,13 +18,19 @@ import {
 } from "herdr";
 import { lanesOpen } from "../bridges/lanes.js";
 import { enabledPanels, layoutNode } from "../bridges/layout.js";
-import { readTerminals } from "../bridges/terminals.js";
+import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
 import { addTab, dropMark, panelToggle, sessionTab } from "../kit/tabs.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import { lanesHeight, spaceLanes } from "../lanes.js";
-import { newSwipe, programKind, swipeTab, tabLabel } from "../sessions.js";
+import {
+  newSwipe,
+  programKind,
+  specialTabLook,
+  swipeTab,
+  tabLabel,
+} from "../sessions.js";
 
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("herdr").TabInfo} TabInfo */
@@ -32,6 +38,7 @@ import { newSwipe, programKind, swipeTab, tabLabel } from "../sessions.js";
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("../kit/sprites.js").IconName} IconName */
 /** @typedef {import("../sessions.js").ProgramKind} ProgramKind */
+/** @typedef {import("../sessions.js").SpecialTabLook} SpecialTabLook */
 /** @typedef {import("./role.js").Role} Role */
 
 /** @type {Record<ProgramKind, IconName>} */
@@ -201,8 +208,9 @@ export const sessions = (cx) => {
    * @param {SpaceInfo} space
    * @param {TabInfo[]} shown
    * @param {import("herdr").PaneInfo[]} everyPane
+   * @param {SpecialTabLook | null} special its special session's view's look, null for any other tab
    */
-  const tabOf = (tab, index, space, shown, everyPane) => {
+  const tabOf = (tab, index, space, shown, everyPane, special) => {
     const k = tokens();
     const lead =
       everyPane.find((pane) => pane.tab === tab.id && pane.program?.agent) ??
@@ -210,6 +218,7 @@ export const sessions = (cx) => {
     const from = shown.findIndex((other) => other.id === drag.from);
     const over =
       drag.from !== null && drag.from !== tab.id && drag.over === tab.id;
+    const status = special === null ? tab.status : special.status;
     return sessionTab({
       active: tab.active,
       close: tab.active
@@ -219,9 +228,9 @@ export const sessions = (cx) => {
             () => run("tab.close", { id: tab.id }),
           )
         : undefined,
-      icon: PROGRAM_ICON[programKind(lead?.program)],
+      icon: special?.icon ?? PROGRAM_ICON[programKind(lead?.program)],
       label: tabLabel(tab, lead),
-      tone: tab.status ? toneOf(tab.status) : undefined,
+      tone: status ? toneOf(status) : undefined,
       zoomed: tab.zoomed,
     })
       .id(`session-${tab.id}`)
@@ -276,6 +285,8 @@ export const sessions = (cx) => {
       if (activeAt !== -1) strip.scroll_to_item(activeAt);
     }
     const everyPane = panes();
+    const terminals = readTerminals();
+    const everyAgent = readAgents();
     const pane = focused()?.pane ?? null;
     const panel = layoutNode(NODE.panel);
     const showing =
@@ -334,7 +345,14 @@ export const sessions = (cx) => {
             space === undefined
               ? []
               : shown.map((tab, index) =>
-                  tabOf(tab, index, space, shown, everyPane),
+                  tabOf(
+                    tab,
+                    index,
+                    space,
+                    shown,
+                    everyPane,
+                    specialTabLook(tab.id, everyPane, terminals, everyAgent),
+                  ),
                 ),
           )
           .child(control(addTab(), "session-add", () => openOverlay(NEW_MENU))),

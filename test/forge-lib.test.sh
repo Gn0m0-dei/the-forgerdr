@@ -178,5 +178,31 @@ expect "item id from a bare number" 12 "$(forge_item_id ' 12 ')"
 expect "no item id in free text" "" "$(forge_item_id 'make the login form')"
 expect "no item id in nothing" "" "$(forge_item_id '')"
 
+# The JSON state files: a JSON file a script is given, and a state file read back checked, unless it is a symlink or a
+# week untouched.
+mkdir -p "$sandbox/states" "$sandbox/outside"
+printf '{"a": 1}' > "$sandbox/given.json"
+expect "a JSON file given is printed whole" '{"a": 1}' "$(forge_json_given "$sandbox/given.json")"
+expect "or read from stdin" '[2]' "$(forge_json_given - <<<'[2]')"
+printf '1 2' > "$sandbox/two.json"
+expect "one with two values is refused" "forgerdr: not one JSON value: $sandbox/two.json" \
+  "$(forge_json_given "$sandbox/two.json" 2>&1)"
+expect "and so is none" "forgerdr: no JSON file given" "$(forge_json_given 2>&1)"
+now="$(jq -n 'now * 1000 | floor')"
+# shellcheck disable=SC2016 # a jq filter
+thing='.terminal == $terminal and .kind == $kind'
+printf '{"terminal": "t7", "updated": %s, "kind": "thing"}' "$now" > "$sandbox/states/t7.json"
+expect "a state file read back is printed, checked by its shape with the arguments given" t7 \
+  "$(forge_json_entry "$sandbox/states/t7.json" thing "$thing" --arg kind thing | jq -r .terminal)"
+printf '{"terminal": "t6", "updated": %s, "kind": "thing"}' "$now" > "$sandbox/outside/t6.json"
+ln -s "$sandbox/outside/t6.json" "$sandbox/states/t6.json"
+expect "one that is a symlink is none" '' "$(forge_json_entry "$sandbox/states/t6.json" thing "$thing" --arg kind thing)"
+expect "one of another shape is none, skipped saying so" "forgerdr: skipped $sandbox/states/t7.json: not a thing" \
+  "$(forge_json_entry "$sandbox/states/t7.json" thing "$thing" --arg kind other 2>&1)"
+printf '{"terminal": "t5", "updated": 0, "kind": "thing"}' > "$sandbox/states/t5.json"
+expect "one a week untouched is none, and goes" '|false' \
+  "$(forge_json_entry "$sandbox/states/t5.json" thing "$thing" --arg kind thing)|$([ -e "$sandbox/states/t5.json" ] && echo true || echo false)"
+expect "a file that is not there is none" '' "$(forge_json_entry "$sandbox/states/t4.json" thing "$thing" --arg kind thing)"
+
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

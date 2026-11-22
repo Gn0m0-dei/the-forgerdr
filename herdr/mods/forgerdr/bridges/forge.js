@@ -21,8 +21,8 @@ const SCRIPT = Object.freeze({
   worktree: `${ROOT}/bin/forge-worktree.sh`,
 });
 
-// The tab that opens reviews from URLs, as the review key does.
-export const REVIEW_PROMPT = SCRIPT.prompt;
+// The tab that opens reviews from URLs, as the review key does, or a checkout's security session.
+export const PROMPT = SCRIPT.prompt;
 
 const MODES_KEY = "forgerdr.modes.saved";
 

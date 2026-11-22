@@ -12,8 +12,9 @@ export const readTerminals = () =>
   /** @type {LaneTerminal[]} */ (/** @type {unknown} */ (terminals()));
 
 /**
- * herdr's agents, with the review sessions parked behind their views among them (lanes.js withParkedAgents), so the
- * sidebar, the top bar and the lanes count them as golems of their view's forge.
+ * herdr's agents, with the sessions parked behind their views among them (the review sessions and the security
+ * sessions bin/forge-security.sh launch opens; lanes.js withParkedAgents), so the sidebar, the top bar and the lanes
+ * count them as golems of their view's forge.
  * @returns {AgentInfo[]}
  */
 export const readAgents = () =>

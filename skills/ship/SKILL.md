@@ -21,7 +21,7 @@ A working tree mounted by a running container must not be rebased with the conta
 
 ## 3. Security
 
-Auto flow (`ship` reached from `/forgerdr:workitem --auto`): dispatch the `forgerdr:security-auditor` agent on `origin/<base>...HEAD`, with the paths of the project skills that cover the diff, and verify and triage its findings with the user as `/forgerdr:security` does; Critical and High get a fix pass before the review. Otherwise: when the diff touches authentication, user input, secrets, endpoints, uploads, payments or dependencies, suggest `/forgerdr:security` in one line before going on.
+Auto flow (`ship` reached from `/forgerdr:workitem --auto`): nothing to run here. The flow's `security` stage ran `/forgerdr:security` just before ship, on every path (an OpenSpec change at its `ship` stage starts at `security`), and the fixes the user picked went in before the review; go on to Review, with no `stage security` report from here. Outside the auto flow: when the diff touches authentication, user input, secrets, endpoints, uploads, payments or dependencies, suggest `/forgerdr:security` in one line before going on.
 
 ## 4. Review
 

@@ -1,7 +1,11 @@
 // What the Start work dialog (roles/start.js) starts: a forge's work as its mode takes it (issues, work items, OpenSpec
-// changes, ideas), the pull requests to review, the preview of what each line starts, and the sessions that start
-// them, which run the forgerdr skills a human would type. Pure: Node tests it (test/herdr-mod.test.mjs).
+// changes, ideas), the pull requests to review, the checkout to audit, the preview of what each line starts, and the
+// sessions that start them, which run the forgerdr skills a human would type. Pure: Node tests it
+// (test/herdr-mod.test.mjs).
 import { backlogOf, backlogParts, MODE, modeKind } from "./modes.js";
+
+/** @typedef {import("herdr").SpaceInfo} SpaceInfo */
+/** @typedef {import("./forges.js").PlaceGit} PlaceGit */
 
 /**
  * A pasted line that names a pull request or a work item.
@@ -35,16 +39,34 @@ import { backlogOf, backlogParts, MODE, modeKind } from "./modes.js";
 /**
  * A row of the preview: a change, an item or a pull request that starts, with what starts it, or a skipped line.
  * @typedef {object} PreviewRow
- * @property {"change" | "item" | "pr" | "skip"} kind
+ * @property {"change" | "item" | "pr" | "security" | "skip"} kind
  * @property {string} label
  * @property {string} action
- * @property {string} [value] what the skill is given: a change's name or a URL
+ * @property {string} [value] what the skill is given: a change's name, a URL or a checkout's folder
  */
 
 /**
- * A session to open, as a tab running its argv.
- * @typedef {{ name: string, argv: string[], main?: boolean }} Launch
+ * Where a tab opens: its space and the folder its terminal starts in.
+ * @typedef {{ space: string, folder: string }} Place
  */
+
+/**
+ * A checkout of the forge, its main one or a worktree: where it is and its branch.
+ * @typedef {Place & { branch: string }} Checkout
+ */
+
+/**
+ * A session to open, as a tab running its argv: in the space shown, in the main checkout (main) or where at says.
+ * @typedef {{ name: string, argv: string[], main?: boolean, at?: Place }} Launch
+ */
+
+// forge-prompt.sh's command line: the modes Start work opens and the flags they take.
+const PROMPT_LINE = Object.freeze({
+  flag: Object.freeze({ cwd: "--cwd", item: "--item", mod: "--mod" }),
+  mode: Object.freeze({ review: "review", security: "security" }),
+});
+
+/** @typedef {typeof PROMPT_LINE.mode[keyof typeof PROMPT_LINE.mode]} PromptMode */
 
 const AZURE_HOST =
   /^https?:\/\/(?:[^@/]+@)?dev\.azure\.com\/([^/]+)\/([^/]+)\//;
@@ -312,6 +334,26 @@ const workLaunch = (work, way) => {
 };
 
 /**
+ * The prompt tab that runs one of forge-prompt.sh's modes given what it needs, and closes, its views in the copy of the
+ * mod given.
+ * @param {string} prompt forge-prompt.sh
+ * @param {PromptMode} mode
+ * @param {string | undefined} mod
+ * @param {string[]} args
+ * @returns {Launch}
+ */
+const promptLaunch = (prompt, mode, mod, args) => ({
+  argv: [
+    "bash",
+    prompt,
+    mode,
+    ...(mod === undefined ? [] : [PROMPT_LINE.flag.mod, mod]),
+    ...args,
+  ],
+  name: `forgerdr ${mode}`,
+});
+
+/**
  * What starts the preview's rows: one session that works the changes and items (as /forgerdr:worktree or
  * /forgerdr:workitem would be typed), and one prompt tab that opens a review per pull request, as the review key does,
  * each in a tab of its own with its view in the copy of the mod given.
@@ -331,18 +373,99 @@ export const startLaunches = (rows, way, prompt, mod) => {
     ...(work.length === 0 ? [] : [workLaunch(work, way)]),
     ...(prs.length === 0
       ? []
-      : [
-          {
-            argv: [
-              "bash",
-              prompt,
-              "review",
-              ...(mod === undefined ? [] : ["--mod", mod]),
-              ...prs,
-            ],
-            name: "forgerdr review",
-          },
-        ]),
+      : [promptLaunch(prompt, PROMPT_LINE.mode.review, mod, prs)]),
+  ];
+};
+
+/**
+ * Where a launch's tab opens: where it says, else in the main checkout for a main launch, else in the space shown.
+ * @param {Launch} launch
+ * @param {Place} shown
+ * @param {Place} main
+ * @returns {Place}
+ */
+export const launchPlace = (launch, shown, main) =>
+  launch.at ?? (launch.main ? main : shown);
+
+/**
+ * A forge's checkouts, in its spaces' order, each on its branch as git last told it, else as the app knows it, where
+ * it is as folderOf says: a space outside git, or nowhere yet, has none.
+ * @param {SpaceInfo[]} spaces the forge's
+ * @param {Record<string, PlaceGit | null>} git by space id
+ * @param {(space: SpaceInfo) => string} folderOf
+ * @returns {Checkout[]}
+ */
+export const checkoutsOf = (spaces, git, folderOf) =>
+  spaces.flatMap((space) => {
+    const branch = git[space.id]?.branch ?? space.branch;
+    const folder = folderOf(space);
+    return branch && folder ? [{ branch, folder, space: space.id }] : [];
+  });
+
+/**
+ * The checkout to audit: the space's given (the one shown at first, then the one picked), else the forge's first,
+ * else none.
+ * @param {Checkout[]} checkouts
+ * @param {string} space
+ * @returns {Checkout | undefined}
+ */
+export const pickedCheckout = (checkouts, space) =>
+  checkouts.find((one) => one.space === space) ?? checkouts.at(0);
+
+/**
+ * A checkout as the human tells it from the others: its folder's name.
+ * @param {Checkout} checkout
+ */
+export const checkoutName = (checkout) => checkout.folder.split("/").at(-1);
+
+/**
+ * The preview of an audit: the checkout picked, audited on its branch with the work item given, or why nothing is.
+ * @param {Checkout | undefined} pick
+ * @param {string} item
+ * @returns {PreviewRow[]}
+ */
+export const securityRows = (pick, item) => {
+  if (pick === undefined)
+    return [
+      {
+        action: "no checkout of this forge known on this computer",
+        kind: "skip",
+        label: "nothing to audit",
+      },
+    ];
+  const id = item.trim();
+  return [
+    {
+      action: `security · /forgerdr:security on ${pick.branch}${id ? ` · ${id}` : ""}`,
+      kind: "security",
+      label: checkoutName(pick),
+      value: pick.folder,
+    },
+  ];
+};
+
+/**
+ * What starts an audit: one prompt tab in the checkout picked, which opens its security session parked behind its view
+ * (forge-prompt.sh security), with the work item when one is given.
+ * @param {Checkout | undefined} pick
+ * @param {string} item
+ * @param {string} prompt forge-prompt.sh
+ * @param {string} [mod] the copy of the forgerdr mod the security view runs in
+ * @returns {Launch[]}
+ */
+export const securityLaunches = (pick, item, prompt, mod) => {
+  if (pick === undefined) return [];
+  const id = item.trim();
+  const { flag, mode } = PROMPT_LINE;
+  return [
+    {
+      ...promptLaunch(prompt, mode.security, mod, [
+        flag.cwd,
+        pick.folder,
+        ...(id ? [flag.item, id] : []),
+      ]),
+      at: { folder: pick.folder, space: pick.space },
+    },
   ];
 };
 

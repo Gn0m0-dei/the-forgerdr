@@ -15,7 +15,7 @@ ONE STEP AT A TIME (manual flow)              run in the current session
   /forgerdr:build                run the plan, red -> green, reviewer at the end
   /forgerdr:debug <symptom>      root cause before fixing anything
   /forgerdr:security             auditor on the diff, triage with you, fix what you pick
-  /forgerdr:ship                 verify, rebase, security (auto), reviewer, commit, push, PR
+  /forgerdr:ship                 verify, rebase, reviewer, commit, push, PR
   /forgerdr:review-other <url>   review a colleague's pull request here
   /forgerdr:review-own <url>     handle the review comments on your pull request here
 
@@ -23,7 +23,7 @@ AUTO FLOW (add --auto to workitem or worktree; without it, manual)
   bug       brief -> reproduce -> root cause -> proposal -> fix -> security -> ship
   feature   brief -> spec (item is the spec) -> research -> plan -> build -> security -> ship
   content   brief -> verdict -> comment
-  change    brief -> from its stage (spec, plan, build or ship) -> security -> ship
+  change    brief -> from its stage (spec, plan or build) -> security -> ship; at ship: security -> ship
 
 GATES (every flow)
   design approved before code · permission per commit · drafts before anything

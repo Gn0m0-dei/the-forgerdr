@@ -30,7 +30,7 @@ done
 
 forge_in_herdr || forge_die "not inside the herdr app"
 [ ${#urls[@]} -gt 0 ] || forge_die "no pull request URL given"
-[[ "$mod" =~ ^[A-Za-z0-9_-]+$ ]] || forge_die "not a mod name: $mod"
+[[ "$mod" =~ ^[A-Za-z0-9][A-Za-z0-9_-]*$ ]] || forge_die "not a mod name: $mod"
 
 space="$(forge_terminal_label herdr.space)"
 first=""

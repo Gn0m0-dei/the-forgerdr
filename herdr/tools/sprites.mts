@@ -36,12 +36,15 @@ const GOLEM_FIXED: Palette = {
   C: "#c0703f",
   I: "#8a94a3",
   i: "#5f6875",
+  L: "#7fd1e0",
   O: "#0d0d12",
   R: "#ffb347",
   S: "#9b9484",
   s: "#6e695c",
   U: "#3a3a44",
   V: "#6f8f4a",
+  X: "#d1394b",
+  x: "#9e2638",
 };
 // The golem letters that take a theme tone, drawn as one tinted layer.
 const GOLEM_TONE = new Set(["W", "N", "D", "F", "Q"]);
@@ -251,9 +254,10 @@ for (const accessory of ["GOGGLES", "EYEPATCH", "HEADPHONES", "MONOCLE"]) {
 }
 layers("glyph/zz", need(gnome.get("zZ GLYPH"), "zZ GLYPH"), {}, { Z: "tone" });
 
-// Golems: iron (a main session), clay (a subagent, 8x8) and stone (a teammate), each mood a fixed layer and a tone.
+// Golems: iron (a main session), clay (a subagent, 8x8), stone (an agent in a terminal of its own), reviewer (a session
+// reviewing a pull request) and warden (a session triaging a security review), each mood a fixed layer and a tone.
 const golem = grids(readFileSync(join(design, "golem-parts.txt"), "utf8"));
-for (const role of ["IRON", "CLAY", "STONE"]) {
+for (const role of ["IRON", "CLAY", "STONE", "REVIEWER", "WARDEN"]) {
   for (const mood of ["FORGING", "WAITING", "DONE", "CRACKED", "IDLE"]) {
     const rows = need(golem.get(`${role} ${mood}`), `${role} ${mood}`);
     const file = `golem/${role.toLowerCase()}-${mood.toLowerCase()}`;

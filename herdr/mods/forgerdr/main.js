@@ -18,6 +18,7 @@ import { pane } from "./roles/pane.js";
 import { worktreeRemoval } from "./roles/remove-worktree.js";
 import { review } from "./roles/review.js";
 import { round } from "./roles/round.js";
+import { security } from "./roles/security.js";
 import { sessions } from "./roles/sessions.js";
 import { sidebar } from "./roles/sidebar.js";
 import { start } from "./roles/start.js";
@@ -48,6 +49,7 @@ const ROLES = {
   pane,
   review,
   round,
+  security,
   sessions,
   sidebar,
   start,

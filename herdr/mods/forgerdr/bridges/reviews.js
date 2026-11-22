@@ -36,6 +36,22 @@ export const readReview = async (terminal) => {
   return parseReview(result.stdout);
 };
 
+/** forge-pr.sh list prints every review it checked, oldest first. @type {(text: string) => Review[]} */
+const parseReviews = JSON.parse;
+
+/**
+ * Every review kept, for the sidebar's PULL REQUESTS group. Throws, saying why, when they cannot be read.
+ * @returns {Promise<Review[]>}
+ */
+export const readReviews = async () => {
+  const result = await exec("bash", [SCRIPT, "list"], { timeout: TIMEOUT });
+  if (result.code !== 0)
+    throw new Error(
+      `forge-pr.sh list: ${result.stderr.trim() || `exit ${result.code}`}`,
+    );
+  return parseReviews(result.stdout);
+};
+
 /**
  * Reads a terminal's review now and again on every change in the folder, handing each read to `take`, until the copy
  * closes.

@@ -1,8 +1,9 @@
 // The golem lanes under the panes (design 04), an accordion that stays whatever tab shows: the golems the sessions of the
 // active space spawned, the most urgent first, each with what it is doing, its context, how long it has been at it and
 // its status. Folded, one line: the arrow, how many there are and the most urgent; with none, "no golems at work".
-// Unfolded, every lane. A lane goes to its terminal on a click (a subagent inside a session, to that session's). The
-// session bar sizes the block to the fold (roles/sessions.js).
+// Unfolded, every lane. A security session another launched is drawn as the warden reading TRIAGE (specials.js). A lane
+// goes to its terminal on a click (a subagent inside a session, to that session's). The session bar sizes the block to
+// the fold (roles/sessions.js).
 import { h_flex, v_flex } from "gpui-base";
 import { checking, panes, run, spaces } from "herdr";
 import { lanesOpen, toggleLanes } from "../bridges/lanes.js";
@@ -14,10 +15,12 @@ import { laneRow, lanesHead } from "../kit/lanes.js";
 import { fill } from "../kit/text.js";
 import { TONE, tokens, toneOf } from "../kit/tokens.js";
 import { elapsed, spaceLanes } from "../lanes.js";
+import { laneLook } from "../specials.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("../lanes.js").Lane} Lane */
+/** @typedef {import("../lanes.js").LaneTerminal} LaneTerminal */
 /** @typedef {import("./role.js").Role} Role */
 
 // The lanes' clocks tick once a second, and the contexts are read as often.
@@ -32,7 +35,8 @@ const toneOfLane = (status) =>
 /** @param {Lane} lane the terminal it goes to: its own, or its session's for a subagent inside one */
 const terminalOf = (lane) => lane.id.split("/")[0];
 
-// A lane's golem: its pane; the review it works behind, parked (bin/forge-review.sh); else a peek at it.
+// A lane's golem: its pane; the view it works behind, parked (bin/forge-review.sh, bin/forge-security.sh); else a peek
+// at it.
 /** @param {string} terminal */
 const goTo = (terminal) => {
   const reviewTab = reviewTabOf(terminal, readTerminals());
@@ -70,16 +74,17 @@ export const lanes = (cx) => {
 
   /**
    * @param {Lane} lane
+   * @param {LaneTerminal | undefined} terminal its own, none for a subagent inside a session
    * @param {number} now
    * @param {boolean} ruled
    */
-  const row = (lane, now, ruled) =>
+  const row = (lane, terminal, now, ruled) =>
     control(
       laneRow({
+        ...laneLook(lane, terminal),
         activity: lane.activity || (lane.status === "done" ? "finished" : ""),
         context: lane.context,
         name: lane.name,
-        role: lane.golem,
         ruled,
         time: elapsed(lane.since, lane.until ?? now),
         tone: toneOfLane(lane.status),
@@ -93,6 +98,9 @@ export const lanes = (cx) => {
     const k = tokens();
     const now = Date.now();
     const all = readTerminals();
+    const byAddress = new Map(
+      all.map((terminal) => [terminal.address, terminal]),
+    );
     const space = spaces().find((one) => one.active);
     for (const terminal of all) {
       for (const key of Object.keys(terminal.records ?? {}))
@@ -128,7 +136,9 @@ export const lanes = (cx) => {
           .child(
             first === undefined
               ? fill("no golems at work", "ui", 12, k.muted)
-              : row(first, now, false).flex_1().min_w(0),
+              : row(first, byAddress.get(first.id), now, false)
+                  .flex_1()
+                  .min_w(0),
           ),
       );
     }
@@ -138,7 +148,9 @@ export const lanes = (cx) => {
         .flex_1()
         .min_h(0)
         .overflow_y_scrollbar()
-        .children(shown.map((lane) => row(lane, now, true))),
+        .children(
+          shown.map((lane) => row(lane, byAddress.get(lane.id), now, true)),
+        ),
     );
   };
 

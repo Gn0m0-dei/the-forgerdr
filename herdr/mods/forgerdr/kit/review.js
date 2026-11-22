@@ -1,7 +1,8 @@
 // The review views' pieces (designs 06, 06b, 06c): the severity of a finding and its row to pick, its explanation, a
 // comment's draft, a thread of the user's own pull request with what to do about it, the checks before the stamp, and a
-// round's diff: a file's header, a hunk's, a line, the comments under it and the strip of rounds. Plain values in, an
-// element out; the roles make them controls and hand them their fields.
+// round's diff: a file's header, a hunk's, a line, the comments under it and the strip of rounds. The security view
+// (design 06d, kit/security.js) lists its findings with the same heads, rows and lines. Plain values in, an element
+// out; the roles make them controls and hand them their fields.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checkBox } from "./forms.js";
@@ -82,18 +83,30 @@ export const metaItem = (glyph, content) => {
 };
 
 /**
- * The view's title row: its icon, the title and the branches it goes between.
+ * The icon a view's title starts with, in its colour.
+ * @typedef {object} ViewMark
+ * @property {IconName} glyph
+ * @property {Color} colour
+ */
+
+/**
+ * The view's title row: its mark, the title and what it covers: the branches it goes between, the diff it reviews.
  * @param {string} title
  * @param {string} branches "feature/#42-x → main", empty when unknown
+ * @param {ViewMark} [mark] a pull request's icon in amber unless told
  */
-export const viewTitle = (title, branches) => {
+export const viewTitle = (title, branches, mark) => {
   const k = tokens();
+  const { glyph, colour } = mark ?? {
+    colour: k.needs,
+    glyph: ICON.pullRequest,
+  };
   return h_flex()
     .flex_1()
     .min_w(0)
     .items_center()
     .gap(12)
-    .child(icon(ICON.pullRequest, k.needs, 2))
+    .child(icon(glyph, colour, 2))
     .child(fill(title, "display", 18, k.fg))
     .when(branches !== "", (el) =>
       el.child(
@@ -132,22 +145,19 @@ export const severityChip = (severity, count) => {
 };
 
 /**
- * A severity group's head: its bar and BLOCKER · 1, in its colour.
- * @param {Severity} severity
+ * A group's head: its bar and BLOCKER · 1, CONFIRMED · CRITICAL · 1, in its colour.
+ * @param {string} label
  * @param {number} count
+ * @param {Color} colour
  */
-export const groupHead = (severity, count) => {
-  const colour = severityColour(severity);
-  return h_flex()
+export const groupHead = (label, count, colour) =>
+  h_flex()
     .flex_none()
     .items_center()
     .gap(8)
     .pt(6)
     .child(div().flex_none().w(4).h(14).bg(colour))
-    .child(
-      text(`${SEVERITY_LABEL[severity]} · ${count}`, "display", 10, colour),
-    );
-};
+    .child(text(`${label} · ${count}`, "display", 10, colour));
 
 /**
  * A small box: [1], [2-6], the T of a reviewer.
@@ -165,27 +175,53 @@ export const idBox = (content) => {
 };
 
 /**
+ * A tag at a finding row's end, quiet unless given a colour: GROUP · 2, RECOMMENDED, VERIFIER: CONFIRMED.
+ * @typedef {object} RowTag
+ * @property {string} text
+ * @property {Color} [colour]
+ */
+
+/**
+ * A finding row's tag, quiet unless given a colour.
+ * @param {string} content
+ * @param {Color} [colour]
+ */
+const rowTag = (content, colour) => {
+  const k = tokens();
+  return div()
+    .flex_none()
+    .px(5)
+    .py(1)
+    .border(1)
+    .border_color(colour ?? k.line)
+    .child(text(content, "display", 8, colour ?? k.muted));
+};
+
+/**
  * @typedef {object} FindingRowProps
- * @property {NativeElement} tick its box to tick, made a control by the role, or a still one
- * @property {string} id
- * @property {string} place where it is: resize.rs:48, two files, the pull request
+ * @property {NativeElement | null} tick its box to tick, made a control by the role, or a still one; null for a
+ *   finding nobody picks, as a rejected one
+ * @property {string} label its id's box: [1], [2-6], S1
+ * @property {string} place where it is: resize.rs:48, two files, the pull request; "" when it is nowhere
  * @property {string} title
- * @property {Severity} severity
+ * @property {Color} colour its border once picked: its severity's
  * @property {boolean} picked
  * @property {boolean} open
- * @property {string} [note] a tag at its end: GROUP · 2, USUALLY DISCARDED
+ * @property {RowTag[]} tags at its end, in order
+ * @property {NativeElement[]} actions after its chevron, made controls by the role: Note on the issue, Remember
  */
 
 /** @param {FindingRowProps} props */
 export const findingRow = ({
   tick,
-  id,
+  label,
   place,
   title,
-  severity,
+  colour,
   picked,
   open,
-  note,
+  tags,
+  actions,
 }) => {
   const k = tokens();
   return (
@@ -197,30 +233,23 @@ export const findingRow = ({
       .py(8)
       .bg(k.bg1)
       .border(2)
-      .border_color(picked ? severityColour(severity) : k.line)
-      .child(tick)
-      .child(idBox(`[${id}]`))
+      .border_color(picked ? colour : k.line)
+      .when(tick !== null, (el) => el.child(tick ?? div()))
+      .child(idBox(label))
       // Its places give way to its title when they are long, cut short: the row opened shows them whole.
-      .child(
-        text(place, "mono", 13, k.fg)
-          .flex_shrink(1)
-          .min_w(0)
-          .max_w(PLACE_MAX)
-          .truncate(),
-      )
-      .child(fill(title, "ui", 12, k.muted))
-      .when(note !== undefined && note !== "", (el) =>
+      .when(Boolean(place), (el) =>
         el.child(
-          div()
-            .flex_none()
-            .px(5)
-            .py(1)
-            .border(1)
-            .border_color(k.line)
-            .child(text(note ?? "", "display", 8, k.muted)),
+          text(place, "mono", 13, k.fg)
+            .flex_shrink(1)
+            .min_w(0)
+            .max_w(PLACE_MAX)
+            .truncate(),
         ),
       )
+      .child(fill(title, "ui", 12, k.muted))
+      .children(tags.map((tag) => rowTag(tag.text, tag.colour)))
       .child(icon(open ? ICON.chevronDown : ICON.chevronRight, k.muted))
+      .children(actions)
   );
 };
 
@@ -274,7 +303,7 @@ export const codeBlock = (lines) => {
  * @param {string} label
  * @param {string} words
  */
-const explained = (label, words) => {
+export const explainedLine = (label, words) => {
   const k = tokens();
   return h_flex()
     .w_full()
@@ -345,9 +374,9 @@ export const findingDetail = ({
           ),
       ),
     )
-    .child(explained("RULE", rule))
-    .child(explained("WHAT HAPPENS", happens))
-    .child(explained("WHAT TO CHANGE", change))
+    .child(explainedLine("RULE", rule))
+    .child(explainedLine("WHAT HAPPENS", happens))
+    .child(explainedLine("WHAT TO CHANGE", change))
     .when(context.length > 0, (el) => el.child(codeBlock(context)))
     .when(refactor !== "", (el) =>
       el.child(

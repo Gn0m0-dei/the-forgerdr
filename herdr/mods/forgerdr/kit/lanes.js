@@ -36,7 +36,9 @@ export const lanesHead = ({ count, open }) => {
  * @property {string} time how long it has been at it
  * @property {number} [context] its session's context used, in percent: its crucible, its bar and the percent beside it
  * @property {boolean} [ruled] a line above it, between rows; none when it sits in the head of folded lanes
- * @property {import("./sprites.js").GolemRole} [role] its golem: stone for a teammate, clay for a subagent
+ * @property {import("./sprites.js").GolemRole} [role] its golem: stone for a teammate, clay for a subagent, the warden
+ *   for a security session (specials.js golemOf)
+ * @property {string} [chip] what its chip reads, else its status (AGENT_LABEL): TRIAGE for a security session
  */
 
 /** @param {LaneRowProps} props */
@@ -48,6 +50,7 @@ export const laneRow = ({
   context,
   ruled = true,
   role = "clay",
+  chip,
 }) => {
   const k = tokens();
   return h_flex()
@@ -96,5 +99,7 @@ export const laneRow = ({
         .justify_end()
         .child(text(time, "mono", 12, k.muted)),
     )
-    .child(div().flex_none().w(76).flex().justify_end().child(agentChip(tone)));
+    .child(
+      div().flex_none().w(76).flex().justify_end().child(agentChip(tone, chip)),
+    );
 };

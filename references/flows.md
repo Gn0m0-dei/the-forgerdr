@@ -1,13 +1,13 @@
 # Flows
 
-The forge floor of the herdr app (FLOOR, beside INBOX in the forgerdr layout) shows the flow of every item a Claude session works: the cells of its pipeline, which ran and how many times, its build tasks and its pull request. `${CLAUDE_PLUGIN_ROOT}/bin/forge-flow.sh` keeps it, in a file named for the herdr terminal the session runs in. Outside the herdr app, and in an agent forgerdr dispatched, it writes nothing, so every report below is safe to run anywhere.
+The forge floor of the herdr app (FLOOR, beside INBOX in the forgerdr layout) shows the flow of every item a Claude session works: the cells of its pipeline, which ran and how many times, its build tasks and its pull request. `${CLAUDE_PLUGIN_ROOT}/bin/forge-flow.sh` keeps it, in a file named for the herdr terminal the session runs in. Outside the herdr app, and in a session another one started and waits on (an agent forgerdr dispatched, a security session launched with an address to report to: each carries that session's terminal, `FORGE_PARENT_TERMINAL`), it writes nothing, so every report below is safe to run anywhere.
 
 ## Who reports what
 
 The hooks record on their own, so a skill never reports these:
 
 - every `/forgerdr:<command>` typed in the session: a launch of its cell, counted; a `/forgerdr:workitem` starts the flow;
-- every reviewing agent dispatched or given another task (`forgerdr:reviewer`, `forgerdr:security-auditor`, `forgerdr:security-verifier`), counted on the `review` cell.
+- every reviewing agent dispatched or given another task (`forgerdr:reviewer`, `forgerdr:security-auditor`, `forgerdr:security-verifier`), counted on the `review` cell. The exception: inside the herdr app the security session audits itself, and the verifiers it dispatches run under it and do not count on the review cell of the session that launched it.
 
 The skills report what only they know:
 
@@ -33,7 +33,7 @@ The key is `#<id>` for a work item, `EXT-<id>` for one of an external backlog, t
 | auto, `change` (OpenSpec) | `spec plan build review security ship` |
 | manual | `workitem spec research debug plan build review security ship` |
 
-Each skill reports its own cell: `spec`, `research`, `plan`, `build`, `debug`, `security`, `ship`. Inside a bug's auto flow the fix is the `fix` cell and the debug's root cause the `root-cause` cell. `workitem` reports `brief`, `reproduce`, `root-cause`, `proposal`, `fix`, `verdict` and `comment`.
+Each skill reports its own cell: `spec`, `research`, `plan`, `build`, `debug`, `security`, `ship`. Inside a bug's auto flow the fix is the `fix` cell and the debug's root cause the `root-cause` cell. Inside the herdr app, `security` is reported by the session that launches the security session (the security skill, "Launch"): `running` at the launch, `done` on its report; the security session it launches writes no flow. One that Start work launched, with nobody waiting on it, keeps its own flow, as any session that runs `/forgerdr:security`. `workitem` reports `brief`, `reproduce`, `root-cause`, `proposal`, `fix`, `verdict` and `comment`.
 
 The reports are the same in the manual flow. A cell the user launched by hand is already counted by the hook, and `stage <cell> running` on a cell that runs does not count it again.
 

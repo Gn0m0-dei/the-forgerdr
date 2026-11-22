@@ -54,10 +54,10 @@ import {
   quietAfter,
   quietNow,
   reviewAskOf,
-  reviewTabOf,
   shownIn,
   stampTop,
   summaryOf,
+  viewTabOf,
   visible,
   waitedFor,
 } from "../inbox.js";
@@ -555,11 +555,11 @@ export const inbox = (cx) => {
     cx.notify();
   };
 
-  // The review's tab, where its view answers; a session whose view's tab is not known goes to its pane.
+  // The tab of the view that answers; a session whose view's tab is not known, or is gone, goes to its pane.
   /** @param {InboxCard} card @param {Context} cx */
   const openReview = (card, cx) => {
-    const tab = reviewTabOf(card.terminal, readTerminals());
-    if (tab === "") {
+    const tab = viewTabOf(card.terminal, readTerminals());
+    if (!spaces().some((space) => space.tabs.some((one) => one.id === tab))) {
       discuss(card, cx);
       return;
     }
@@ -1069,15 +1069,15 @@ export const inbox = (cx) => {
           ),
         );
 
-    // A review session's picks and comment gate are answered in its view, where the findings and the drafts are: the
-    // card takes the human there.
+    // A review session's picks and comment gate, and a security session's fix question, are answered in its view,
+    // where the findings and the drafts are: the card takes the human there.
     /** @param {InboxCard} each */
     const reviewBody = (each) =>
       v_flex()
         .gap(10)
         .child(
           wrapped(
-            "Its review view answers this, where the findings and the drafts are.",
+            "Its view answers this, where the findings are.",
             "ui",
             13,
             k.muted,
@@ -1087,7 +1087,7 @@ export const inbox = (cx) => {
           h_flex().child(
             button(
               KEY_BUTTON.primary,
-              "Open the review",
+              "Open its view",
               `inbox-review-${each.id}`,
               (cx) => openReview(each, cx),
             ),

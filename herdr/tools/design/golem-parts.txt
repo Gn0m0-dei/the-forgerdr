@@ -20,6 +20,15 @@ bottom centre, and Stone at 24x24 (2x).
 
 Roles: IRON = main Claude session, CLAY = subagent, STONE = agent-team teammate.
 
+Not in the design file: two sessions get golems of their own, drawn on Iron's body at
+Iron's size, with Iron's chest (where the crucible fills), moods and cracks:
+  REVIEWER  a session reviewing a pull request: its right hand holds a magnifying
+            lens up beside its eye, a round shaded-iron rim around the glass, so it
+            reads on a dark theme too, where the outline does not show
+  WARDEN    a session triaging a security review: a visor, its two eyes one toned
+            slit, and a crimson shield on its left arm, three columns wide so it
+            ends in a point
+
 Moods and the agent states that use them (Task 29's `golem_mood`):
   FORGING  Working
   WAITING  NeedsPermission, NeedsInput
@@ -42,6 +51,9 @@ different grids. Lower-case letters are the shade of the upper-case body letter.
   S  stone body               px G (Stone)   #9b9484
   s  stone shade              px g (Stone)   #6e695c
   V  moss (stone)             px v           #6f8f4a
+  L  lens glass (reviewer)    none           #7fd1e0
+  X  shield (warden)          none           #d1394b
+  x  shield shade (warden)    none           #9e2638
   R  lit core (FORGING)       px r           #ffb347   ($ember-hot)
   U  dead core (CRACKED)      px r           #3a3a44
   W  working tone             px e, px r     token sem-working
@@ -272,6 +284,163 @@ OOOOSssSOOOO
 ..OSSOOSSO..
 .OOOO..OOOO.
 
+REVIEWER · 12x12
+================
+
+REVIEWER FORGING
+----------------
+...OOOOOOii.
+...OIIIIiLLi
+...OWIIWiLLi
+...OIIIIOii.
+.OOOOOOOOOiO
+OIIOIIIIOIIO
+OIiOIRRIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+REVIEWER WAITING
+----------------
+...OOOOOOii.
+...OIIIIiLLi
+...ONIINiLLi
+...OIIIIOii.
+.OOOOOOOOOiO
+OIIOIIIIOIIO
+OIiOINNIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+REVIEWER DONE
+-------------
+...OOOOOOii.
+...OIIIIiLLi
+...ODIIDiLLi
+...OIIIIOii.
+.OOOOOOOOOiO
+OIIOIIIIOIIO
+OIiOIDDIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+REVIEWER CRACKED (iron's cracks at (6,1), (5,5), (6,6), (4,7))
+--------------------------------------------------------------
+...OOOOOOii.
+...OIIOIiLLi
+...OFIIFiLLi
+...OIIIIOii.
+.OOOOOOOOOiO
+OIIOIOIIOIIO
+OIiOIUOIOiIO
+OIiOOIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+REVIEWER IDLE
+-------------
+...OOOOOOii.
+...OIIIIiLLi
+...OQIIQiLLi
+...OIIIIOii.
+.OOOOOOOOOiO
+OIIOIIIIOIIO
+OIiOIQQIOiIO
+OIiOIIIIOiIO
+OOOOIiiIOOOO
+..OIIOOIIO..
+..OIIOOIIO..
+.OOOO..OOOO.
+
+
+WARDEN · 12x12
+==============
+
+WARDEN FORGING
+--------------
+...OOOOOO...
+...OIIIIO...
+...OWWWWO...
+...OIIIIO...
+OOOOOOOOOOO.
+XXXOIIIIOIIO
+XXxOIRRIOiIO
+XXxOIIIIOiIO
+XXxOIiiIOOOO
+OXOIIOOIIO..
+.OOIIOOIIO..
+.OOOO..OOOO.
+
+WARDEN WAITING
+--------------
+...OOOOOO...
+...OIIIIO...
+...ONNNNO...
+...OIIIIO...
+OOOOOOOOOOO.
+XXXOIIIIOIIO
+XXxOINNIOiIO
+XXxOIIIIOiIO
+XXxOIiiIOOOO
+OXOIIOOIIO..
+.OOIIOOIIO..
+.OOOO..OOOO.
+
+WARDEN DONE
+-----------
+...OOOOOO...
+...OIIIIO...
+...ODDDDO...
+...OIIIIO...
+OOOOOOOOOOO.
+XXXOIIIIOIIO
+XXxOIDDIOiIO
+XXxOIIIIOiIO
+XXxOIiiIOOOO
+OXOIIOOIIO..
+.OOIIOOIIO..
+.OOOO..OOOO.
+
+WARDEN CRACKED (iron's cracks at (6,1), (5,5), (6,6), (4,7))
+------------------------------------------------------------
+...OOOOOO...
+...OIIOIO...
+...OFFFFO...
+...OIIIIO...
+OOOOOOOOOOO.
+XXXOIOIIOIIO
+XXxOIUOIOiIO
+XXxOOIIIOiIO
+XXxOIiiIOOOO
+OXOIIOOIIO..
+.OOIIOOIIO..
+.OOOO..OOOO.
+
+WARDEN IDLE
+-----------
+...OOOOOO...
+...OIIIIO...
+...OQQQQO...
+...OIIIIO...
+OOOOOOOOOOO.
+XXXOIIIIOIIO
+XXxOIQQIOiIO
+XXxOIIIIOiIO
+XXxOIiiIOOOO
+OXOIIOOIIO..
+.OOIIOOIIO..
+.OOOO..OOOO.
+
 
 STATE GLYPHS (8x8, drawn at 32x32 beside the golem on 03 Sprites only; tree rows and
 lanes do not draw them). Same for every golem kind. Letters are local to each glyph.
@@ -340,6 +509,9 @@ Fixed art colours (hex, as found on the sprite paths):
   V  moss           #6f8f4a
   R  lit core       #ffb347   (same value as $ember-hot)
   U  dead core      #3a3a44   (same value as the gnome sheet's metal)
+  L  lens glass     #7fd1e0   (same value as the gnome sheet's lens)
+  X  shield         #d1394b   (same value as the crimson hat)
+  x  shield shade   #9e2638   (same value as the crimson hat's shade)
 
 Theme tokens (values per terminal theme in forgnome.pen: forge / gruvbox / dracula):
 

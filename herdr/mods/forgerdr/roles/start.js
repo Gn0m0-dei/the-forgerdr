@@ -4,8 +4,10 @@
 // takes new ones to spec. The work starts here or each in a worktree (/forgerdr:workitem or /forgerdr:worktree),
 // manual or auto, in one session of the space shown; a new change opens a spec session in the main checkout. Review,
 // the same in every mode, opens a review per pull request URL of any provider, a field each and + for one more, each
-// in a tab of its own beside its review view, as the review key does. The preview says what each line starts and skips
-// what it cannot, saying why. ⌘↵ starts it all, Esc or Cancel leaves.
+// in a tab of its own beside its review view, as the review key does. Security audits one of the forge's checkouts,
+// picked, with its work item when given: its security session parked behind its view, as /forgerdr:security in the
+// app does. The preview says what each line starts and skips what it cannot, saying why. ⌘↵ starts it all, Esc or
+// Cancel leaves.
 import {
   h_flex,
   Input,
@@ -16,7 +18,8 @@ import {
 } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, closeOverlay, openOverlay, props, run } from "herdr";
-import { REVIEW_PROMPT, readChanges, readForge } from "../bridges/forge.js";
+import { PROMPT, readChanges, readForge } from "../bridges/forge.js";
+import { readSpacesGit } from "../bridges/git.js";
 import { placeOf } from "../bridges/places.js";
 import { counted } from "../format.js";
 import { KEY_BUTTON, keyButton } from "../kit/buttons.js";
@@ -30,6 +33,7 @@ import {
   dialogTab,
   fieldLabel,
   kindChip,
+  radio,
 } from "../kit/forms.js";
 import { ICON, icon } from "../kit/sprites.js";
 import { fill, text, wrapped } from "../kit/text.js";
@@ -38,8 +42,14 @@ import { MODE, modeKind, modeLabel } from "../modes.js";
 import { MOD } from "../name.js";
 import {
   changeRows,
+  checkoutName,
+  checkoutsOf,
   ideaLaunches,
+  launchPlace,
+  pickedCheckout,
   reviewRows,
+  securityLaunches,
+  securityRows,
   startLaunches,
   workRows,
 } from "../start.js";
@@ -51,6 +61,7 @@ import { openMode } from "./mode.js";
 /** @typedef {import("../bridges/forge.js").Change} Change */
 /** @typedef {import("../bridges/forge.js").ForgeInfo} ForgeInfo */
 /** @typedef {import("../modes.js").ModeKind} ModeKind */
+/** @typedef {import("../start.js").Checkout} Checkout */
 /** @typedef {import("../start.js").Launch} Launch */
 /** @typedef {import("../start.js").PreviewRow} PreviewRow */
 /** @typedef {import("../start.js").Way} Way */
@@ -65,6 +76,7 @@ import { openMode } from "./mode.js";
  * @property {string} dir where the space shown is
  * @property {string} mainFolder its main checkout's folder, "" when not known
  * @property {string | null} machine
+ * @property {Checkout[]} checkouts its checkouts on this computer, its main one first, as the sidebar lists them
  */
 
 /** @type {() => (Partial<StartTarget> & { overlay?: string }) | null} */
@@ -72,7 +84,11 @@ const readProps = props;
 
 const DIALOG = Object.freeze({ height: 620, kind: "dialog", width: 880 });
 
-const TAB = Object.freeze({ review: "review", work: "work" });
+const TAB = Object.freeze({
+  review: "review",
+  security: "security",
+  work: "work",
+});
 
 /** @typedef {typeof TAB[keyof typeof TAB]} Tab */
 
@@ -117,15 +133,18 @@ const WORK = Object.freeze({
  * @param {import("herdr").SpaceInfo} shown
  */
 export const openStart = (forge, shown) => {
+  const local = forge.main.machine === null;
   /** @type {StartTarget} */
   const target = {
+    // An audit's session runs forgerdr's scripts, which are on this computer.
+    checkouts: local ? checkoutsOf(forge.spaces, readSpacesGit(), placeOf) : [],
     dir: placeOf(shown),
     forge: forge.main.name,
     machine: forge.main.machine,
     main: forge.main.id,
     // A forge in git is keyed by its repository's common folder, whose parent is its main checkout.
     mainFolder:
-      forge.main.machine === null && forge.key.endsWith("/.git")
+      local && forge.key.endsWith("/.git")
         ? forge.key.slice(0, -"/.git".length)
         : "",
     space: shown.id,
@@ -141,6 +160,7 @@ export const start = (cx) => {
   const given = readProps() ?? {};
   /** @type {StartTarget} */
   const target = {
+    checkouts: given.checkouts ?? [],
     dir: given.dir ?? "",
     forge: given.forge ?? "",
     machine: given.machine ?? null,
@@ -206,6 +226,12 @@ export const start = (cx) => {
   // The pull requests given, a line each, as the preview reads them.
   const urlLines = () => urls.map((one) => one.state.value()).join("\n");
 
+  let pickedSpace = target.space;
+  const auditedCheckout = () => pickedCheckout(target.checkouts, pickedSpace);
+
+  const item = InputState.new({ placeholder: "#18 · optional" });
+  item.on("change", (_event, cx) => cx.notify());
+
   const kind = () =>
     info.state === "ready" ? modeKind(info.value.mode) : MODE.chat;
 
@@ -241,13 +267,16 @@ export const start = (cx) => {
 
   /** @param {Launch[]} launches */
   const launch = (launches) => {
+    const shown = { folder: checkout(), space: target.space };
+    const main = { folder: mainCheckout(), space: target.main };
     for (const [index, one] of launches.entries()) {
+      const { folder, space } = launchPlace(one, shown, main);
       run("tab.new", {
         argv: one.argv,
         focus: index === 0,
-        folder: one.main ? mainCheckout() : checkout(),
+        folder,
         name: one.name,
-        space: one.main ? target.main : target.space,
+        space,
       });
     }
     if (launches.length > 0) close();
@@ -272,16 +301,21 @@ export const start = (cx) => {
     };
   };
 
-  const launches = () => {
-    if (tab === TAB.review)
-      return startLaunches(reviewRows(urlLines()), way, REVIEW_PROMPT, MOD);
-    const now = workNow();
-    const mode = kind();
-    return [
-      ...startLaunches(now.rows, way, REVIEW_PROMPT, MOD),
-      ...ideaLaunches(now.ideas, { ...way, spec: mode === MODE.openspec }),
-    ];
+  /** @type {Record<Tab, () => Launch[]>} */
+  const launchesOf = {
+    review: () => startLaunches(reviewRows(urlLines()), way, PROMPT, MOD),
+    security: () =>
+      securityLaunches(auditedCheckout(), item.value(), PROMPT, MOD),
+    work: () => {
+      const now = workNow();
+      return [
+        ...startLaunches(now.rows, way, PROMPT, MOD),
+        ...ideaLaunches(now.ideas, { ...way, spec: kind() === MODE.openspec }),
+      ];
+    },
   };
+
+  const launches = () => launchesOf[tab]();
 
   const act = () => launch(launches());
 
@@ -292,7 +326,11 @@ export const start = (cx) => {
     const shape = WORK[mode];
     const now = workNow();
     const reviews = reviewRows(urlLines());
-    const rows = tab === TAB.review ? reviews : now.rows;
+    const audited = auditedCheckout();
+    const audit = securityRows(audited, item.value());
+    /** @type {Record<Tab, PreviewRow[]>} */
+    const rowsOf = { review: reviews, security: audit, work: now.rows };
+    const rows = rowsOf[tab];
 
     /**
      * @param {Tab} id
@@ -398,6 +436,24 @@ export const start = (cx) => {
         .bg(k.bg0)
         .text_size(13)
         .text_color(k.fg);
+
+    /**
+     * A line to write in, framed in the accent.
+     * @param {import("gpui-base").InputState} state
+     * @param {string} id
+     */
+    const lineBox = (state, id) =>
+      div()
+        .id(id)
+        .min_w(0)
+        .h(32)
+        .px(8)
+        .flex()
+        .items_center()
+        .bg(k.bg0)
+        .border(2)
+        .border_color(k.accent)
+        .child(Input.new(state).w_full().text_size(13).text_color(k.fg));
 
     const preview = () =>
       v_flex()
@@ -687,25 +743,7 @@ export const start = (cx) => {
                       .flex_none()
                       .gap(8)
                       .items_center()
-                      .child(
-                        div()
-                          .id(`start-url-${url.id}`)
-                          .flex_1()
-                          .min_w(0)
-                          .h(32)
-                          .px(8)
-                          .flex()
-                          .items_center()
-                          .bg(k.bg0)
-                          .border(2)
-                          .border_color(k.accent)
-                          .child(
-                            Input.new(url.state)
-                              .w_full()
-                              .text_size(13)
-                              .text_color(k.fg),
-                          ),
-                      )
+                      .child(lineBox(url.state, `start-url-${url.id}`).flex_1())
                       .when(urls.length > 1, (el) =>
                         el.child(
                           control(
@@ -746,17 +784,86 @@ export const start = (cx) => {
         )
         .child(preview());
 
+    const checkoutList = () =>
+      v_flex()
+        .id("start-checkouts")
+        .max_h(240)
+        .overflow_y_scrollbar()
+        .border(2)
+        .border_color(k.line)
+        .when(target.checkouts.length === 0, (el) =>
+          el.child(
+            div()
+              .p(10)
+              .child(
+                wrapped(
+                  "No checkout of this forge is known on this computer.",
+                  "ui",
+                  12,
+                  k.muted,
+                ),
+              ),
+          ),
+        )
+        .children(
+          target.checkouts.map((one) => {
+            const chosen = one.space === audited?.space;
+            return control(
+              h_flex()
+                .h(30)
+                .px(10)
+                .gap(10)
+                .items_center()
+                .border_b(1)
+                .border_color(k.line)
+                .hover((style) => style.bg(k.bg2))
+                .child(radio(chosen))
+                .child(fill(one.branch, "mono", 12, chosen ? k.fg : k.muted))
+                .child(text(checkoutName(one), "ui", 11, k.muted)),
+              `start-checkout-${one.space}`,
+              (cx) => {
+                pickedSpace = one.space;
+                cx.notify();
+              },
+            );
+          }),
+        );
+
+    const securityBody = () =>
+      h_flex()
+        .size_full()
+        .items_start()
+        .gap(18)
+        .child(
+          v_flex()
+            .flex_1()
+            .min_w(0)
+            .gap(10)
+            .child(fieldLabel("Checkout · the one to audit"))
+            .child(checkoutList())
+            .child(fieldLabel("Work item"))
+            .child(lineBox(item, "start-item").w(220))
+            .child(
+              wrapped(
+                "Its security session audits the branch's diff, parked behind its view in a tab of its own, where you triage what it finds.",
+                "ui",
+                11,
+                k.muted,
+              ),
+            ),
+        )
+        .child(preview());
+
     const ready = launches();
-    const count =
-      tab === TAB.review
-        ? reviews.filter((row) => row.kind === "pr").length
-        : now.rows.filter((row) => row.kind !== "skip").length +
-          now.ideas.length;
-    const summary = () => {
-      if (tab === TAB.review)
-        return count === 0
-          ? "Nothing to review yet"
-          : `${counted(count, "review")}, a tab each`;
+    /** @type {Record<Tab, number>} */
+    const counts = {
+      review: reviews.filter((row) => row.kind === "pr").length,
+      security: audit.filter((row) => row.kind === "security").length,
+      work:
+        now.rows.filter((row) => row.kind !== "skip").length + now.ideas.length,
+    };
+    const count = counts[tab];
+    const workSummary = () => {
       if (count === 0) return "Nothing to start yet";
       const parts = [
         ...(now.rows.length === 0
@@ -779,6 +886,18 @@ export const start = (cx) => {
       ];
       return `${parts.join(" · ")} · ${way.flow}`;
     };
+    /** @type {Record<Tab, () => string>} */
+    const summaries = {
+      review: () =>
+        count
+          ? `${counted(count, "review")}, a tab each`
+          : "Nothing to review yet",
+      security: () =>
+        count
+          ? "A security session, parked behind its view"
+          : "Nothing to audit yet",
+      work: workSummary,
+    };
 
     const label = modeLabel(
       info.state === "ready" ? info.value : { mode: "chat" },
@@ -789,6 +908,26 @@ export const start = (cx) => {
         : info.state === "error"
           ? info.error
           : `${target.forge} · ${label.name} · ${label.detail}`;
+    /** @type {Record<Tab, string>} */
+    const about = {
+      review:
+        "Review pull requests: each in a tab of its own, its view beside its session.",
+      security:
+        "Audit a checkout: its security session in a tab of its own, behind its view.",
+      work: `As ${target.forge}'s mode takes it: ${label.name}.`,
+    };
+    /** @type {Record<Tab, () => NativeElement>} */
+    const bodies = {
+      review: reviewBody,
+      security: securityBody,
+      work: workBody,
+    };
+    /** @type {Record<Tab, string>} */
+    const goLabels = {
+      review: `Review · ${count}`,
+      security: `Audit · ${count}`,
+      work: `Light the forge · ${count}`,
+    };
 
     return v_flex()
       .id("start-dialog")
@@ -823,16 +962,7 @@ export const start = (cx) => {
                   k.fg,
                 ),
               )
-              .child(
-                fill(
-                  tab === TAB.review
-                    ? "Review pull requests: each in a tab of its own, its view beside its session."
-                    : `As ${target.forge}'s mode takes it: ${label.name}.`,
-                  "ui",
-                  12,
-                  k.muted,
-                ),
-              ),
+              .child(fill(about[tab], "ui", 12, k.muted)),
           ),
       )
       .child(
@@ -843,7 +973,8 @@ export const start = (cx) => {
           .pt(10)
           .bg(k.bg0)
           .child(tabOf(TAB.work, shape.glyph, shape.label))
-          .child(tabOf(TAB.review, ICON.pullRequest, "Review")),
+          .child(tabOf(TAB.review, ICON.pullRequest, "Review"))
+          .child(tabOf(TAB.security, ICON.shield, "Security")),
       )
       .child(
         h_flex()
@@ -866,14 +997,7 @@ export const start = (cx) => {
             ),
           ),
       )
-      .child(
-        v_flex()
-          .flex_1()
-          .min_h(0)
-          .px(20)
-          .py(14)
-          .child(tab === TAB.review ? reviewBody() : workBody()),
-      )
+      .child(v_flex().flex_1().min_h(0).px(20).py(14).child(bodies[tab]()))
       .child(
         h_flex()
           .items_center()
@@ -882,7 +1006,7 @@ export const start = (cx) => {
           .py(12)
           .border_t(2)
           .border_color(k.line)
-          .child(fill(summary(), "ui", 13, k.muted))
+          .child(fill(summaries[tab](), "ui", 13, k.muted))
           .child(
             control(
               keyButton(KEY_BUTTON.ghost, "Cancel"),
@@ -894,9 +1018,7 @@ export const start = (cx) => {
             control(
               keyButton(
                 ready.length === 0 ? KEY_BUTTON.ghost : KEY_BUTTON.primary,
-                tab === TAB.review
-                  ? `Review · ${count}`
-                  : `Light the forge · ${count}`,
+                goLabels[tab],
                 { icon: ICON.hammer, key: "⌘↵" },
               ),
               "start-go",
@@ -910,6 +1032,7 @@ export const start = (cx) => {
     close: () => {
       loading?.cancel();
       work.release();
+      item.release();
       for (const url of urls) url.state.release();
     },
     render,

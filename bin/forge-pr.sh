@@ -35,7 +35,6 @@ plugin_root="$(cd "$(dirname "$0")/.." && pwd)"
 reviews="$(forge_reviews_dir)"
 readonly KINDS=(other own)
 readonly TERMINAL_PATTERN='^[A-Za-z0-9_-]{1,64}$'
-readonly WEEK_MS=604800000
 
 # What each part of a review is, as jq checks it: a filter per part that fails, naming what is wrong, or answers the
 # part with the fields it leaves out filled.
@@ -105,15 +104,6 @@ own_terminal() {
   printf '%s\n' "$HC_TERMINAL_ID"
 }
 
-# A JSON file the skill gives, or - for stdin, whole; it must be JSON.
-given() {
-  local path="${1:-}" json
-  [ -n "$path" ] || forge_die "no JSON file given"
-  if [ "$path" = - ]; then json="$(cat)"; else [ -r "$path" ] || forge_die "no such file: $path"; json="$(cat "$path")"; fi
-  jq -se 'length == 1' >/dev/null 2>&1 <<<"$json" || forge_die "not one JSON value: $path"
-  printf '%s\n' "$json"
-}
-
 # Applies a jq filter to a terminal's review (null when it has none) and keeps the result (forge_json_rewrite).
 change() {
   local file="$1" filter="$2"
@@ -129,7 +119,7 @@ open() {
   [[ " ${KINDS[*]} " == *" $kind "* ]] || forge_die "usage: forge-pr.sh open <other|own> <file>"
   terminal="$(own_terminal)"
   file="$(file_of "$terminal")"
-  json="$(given "${2:-}")"
+  json="$(forge_json_given "${2:-}")"
   change "$file" '{v: 1, terminal: $terminal, kind: $kind, pr: ($pr | pull_request), findings: [], threads: [],
       picked: [], session: "", drafts: [], drafted: 0, stamped: null, results: []}' --arg kind "$kind" \
     --argjson pr "$json"
@@ -141,7 +131,7 @@ open() {
 set_part() {
   local part="$1" check="$2" file json tmp status=0
   file="$(file_of "$(own_terminal)")"
-  json="$(given "${3:-}")"
+  json="$(forge_json_given "${3:-}")"
   tmp="$(mktemp)"
   printf '%s\n' "$json" > "$tmp"
   change "$file" "$OPENED | $5 | .$part = (\$given[0] | $check) $4" --slurpfile given "$tmp" \
@@ -168,26 +158,10 @@ stamped() {
   jq -c 'if (.stamped | type) == "object" then .stamped.drafts else empty end' "$file" 2>/dev/null || true
 }
 
-# A review as the mod reads it, from its file: nothing when it is a week untouched, an error when it is not one.
-readonly ENTRY_FILTER='if review | not then error("not a review") elif $now - .updated >= $week then empty else . end'
-
-# A terminal's review, checked, on stdout; nothing when it has none or it went.
-entry() {
-  local file="$1" now entry
-  [ -f "$file" ] && [ ! -L "$file" ] || return 0
-  now=$(($(date +%s) * 1000))
-  if ! entry="$(jq -c --arg terminal "$(basename "$file" .json)" --argjson now "$now" --argjson week "$WEEK_MS" \
-    "$SHAPES $ENTRY_FILTER" "$file" 2>/dev/null)"; then
-    printf 'forgerdr: skipped %s: not a review\n' "$file" >&2
-    return 0
-  fi
-  if [ -z "$entry" ]; then rm -f "$file"; else printf '%s\n' "$entry"; fi
-}
-
 show() {
   local file shown
   file="$(file_of "${1:-}")"
-  shown="$(entry "$file" 2>/dev/null)"
+  shown="$(forge_json_entry "$file" review "$SHAPES review" 2>/dev/null)"
   printf '%s\n' "${shown:-null}"
 }
 
@@ -197,7 +171,7 @@ list() {
   for file in "$reviews"/*.json; do
     terminal="$(basename "$file" .json)"
     [[ "$terminal" =~ $TERMINAL_PATTERN ]] || continue
-    entry "$file"
+    forge_json_entry "$file" review "$SHAPES review"
   done | jq -cs 'sort_by(.updated)'
 }
 
