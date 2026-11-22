@@ -1,0 +1,36 @@
+---
+title: The flow and its gates
+description: From an idea to a pull request, and the marks that only you can put on the way.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+Every item goes the same way, whatever it is and wherever its backlog lives: it is understood, designed, planned, built test first, reviewed, checked for security and shipped. The golems do the work at every step. A **gate** is where they stop and wait for you.
+
+## The steps
+
+| Step | What happens | What waits for you |
+|---|---|---|
+| Brief | the item is read whole, with what is already linked to it | nothing: you read the brief and interrupt if it is wrong |
+| Spec | the request is classified (spike, bounded, architectural), the questions that matter are asked, the design is presented | the design, approved before any code |
+| Research | when a choice has real alternatives, one researcher agent per question, with sources and confidence | the decision |
+| Plan | bite-sized tasks with exact files, interfaces and the failing test of each | the plan, and how it runs: in the session or one agent per task |
+| Build | task by task: the test red, the code, the suite green, a ledger, verification before every claim, a fresh-context review at the end | each commit |
+| Security | a fresh auditor on the branch's diff, a second agent that tries to refute every critical and high finding | which findings get fixed |
+| Ship | fresh verification, a rebase, a final review, the pull request with the work item linked | the push and the pull request |
+
+## The gates
+
+The gates never move, whatever the flow or the spec mode:
+
+- **No implementation before an approved design.**
+- **No commit without permission**, and a permission covers that commit only.
+- **Nothing published without a yes:** a push, a pull request, a comment on a work item, a reply to a review, a state or an assignment.
+
+Every gate is asked as a question with options, never typed in the chat, so it reaches the herdr app's [inbox](../../herdr-app/inbox/) as well as the session. The first option is the yes, with the draft in full in its preview: the commit message and the files it takes, the pull request's title and description, the comment. Another answer changes the draft, and the gate is asked again.
+
+<img src={withBase("screens/05d-inbox-ship.png")} width="1440" height="900" alt="The inbox open on a pull request's gate, with the push gate, a plan and a commit gate under it, each waiting for a stamp." />
+
+## Nothing attributed to AI
+
+The work is yours and is signed only by you. No `Co-Authored-By` naming a model, no "Generated with", no badge, in commits, pull requests, issues, work items, comments or docs. The Bash guard enforces it: a whole-line attribution in a commit or pull request command is stripped, anything else is refused. See [what runs on every session](../../reference/every-session/).

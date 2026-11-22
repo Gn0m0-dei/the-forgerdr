@@ -36,3 +36,15 @@
   outline: 2px solid var(--ember-hot);
   outline-offset: 2px;
 }
+
+.site-title img {
+  width: 28px;
+  height: 28px;
+  image-rendering: pixelated;
+}
+
+.sidebar-content a[aria-current="page"] {
+  border-left: 2px solid var(--ember);
+  background: var(--bg-2);
+  color: var(--fg);
+}

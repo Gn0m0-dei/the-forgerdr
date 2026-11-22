@@ -1,0 +1,48 @@
+---
+title: The forgerdr layout
+description: The forge bar, the sidebar with its gnome and golems, the session bar, the panes and the status bar.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+The forgerdr brings its own look for the herdr app: the `forgerdr` layout, the `forge-night` theme and the `forgerdr` mod. [`/forgerdr:setup`](../../getting-started/setup/) installs them; `ctrl-shift-l` switches to the layout, and `ctrl-alt-shift-escape` always goes back to the app's own `main` layout.
+
+<img src={withBase("screens/04d-main-window-agents.png")} width="1440" height="900" alt="The forgerdr layout: forge tabs, the gnome, the tree of worktrees and their golems, the golem lanes, the inbox and the forge heat." />
+
+## The forge bar
+
+Across the top runs a **forge tab per repository**, its main checkout and its worktrees together (a space outside git is a forge of its own). Each tab carries its gnome and a badge of what its golems do: `!` when one waits on you, how many work, `✓` when one is done. Then the `+` that opens a space, `FLOOR`, which opens the [forge floor](../floor/), `INBOX` with how many things wait on you (it opens the [inbox](../inbox/)), and the command palette with its key.
+
+A forge tab does what the app's space list does, on the space it shows: a click shows it, a right click opens its menu (Start work, its mode, its gnome, then rename, new, open and remove worktree, close), its ✕ or a middle click closes it. A double click renames the forge, and dragging it onto another moves its spaces there. When the tabs do not fit, the strip scrolls and arrows on its sides bring in the next hidden tab.
+
+## The sidebar
+
+Down the left runs the forge's sidebar:
+
+- **The gnome**, whole and rolled from the forge's repository (its hat and the hat's colour, its eyes, its beard and what it wears), and its brother's name, with what its golems do. A double click, or `Edit gnome…` in the tab's menu, opens the gnome's dialog, so each project keeps a face you tell apart at a glance.
+- **The tree** of the forge on show: the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, and the agents at work in each with their sub-agents and status. A space's row shows it on a click; an agent's row goes to its pane.
+- **Pull requests:** a row for each review session parked behind its view, `#42 review · @author` with `TRIAGE` or `#40 mine · 4 threads` with `THREADS`.
+- **The forge's heat** at its foot ("2 forging · 1 waiting").
+- **`START WORK`** under the gnome, and the forge's **mode** at the foot: see [Start work](../start-work/).
+
+The chevron folds the sidebar to a rail of the gnome and its golems.
+
+## Gnomes and golems
+
+The gnome's mood follows its golems: working, needs you, done, cracked (one broke on an API error, with smoke beside it), idle, and asleep with none. A golem is **iron** for a session, **stone** for an agent in a terminal of its own and **clay** for a subagent inside its session. A session reviewing a pull request is drawn as the reviewer, with a lens; a security session triaging is the warden, with a visor and a shield.
+
+Each golem shows how full its session's context is: the percentage before it, and its chest as a crucible that molten metal fills from the bottom, a quarter at a time, white hot from 80 % and blinking from 90 %, close to compacting. A golem whose turn ended in an API error (a rate limit, an overloaded server) shows CRACKED until you write to it again.
+
+## The golem lanes
+
+Under the panes runs the golem lanes: the golems every session of the active space spawned, the most urgent first (broken or waiting on you, then at work, then done), each with what it is doing now, its context, how long its current task has taken and its status. Folded, it is one line with the most urgent one; a lane goes to its terminal on a click.
+
+## The session bar and the panes
+
+Over the panes runs the session bar: a tab per session of the open space, with the icon of what runs in it (a golem for an agent, a terminal for a shell, a server for anything else) in the colour of what its golem does, the `+` that opens a session, the switches of the Files and Changes panels, and the controls that split and zoom the focused pane.
+
+Each pane has a header with its name, its folder and its golem's status (`RUNNING` for a program that is not a shell, such as a dev server); a ✕ closes it, and on an agent's pane a review icon opens a [review round](../reviews/#review-rounds) of what it changed. With no space left, the work area shows the sleeping gnome and a button that opens a folder as a forge.
+
+## The status bar
+
+Along the bottom: the account's profile, which opens its [forge heat](../heat-updates-manual/), the subscription's heat, the forgerdr's next release beside the app's own update when one is ready, and `? MANUAL`, which opens the [smith's manual](../heat-updates-manual/#the-smiths-manual).

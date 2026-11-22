@@ -1,0 +1,22 @@
+---
+title: Manual and auto
+description: Drive each step yourself, or let the pipeline run and stop only at the gates.
+---
+
+`/forgerdr:workitem` and `/forgerdr:worktree` work in the manual flow unless `--auto` is passed.
+
+| Flow | What happens after the brief |
+|---|---|
+| manual (default) | analysis, reproduction, root cause or proposal; the next command is suggested and you drive with `spec`, `research`, `plan`, `build`, `debug`, `security`, `ship` |
+| `--auto` | the whole pipeline, by the kind of item (below) |
+
+In the auto flow the item is classified after its brief, and its pipeline runs:
+
+| Item | Pipeline |
+|---|---|
+| A bug, or a defect found while reproducing | root cause → fix with a regression test proven red then green → security → ship |
+| A backlog item that adds or changes behaviour | spec (the item is the spec) → research when there are alternatives → plan → build → security → ship |
+| An OpenSpec change | from its stage (spec, plan or build) to the end; one at its ship stage goes security → ship |
+| Content or data someone else owns | a verdict and a comment, no code |
+
+The [gates](../flow-and-gates/) hold in both: design approved before code, permission per commit, drafts before anything is published. The [forge floor](../../herdr-app/floor/) shows every item's pipeline, step by step.

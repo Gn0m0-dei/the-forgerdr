@@ -1,0 +1,54 @@
+---
+title: Items and branches
+description: What an item is in each spec mode, how several are passed, and how its branch, key and session title are named.
+---
+
+## What an item is
+
+| Spec mode | Item |
+|---|---|
+| `openspec` / `openspec:<store>` | the name of an OpenSpec change, or a work item URL |
+| `azure` | a work item URL |
+| `chat` | a work item URL, or free text describing the work |
+
+Several items are separated by `|`, and only by `|`: `/forgerdr:worktree --auto <item> | <item> | <item>`. Spaces and line breaks belong to the item. Flags go before the first item.
+
+An item the mode does not take stops with what the mode expects and how `/forgerdr:mode` changes it. In `openspec`, a work item URL whose id already has an active change is that change.
+
+## An OpenSpec change and its stage
+
+A change is read whole, and the work item it references becomes its work item. Its stage decides where its pipeline starts:
+
+| State of the change | Stage |
+|---|---|
+| proposal, specs or design not done | `spec`, continuing the change |
+| tasks not written | `plan` |
+| tasks written, not all ticked | `build` |
+| every task ticked | `ship` |
+
+## Branch, key and session title
+
+The branch follows the spec mode: a work item branch is `fix/#<id>-<slug>` for a bug and `feature/#<id>-<slug>` for a backlog item (`feature/AB<id>-<slug>` in `azure`, the azdospec convention). Three more kinds are picked by hand: `chore/` for maintenance, `hotfix/` from the production branch, and `release/` named by its version (`release/v1.2.0`). A new branch never tracks the shared base, and a branch that already carries the item, local or on `origin`, is reused.
+
+| Item | Key | Session title |
+|---|---|---|
+| a work item, or a change with one | `#<id>` | `#<id> <title>` |
+| a change without a work item | the change name | `<change>` |
+| free text | none | a few words of it, then the branch slug |
+
+## An item of an external backlog
+
+An Azure DevOps item whose organization is not the remote's is external. Whatever stays in the repository names it `EXT-<id>`, with no link and no backlog URL:
+
+| | Own backlog | External backlog |
+|---|---|---|
+| Branch | the spec mode's naming | `fix/EXT-<id>-<slug>`, `feature/EXT-<id>-<slug>` |
+| Commit footer | `Closes: #<id>` | `Refs: EXT-<id>` |
+| Pull request | title `#<id> <slug>`, the item linked | title `EXT-<id> <slug>`, no link |
+
+The item itself is read, commented and updated in its own organization. When no item URL is at hand, the backlog is read from the clone's git config:
+
+```bash
+git config --local azdospec.organization <org>
+git config --local azdospec.project "<project>"
+```

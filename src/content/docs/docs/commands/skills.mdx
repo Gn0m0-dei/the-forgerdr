@@ -1,0 +1,41 @@
+---
+title: Skills
+description: Every /forgerdr command, what it does and where it runs.
+---
+
+## Set up and look around
+
+| Command | What it does |
+|---|---|
+| `/forgerdr:setup` | Installs and verifies the environment. Idempotent. See [setup](../../getting-started/setup/). |
+| `/forgerdr:help` | Prints the cheat sheet: commands, flows, settings, the herdr app's keys. Answered by a hook, without spending tokens. |
+| `/forgerdr:mode` | Shows or sets the [spec mode](../../way-of-working/spec-modes/), globally or per project. |
+
+## From design to delivery
+
+| Command | What it does |
+|---|---|
+| `/forgerdr:spec` | Classifies the request (spike, bounded, architectural), asks what matters, presents the design and stops for approval. The spec mode decides where the design is kept. |
+| `/forgerdr:plan` | Turns an approved design into bite-sized TDD tasks with exact files, interfaces and tests, kept where the spec mode says. |
+| `/forgerdr:build` | Executes a plan in the session: red, green, refactor, ledger, verification before every claim, a fresh-context review at the end. |
+| `/forgerdr:ship` | Finishes a branch: fresh verification, rebase, reviewer agent, commit with permission, `push -u`, pull request with the work item linked. |
+
+## In the session
+
+| Command | What it does |
+|---|---|
+| `/forgerdr:debug` | Root cause before any fix: investigate, find the pattern, one hypothesis at a time, a regression test proven red then green. |
+| `/forgerdr:security` | Runs the security auditor on the diff or a module, has a fresh verifier challenge every critical or high finding, triages the confirmed and needs-validation findings with you (in the app, from a [security view](../../herdr-app/security-view/) of its own), and fixes only what you pick. |
+| `/forgerdr:research` | A cited research report: sub-questions, one researcher agent each in parallel, synthesis with confidence levels. |
+| `/forgerdr:review-other <url>` | Reviews a colleague's pull request: every finding explained, you pick, drafts in your language, nothing published without an explicit yes. |
+| `/forgerdr:review-own <url>` | Handles the review comments on your own pull request: a fix, a reply or a question per thread, you pick, then it pushes, replies and resolves. |
+
+## A session per item, in the herdr app
+
+| Command | What it does |
+|---|---|
+| `/forgerdr:workitem [--auto] <item> [\| <item>...]` | Works items in the current clone, one titled session per item: a backlog item URL (bug, PBI, task, issue), an OpenSpec change or free text, as the spec mode says. Brief, reproduce in the browser, root cause, proposal, a branch without tracking, the pull request and the client-facing comment; an OpenSpec change continues from its stage. Six gates, none skipped. |
+| `/forgerdr:worktree [--auto] [--no-dev] <item> [\| <item>...]` | The same, each item in its own git worktree, opened as a space of the app in the background: its branch from `origin/develop` (or the remote HEAD), the main clone's ignored `.env*` files and an uncommitted OpenSpec change copied over, a titled agent running `workitem` in its first tab, the dev server on the first free `PORT` from 3000 in a second one (none with `--no-dev`). |
+| `/forgerdr:review <url...>` | Each pull request in a tab of its own, beside its [review view](../../herdr-app/reviews/): a colleague's runs `review-other`, your own runs `review-own`. |
+
+Several items are separated by `|`; pull requests by spaces. Providers are reached through their CLIs (`az`, `gh`, `glab`), never through MCP servers.

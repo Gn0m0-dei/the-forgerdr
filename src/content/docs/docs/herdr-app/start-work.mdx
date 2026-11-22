@@ -1,0 +1,53 @@
+---
+title: Start work and worktrees
+description: Starting a forge's work from a dialog, the forge's mode and backlog, and the dialogs that make and remove worktrees.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+## Start work
+
+`START WORK`, under the forge's gnome in the sidebar (a hammer on the rail; also `Start work…` in a forge's menu and `forgerdr.start` from a key or `herdr-app do forgerdr.start`), opens a dialog that starts the forge's work as its mode takes it, without typing a command.
+
+<img src={withBase("screens/12c-start-work-new.png")} width="1440" height="900" alt="The Start work dialog: what you want to work on, here or in worktrees, in the manual or the auto flow." />
+
+What it offers depends on the mode:
+
+| Mode | What you start |
+|---|---|
+| Chat | what you want to work on, ideas queued to start together |
+| GitHub, GitLab | issues by URL or `#12`, a number completed with the backlog |
+| Azure DevOps | work items by URL or id, an id completed with the backlog |
+| OpenSpec | its changes to tick, and new changes to spec, each a spec session in the main checkout |
+
+Then:
+
+- **Where:** here (`/forgerdr:workitem`), or each item in its own worktree (`/forgerdr:worktree`, whose dev servers start unless `Start the dev servers` is unticked).
+- **Flow:** [manual or auto](../../way-of-working/manual-and-auto/), in one Claude session of the space shown.
+- **Review**, the same in every mode: pull request URLs of GitHub, GitLab or Azure DevOps, a field each, each opened in a tab beside its [review view](../reviews/).
+- **Security**, the same in every mode: audits one of the forge's checkouts or worktrees, in a [security view](../security-view/) of its own.
+
+A preview says what each line starts and skips what it cannot, saying why; `Cmd+Enter` starts it all.
+
+## The forge's mode
+
+The mode shows at the foot of the sidebar, where a click (or `Forge mode…` in a forge's menu, or `forgerdr.mode`) opens its dialog:
+
+| Mode | Where the work comes from |
+|---|---|
+| Chat (default) | say what you want; the design stays in the conversation |
+| OpenSpec | changes in the repository's `openspec/`, or in another folder registered as an OpenSpec store |
+| Azure DevOps | work items |
+| GitHub, GitLab | issues |
+
+Each takes its backlog from the origin's project or repository when the origin is on that provider, or from the one you name with `Work with another backlog` (issues on GitLab for code on GitHub, work items of another organization). The mode is kept per project in `~/.config/forgerdr/config.toml` and sets the [spec mode](../../way-of-working/spec-modes/) the skills read.
+
+## Make and remove a worktree by hand
+
+The `+` beside the repository, `New worktree…` in a forge's menu or `forgerdr.worktree-new` opens the dialog that makes a worktree: an issue or work item (or none), a title the branch is named from and its kind (feature, fix, chore, hotfix from the production branch, or release named by its version), the branch and its folder previewed as you type, the base it starts from, and the dev server on a free port when the forge has one. Create opens it as a space with a shell.
+
+<img src={withBase("screens/16-create-worktree.png")} width="1440" height="900" alt="The Create worktree dialog: the item, the title its branch is named from, its kind and the branch it makes." />
+
+`Remove worktree…` in a worktree's menu, or `forgerdr.worktree-remove`, opens the dialog that removes it: the panes that close and the branch that stays; with uncommitted files, which ones, and `Discard changes and remove`; with a golem at work or waiting on you in its spaces, nothing until it is done, which the dialog follows live.
+
+Nothing throws work away: a worktree with uncommitted changes is never removed without your say, and a branch goes only while it still points where it started or is merged. See [scripts](../../reference/scripts/) for what runs underneath.

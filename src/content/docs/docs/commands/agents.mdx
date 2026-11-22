@@ -1,0 +1,24 @@
+---
+title: Agents
+description: The fresh-context agents the skills dispatch, and how they run in the herdr app.
+---
+
+Four agents give a second pair of eyes with a fresh context. Each is limited to the tools its definition lists.
+
+| Agent | Dispatched by | Returns |
+|---|---|---|
+| `forgerdr:reviewer` | `build` (at the end of a plan, or after each task in agent mode), `ship` | findings graded critical, important or minor, with file and line, and a verdict |
+| `forgerdr:security-auditor` | `security` | findings traced from the actor to the effect: confirmed with a severity, needs validation, rejected; the smallest fix and its regression test |
+| `forgerdr:security-verifier` | `security`, once per critical or high finding | an independent attempt to refute the finding: confirmed, downgraded or rejected |
+| `forgerdr:researcher` | `research`, one per sub-question | a cited answer with its confidence |
+
+## In the herdr app, every agent is a session you can see
+
+Inside the app no agent runs hidden inside the session. Every Agent call starts the agent as its own Claude session, in a terminal of its own, without taking the focus:
+
+- **Where it opens:** in a tab of agents, `agents · <session>`, next to the session's tab, so the session's pane is never split. Each next agent halves the largest agent pane that keeps both halves at least 80×15, so they form an even grid; when none can be halved, another tab of agents opens. An agent with `isolation: "worktree"` opens as a pane of its worktree's space.
+- **What it gets:** the agent's definition (its instructions, its model, no write tools when the agent has none), your login shell's environment, and the folder trust prompt accepted for it.
+- **How it reports:** with a message that begins with `Report from <agent>`, and the turn that reports ends with `✅ DONE`. The app shows whether it is working, waiting for you or done.
+- **The next pass of the same task** (a fix pass, a second look at a reviewer's own findings) goes to the same agent, by its name: it gets it as a new task, or, when its terminal ended, it is reopened resuming its session with everything it already read.
+
+Nested agents work the same way, under the agent that started them. Each one is a whole session, so it costs more than an in-process subagent. A fork, and every agent outside the app, runs in-process. When the session ends, the agents it started that are done are ended. Tasks of one plan still run one after the other: one branch, one worktree, one editor at a time.

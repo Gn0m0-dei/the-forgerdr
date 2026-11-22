@@ -1,0 +1,43 @@
+---
+title: What runs on every session
+description: The rules every session loads, the hooks that guard and record it, and how sessions carry their number.
+---
+
+## The rules
+
+`hooks/session-start.sh` injects four rule files into every session:
+
+| Rule file | What it fixes |
+|---|---|
+| `rules/standards.md` | English in the repository, your language in the chat and in comments, zero AI attribution, typing, style, error handling, everything you must answer asked as a question with options, git and pull request conventions |
+| `rules/communication.md` | Terse replies, the verdict first, full prose only where clarity needs it (warnings, drafts, review findings) |
+| `rules/build.md` | The lazy ladder: nothing → reuse → standard library → platform → installed dependency → one line → minimal code |
+| `rules/memory.md` | When to search, when to save, what to save, how to close a session |
+
+The session start also resolves the [memory project key](../../way-of-working/memory/), starts the engram server if it is down, registers the session and, after a compaction, brings the project's memory context back.
+
+## Project and workspace skills
+
+Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, from the main checkout and from any worktree of it. The other way round, a session started at the workspace root gets the skills inside each repository listed by repository.
+
+## Sessions carry their number
+
+`review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`, the change name, or the branch slug for free text), and the session start sets it as the session title, the same as `/rename`: `claude --resume` lists it, the herdr app shows it on the terminal, and memory saved in that session mentions the number. Outside the app, a session that gains a number is asked once to `/rename` itself.
+
+## The hooks
+
+| Hook | What it does |
+|---|---|
+| `guard-bash.sh` | Refuses, before they run, the commands the standards forbid: a branch created tracking the shared base, `git reset --hard` or `--mixed`, a force push, `pkill -f` and `killall`, `git worktree remove` inside the herdr app, and a commit or pull request that attributes the work to AI (a whole-line trailer or badge is stripped instead and the command runs clean). |
+| `scrub-unicode.sh` | Removes invisible Unicode (zero-width, bidi controls, tag characters, stray BOMs) from every file the agent writes, and reports the exotic spaces it leaves alone. |
+| `graph-augment.sh` | Adds code-graph context to every Grep and Glob. |
+| `inbox.sh` | Puts Claude Code's permission dialogs, questions and plans in the app's [inbox](../../herdr-app/inbox/) as well, and sends back once a turn whose final message asks a question typed in the chat. Outside the app it does nothing. |
+| `flow.sh` | Records each `/forgerdr:<command>` typed in a session on the flow of the item it works, which the [forge floor](../../herdr-app/floor/) shows. |
+| `engram-session.sh` | Closes the engram session on stop and captures subagent output. |
+| `worktree.sh` | Takes over Claude Code's own worktrees (`EnterWorktree`, subagents with `isolation: "worktree"`, `claude --worktree`), below. |
+
+## Claude Code's own worktrees
+
+Each one is a git worktree under `.claude/worktrees/<name>` on branch `worktree-<name>`, from the base `worktree.baseRef` asks for, with the ignored `.env*` files and the `.worktreeinclude` files copied. Inside the herdr app it also opens as a space of its own that does not take the focus. When the session ends, the ones it created with no change, no commit and no agent at work in them are removed, their spaces closed and their branches deleted; the rest stay.
+
+Nothing it does throws work away: a worktree with uncommitted changes is never removed, not even when Claude Code asks, and a branch goes only while it still points where it started or is merged. Claude Code runs a plugin's `WorktreeCreate` hook for `claude --worktree` from 2.1.300 on, never with `--worktree --tmux`, and reads `worktree.baseRef` from the settings files, not from managed settings or `--settings`.

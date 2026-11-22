@@ -1,0 +1,30 @@
+---
+title: The security view
+description: "Triaging a security review in the app: confirmed, needs validation and rejected findings, and the fixes you pick."
+---
+
+import { withBase } from "#helpers/url.ts";
+
+`/forgerdr:security` inside the app, which the auto flow's security step runs too, always runs in a new Claude session of its own: a `Security #18` tab in the session's space, with the security view and its session parked behind it. The session that ran the command waits for its report. Start work's Security tab launches the same session on the checkout or worktree you pick.
+
+<img src={withBase("screens/06d-security-triage.png")} width="1440" height="900" alt="The security triage: a confirmed finding, one to validate and one rejected, with the fix plan you stamp." />
+
+## The audit
+
+While the session audits the scope (a context that did not write the code) and the verifiers check it, the view says the golem is auditing. Its header names the audit and its scope, the auditor's counts (confirmed, needs validation, rejected), how many findings a verifier checked, and that it all stays on this machine.
+
+## The findings
+
+They come grouped: `CONFIRMED · CRITICAL`, `HIGH`, `MEDIUM` and `LOW`, then `NEEDS VALIDATION` and `REJECTED`. Each row opens to who reaches it, the input, the control that fails, the path, the effect, the fix and its regression test, with what the verifier decided (`VERIFIER: CONFIRMED`, `VERIFIER: DOWNGRADED FROM HIGH`).
+
+| Finding | What you can do |
+|---|---|
+| Confirmed | tick it to fix, one by one, never all at once and none ticked for you (a critical one is only tagged `RECOMMENDED`) |
+| Needs validation | `Note on the issue` (when the audit is for a work item) and `Remember`, with the fact the code cannot show and how to check it |
+| Rejected | nothing: it only shows why, so nobody reports it again |
+
+## The fix plan
+
+`FIX PLAN · N PICKED` holds a card per finding picked with its regression test, and `Stamp: fix N` answers the session with your picks. The golem fixes each one red then green, its commits at their gates in the inbox, then re-runs the auditor (new findings come back for a new triage), sends its report to the session that launched it, and closes the tab.
+
+The triage stays in `~/.local/state/forgerdr/security/` and never leaves the machine. Outside the app, the triage stays in the chat of the session that ran the command.

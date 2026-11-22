@@ -1,0 +1,39 @@
+---
+title: Review views and rounds
+description: Reviewing a colleague's pull request, answering the threads on your own, and reviewing what an agent changed.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+A pull request is reviewed in a tab of its own, `#42 review` for a colleague's and `#40 mine` for yours: the forgerdr's view, with its Claude session working out of sight behind it. `Discuss with the golem` peeks at the session over the tab, closing the tab ends it, and quitting the app keeps it. The sidebar lists it under [pull requests](../layout/#the-sidebar).
+
+## A colleague's pull request
+
+<img src={withBase("screens/06b-pr-review-colleague.png")} width="1440" height="900" alt="A colleague's pull request: findings by severity and the drafted comments." />
+
+The findings come grouped by severity with their counts. Each row opens to its rule, what happens, what to change, the code around it and the sketch of the change. Findings that share a rule and a fix are one row (`[2-6]`), and the rules you usually discard go last in their severity, tagged.
+
+1. You tick findings one by one, never all at once.
+2. `Draft N comments` asks the session to draft them: each draft is a field you edit in place, or drop.
+3. `Stamp gnomemark and publish N` saves your edits, freezes the drafts and answers the session's comment gate.
+
+The session publishes exactly those, never a vote, an approval or a status change. A draft that names AI or its tools keeps the stamp back until you edit it.
+
+## Your own pull request
+
+<img src={withBase("screens/06c-pr-review-own.png")} width="1440" height="900" alt="Your own pull request: a card per open thread, with a fix, a reply or a question proposed for each." />
+
+A card per open thread, with the reviewer's request and what to do about it (fix, reply or ask) with its reply drafted. The fixes go through the commit and push gates as always, and `Stamp: N replies, resolve M` publishes the replies and resolves the threads whose fix was pushed.
+
+## Review rounds
+
+The review icon on an agent's pane header opens a **review round** of what that agent changed, in a `Rounds · <session>` tab.
+
+<img src={withBase("screens/06-review-round.png")} width="1440" height="900" alt="A review round: what a session changed, line by line, with your comment on a line." />
+
+- Every changed file in one list, each folding on its own and ticked viewed, the lines numbered on both sides.
+- A strip of rounds (open, changes requested, approved), and what changed since the round before, or everything since the base.
+- A click on a line comments on it; a comment follows its line from round to round, or shows as outdated once it is gone.
+- `Request changes` sends the open comments to the agent as one prompt; `Ask the golem to fix` sends one; `Stamp gnomemark` approves the round and makes its head the new base.
+
+The rounds are snapshots of the agent's worktree, pinned as commits under `refs/forgerdr/rounds/`, never touching your index, HEAD or stash. The commit itself still waits at its own gate.

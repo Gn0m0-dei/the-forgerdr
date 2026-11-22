@@ -1,6 +1,7 @@
 import starlight from "@astrojs/starlight";
 import { defineConfig, fontProviders } from "astro/config";
 import starlightImageZoom from "starlight-image-zoom";
+import { SIDEBAR } from "#config/docs.ts";
 import { SITE } from "#config/site.ts";
 
 export default defineConfig({
@@ -24,8 +25,9 @@ export default defineConfig({
       customCss: ["./src/styles/tokens.css", "./src/styles/starlight.css"],
       description: SITE.description,
       editLink: { baseUrl: `${SITE.repository}/edit/site/` },
+      logo: { src: "./src/assets/gnome-head.svg" },
       plugins: [starlightImageZoom()],
-      sidebar: [{ label: "Overview", slug: "docs" }],
+      sidebar: SIDEBAR,
       social: [{ href: SITE.repository, icon: "github", label: "GitHub" }],
       title: SITE.title,
     }),

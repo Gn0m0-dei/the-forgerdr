@@ -1,0 +1,30 @@
+---
+title: Keys
+description: The keys bin/forge-setup-keys.sh adds to the herdr app, and how it keeps the ones you have.
+---
+
+`bin/forge-setup-keys.sh` adds keys to the app's `keys.json` ([setup](../../getting-started/setup/) offers it): two that make the fan-outs work without a Claude session open, and, in a `layout:forgerdr` section that only the forgerdr layout reads, one for each of the forgerdr mod's buttons.
+
+| Key (macOS; Ctrl+Alt on Linux) | What it does |
+|---|---|
+| `Cmd+Alt+P` | Opens a tab that asks for pull request URLs and runs `bin/forge-review.sh` |
+| `Cmd+Alt+T` | Opens a tab that asks for items separated by `\|` and starts a Claude session running `/forgerdr:worktree` on them |
+| `Cmd+Alt+S` | In the forgerdr layout: [Start work](../start-work/) on the forge shown (`forgerdr.start`) |
+| `Cmd+Alt+F` | In the forgerdr layout: the [forge floor](../floor/) (`forgerdr.floor`) |
+| `Cmd+Alt+I` | In the forgerdr layout: opens or closes the [inbox](../inbox/) (`forgerdr.inbox`) |
+| `Cmd+Alt+L` | In the forgerdr layout: folds or unfolds the golem lanes (`forgerdr.lanes`) |
+| `Cmd+Alt+M` | In the forgerdr layout: the forge's mode (`forgerdr.mode`) |
+| `Cmd+Alt+/` | In the forgerdr layout: the smith's manual (`forgerdr.manual`) |
+
+## It keeps yours
+
+- Every other key stays as it is.
+- A key you already use is refused (`--review` and `--worktree` pick others), and a layout key you already use is left out, and named.
+- The key finds the installed plugin when it runs, so an update keeps it working.
+- `--remove` takes its keys away.
+
+Once `keys.json` is edited, the app treats it as yours and stops adding its new default keys to it.
+
+```bash
+bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
+```
