@@ -3,8 +3,10 @@
 // in the colour of what its golem does; then the tab that opens a session, the switches of the side panels (Files,
 // Changes) and the controls that split and zoom the focused pane. A tab does what the app's own tab bar does: a click
 // shows it, a double click renames it, a right click opens the app's tab menu, its ✕ closes it and dragging it onto
-// another reorders the tabs; the wheel goes from tab to tab. Each space keeps its own side panel, as the app's tab bar
-// does, and with no space left the work area shows the forge's empty state (the empty role) instead of the panes.
+// another reorders the tabs. When the tabs do not fit, the strip scrolls under the trackpad and arrows on its sides bring
+// in the next hidden tab, as the forge tabs' do; only a click changes the tab shown. Each space keeps its own side panel,
+// as the app's tab bar does, and with no space left the work area shows the forge's empty state (the empty role) instead
+// of the panes.
 import { h_flex, ScrollHandle } from "gpui-base";
 import { div } from "gpui-kit";
 import {
@@ -21,16 +23,18 @@ import { enabledPanels, layoutNode } from "../bridges/layout.js";
 import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
-import { addTab, dropMark, panelToggle, sessionTab } from "../kit/tabs.js";
+import {
+  addTab,
+  dropMark,
+  panelToggle,
+  scrollArrow,
+  sessionTab,
+  TAB_HEIGHT,
+} from "../kit/tabs.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import { lanesHeight, spaceLanes } from "../lanes.js";
-import {
-  newSwipe,
-  programKind,
-  specialTabLook,
-  swipeTab,
-  tabLabel,
-} from "../sessions.js";
+import { programKind, specialTabLook, tabLabel } from "../sessions.js";
+import { arrowsOf, scrollTarget, stripState, wheeled } from "../strip.js";
 
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
 /** @typedef {import("herdr").TabInfo} TabInfo */
@@ -75,6 +79,8 @@ const NEW_MENU = Object.freeze({
 
 const PANELS_KEY = "panels";
 
+const ADD_TAB = "session-add";
+
 // How often the bar looks at the side panel and the space count, which the layout's commands change.
 const SYNC_EVERY = 250;
 
@@ -118,7 +124,15 @@ const showPanel = (id) => {
 export const sessions = (cx) => {
   const strip = ScrollHandle.new();
   let revealed = "";
-  let swipe = newSwipe();
+  /** @type {string[]} the tab ids the bar showed last, the + tab's last */
+  let order = [];
+  // What a copy knows of its strip, as the forge tabs' (roles/topbar.js): each tab's width, the strip's width and how far
+  // it is scrolled, kept in step with the trackpad, the arrows and the active tab, since the app's scroll handle tells
+  // neither. All three come from on_size_change and the wheel, in the same window pixels at any zoom.
+  /** @type {Map<string, number>} by tab id, and the + tab's */
+  const widths = new Map();
+  let visible = 0;
+  let scrolled = 0;
   /** @type {{ from: string | null, over: string | null }} tab ids */
   const drag = { from: null, over: null };
   let panels = readPanels();
@@ -194,6 +208,40 @@ export const sessions = (cx) => {
         syncLanes();
       });
 
+  /**
+   * @param {string} id
+   * @param {number} width
+   * @param {Context} cx
+   */
+  const measure = (id, width, cx) => {
+    if (widths.get(id) === width) return;
+    const first = !widths.has(id);
+    widths.set(id, width);
+    // The tab revealed before it was ever measured (a new one, shown at once): the handle showed it whole, so follow it.
+    const index = order.indexOf(id);
+    if (first && id === revealed && index !== -1)
+      scrolled = geometry(order).after(index);
+    cx.notify();
+  };
+
+  /** @param {string[]} order tab ids, the + tab's last */
+  const geometry = (order) =>
+    stripState(
+      order.map((id) => widths.get(id) ?? 0),
+      visible,
+      scrolled,
+    );
+
+  /**
+   * Scrolls the strip to show a tab, as the app's handle does (the least scroll), and follows where it lands.
+   * @param {string[]} order
+   * @param {number} index
+   */
+  const reveal = (order, index) => {
+    strip.scroll_to_item(index);
+    scrolled = geometry(order).after(index);
+  };
+
   /** @param {Context} cx */
   const endDrag = (cx) => {
     if (drag.from === null) return;
@@ -236,6 +284,7 @@ export const sessions = (cx) => {
       .id(`session-${tab.id}`)
       .relative()
       .cursor_pointer()
+      .on_size_change((size, cx) => measure(tab.id, size.width, cx))
       .when(drag.from === tab.id && drag.over !== tab.id, (el) =>
         el.opacity(0.5),
       )
@@ -280,10 +329,26 @@ export const sessions = (cx) => {
     const shown = space?.tabs ?? [];
     const activeAt = shown.findIndex((tab) => tab.active);
     const activeId = shown[activeAt]?.id ?? "";
+    order = [...shown.map((tab) => tab.id), ADD_TAB];
     if (activeId !== revealed) {
       revealed = activeId;
-      if (activeAt !== -1) strip.scroll_to_item(activeAt);
+      if (activeAt !== -1) reveal(order, activeAt);
     }
+    const at = geometry(order);
+    /**
+     * @param {"left" | "right"} side
+     * @param {number | null} target
+     */
+    const arrow = (side, target) =>
+      control(
+        scrollArrow(side, target !== null, TAB_HEIGHT.session),
+        `session-scroll-${side}`,
+        (cx) => {
+          if (target === null) return;
+          reveal(order, target);
+          cx.notify();
+        },
+      );
     const everyPane = panes();
     const terminals = readTerminals();
     const everyAgent = readAgents();
@@ -313,19 +378,9 @@ export const sessions = (cx) => {
       .border_color(k.line)
       .on_mouse_up("left", (_event, cx) => endDrag(cx))
       .on_mouse_down_out((_event, cx) => endDrag(cx))
-      .on_scroll_wheel((event) => {
-        const step = swipeTab(
-          swipe,
-          {
-            dy: event.delta.y,
-            lines: event.delta_lines?.y,
-            started: event.touch_phase === "started",
-          },
-          Date.now(),
-        );
-        swipe = step.swipe;
-        if (step.go !== null) run(step.go === "prev" ? "tab.prev" : "tab.next");
-      })
+      .when(at.overflows, (el) =>
+        el.child(arrow("left", scrollTarget(at, "left"))),
+      )
       .child(
         h_flex()
           .id("session-tabs")
@@ -335,11 +390,18 @@ export const sessions = (cx) => {
           .items_end()
           .overflow_x_scroll()
           .track_scroll(strip)
-          // A rename or a status on an earlier tab can push the active one out.
-          .on_size_change((_size, cx) => {
-            if (activeAt === -1) return;
-            strip.scroll_to_item(activeAt);
+          // A narrower strip may hide the active tab: bring it back.
+          .on_size_change((size, cx) => {
+            if (visible === size.width) return;
+            visible = size.width;
+            if (activeAt !== -1) reveal(order, activeAt);
             cx.notify();
+          })
+          // The arrows redraw only when what they bring in changes, not on every step of a swipe.
+          .on_scroll_wheel((event, cx) => {
+            const before = geometry(order);
+            scrolled = wheeled(before, event.delta);
+            if (arrowsOf(before) !== arrowsOf(geometry(order))) cx.notify();
           })
           .children(
             space === undefined
@@ -355,7 +417,14 @@ export const sessions = (cx) => {
                   ),
                 ),
           )
-          .child(control(addTab(), "session-add", () => openOverlay(NEW_MENU))),
+          .child(
+            control(addTab(), ADD_TAB, () =>
+              openOverlay(NEW_MENU),
+            ).on_size_change((size, cx) => measure(ADD_TAB, size.width, cx)),
+          ),
+      )
+      .when(at.overflows, (el) =>
+        el.child(arrow("right", scrollTarget(at, "right"))),
       )
       .child(
         h_flex()
@@ -389,5 +458,11 @@ export const sessions = (cx) => {
       );
   };
 
-  return { close: () => timer?.cancel(), render };
+  return {
+    close: () => {
+      timer?.cancel();
+      strip.release();
+    },
+    render,
+  };
 };

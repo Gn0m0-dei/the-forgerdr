@@ -68,3 +68,19 @@ export const scrollTarget = (state, side) => {
   );
   return index === -1 ? null : index;
 };
+
+/**
+ * Where a wheel event leaves the strip: GPUI scrolls a row that only scrolls sideways by the wheel's sideways distance,
+ * or by its vertical one when there is none (a mouse wheel), within the row's bounds. Positive is towards the start.
+ * @param {StripState} state
+ * @param {{ x: number, y: number }} delta the event's, in the same pixels as the widths
+ */
+export const wheeled = (state, { x, y }) =>
+  state.clamp(state.position - (x === 0 ? y : x));
+
+/**
+ * What a strip's arrows bring in, the left one's tab and the right one's, to tell when they change.
+ * @param {StripState} state
+ */
+export const arrowsOf = (state) =>
+  `${scrollTarget(state, "left")} ${scrollTarget(state, "right")}`;

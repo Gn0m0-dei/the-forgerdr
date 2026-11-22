@@ -208,6 +208,10 @@ const UNTAKEN_MS = 3000;
 const FOOT =
   "A convenience, not a lock: anything running as you can answer here, as it can type in a pane.";
 
+// The foot's top line meets the folded golem lanes' (36 px over the 33 px status bar, herdr/layouts/forgerdr.json), as
+// the sidebar's footer does on the other side; a failure to tell makes it taller.
+const FOOT_HEIGHT = 69;
+
 /**
  * Window px per layout px: the app's zoom, which settings() carries; a press gives window px, a stamp is placed in
  * layout ones.
@@ -1341,9 +1345,11 @@ export const inbox = (cx) => {
 
     const foot = v_flex()
       .flex_none()
+      .min_h(FOOT_HEIGHT)
+      .justify_center()
       .gap(8)
       .px(16)
-      .py(12)
+      .py(8)
       .border_t(2)
       .border_color(k.line)
       .when(failed.text !== "", (el) =>

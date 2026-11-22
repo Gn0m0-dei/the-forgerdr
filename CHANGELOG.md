@@ -6,6 +6,22 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- The smith's manual in the forgerdr layout (design 08), which `? MANUAL` on the status bar opens over the window: every key the app answers to, read from `keys.json` and grouped into forges and panes, golems and sessions, the forge and the terminal, each named as the manual names it and shown in keycaps, among them the forgerdr mod's own commands with no key yet, which read `no key` and the name `keys.json` binds them by, then forgerdr's commands from the cheat sheet `/forgerdr:help` prints; the search at its top narrows them as you type. It only reads the keys, which stay yours.
+- Keys for the forgerdr layout's buttons: `bin/forge-setup-keys.sh`, which `/forgerdr:setup` offers, also adds a `layout:forgerdr` section to the app's `keys.json`, read only while that layout shows: `Cmd+Alt+S` Start work, `Cmd+Alt+F` the forge floor, `Cmd+Alt+I` the inbox, `Cmd+Alt+L` the golem lanes, `Cmd+Alt+M` the forge's mode and `Cmd+Alt+/` the smith's manual (Ctrl+Alt on Linux), each left out, and named, when you already use it; `--remove` takes them away. The manual answers its own command, `forgerdr.manual`.
+- Arrows on the session bar of the forgerdr layout, as the forge tabs have: when the session tabs do not fit, they show on the strip's sides, each brings in the next tab cut off on its side and goes quiet when there is none, and the active tab is brought back into view when the bar narrows.
+
+### Changed
+
+- The top bar's `INBOX` shows when its drawer is open: its words light up, in forge gold (in the needs colour while something waits), and it becomes part of the drawer, on its grey and edged in its line, running down over the bar's line into the drawer below as a tab opens into its panel. The bar's line is drawn under its buttons for that.
+- The session bar no longer changes the tab shown on the wheel or a swipe of the trackpad, which a sideways scroll set off by mistake: the strip scrolls, and only a click changes the tab.
+
+### Fixed
+
+- The arrows of the forge tabs follow a vertical mouse wheel, which scrolls the strip too, and redraw as soon as a click or the wheel changes what they bring in.
+- The inbox's foot now starts at the folded golem lanes' top line, as the sidebar's footer does on the other side.
+
 ## [0.35.0] - 2026-11-22
 
 ### Added

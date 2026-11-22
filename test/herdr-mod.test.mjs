@@ -29,7 +29,7 @@ import {
   lookKeyOf,
   newlyCracked,
 } from "../herdr/mods/forgerdr/forges.js";
-import { keyLabel } from "../herdr/mods/forgerdr/format.js";
+import { keyCaps, keyLabel } from "../herdr/mods/forgerdr/format.js";
 import {
   brotherOf,
   GNOME_PART,
@@ -85,6 +85,13 @@ import {
   withParkedAgents,
 } from "../herdr/mods/forgerdr/lanes.js";
 import {
+  actionLabel,
+  commandRows,
+  filterRows,
+  keyRows,
+  MANUAL_SECTION,
+} from "../herdr/mods/forgerdr/manual.js";
+import {
   backlogOf,
   backlogTyped,
   MODE,
@@ -94,11 +101,9 @@ import {
 } from "../herdr/mods/forgerdr/modes.js";
 import {
   folderLabel,
-  newSwipe,
   paneLabel,
   programKind,
   specialTabLook,
-  swipeTab,
   tabLabel,
 } from "../herdr/mods/forgerdr/sessions.js";
 import {
@@ -117,7 +122,11 @@ import {
   titleOf,
   workRows,
 } from "../herdr/mods/forgerdr/start.js";
-import { scrollTarget, stripState } from "../herdr/mods/forgerdr/strip.js";
+import {
+  scrollTarget,
+  stripState,
+  wheeled,
+} from "../herdr/mods/forgerdr/strip.js";
 import {
   bandOf,
   clockOf,
@@ -223,6 +232,14 @@ test("the scroll never leaves the row's bounds", () => {
   strictEqual(state.position, 150);
   strictEqual(state.clamp(-40), 0);
   strictEqual(scrollTarget(state, "right"), null);
+});
+
+test("the wheel scrolls the row sideways, a vertical wheel too, within its bounds", () => {
+  const state = stripState([100, 100, 100, 100], 150, 120);
+  strictEqual(wheeled(state, { x: -30, y: 0 }), 150);
+  strictEqual(wheeled(state, { x: 0, y: -30 }), 150);
+  strictEqual(wheeled(state, { x: 20, y: -500 }), 100);
+  strictEqual(wheeled(state, { x: 0, y: 900 }), 0);
 });
 
 test("a forge keeps its brother, and brothers spread", () => {
@@ -476,45 +493,6 @@ test("a folder under home reads with ~", () => {
   strictEqual(folderLabel("/Users/me", "/Users/me"), "~");
   strictEqual(folderLabel("/Users/meg", "/Users/me"), "/Users/meg");
   strictEqual(folderLabel(null, "/Users/me"), "");
-});
-
-test("a wheel swipe moves one tab, then one per longer stretch, never faster than they show", () => {
-  const roll = (events) =>
-    events.reduce(
-      ({ swipe, went }, [dy, now, started = false]) => {
-        const step = swipeTab(swipe, { dy, started }, now);
-        return { swipe: step.swipe, went: step.go ? [...went, step.go] : went };
-      },
-      { swipe: newSwipe(), went: [] },
-    ).went;
-  deepStrictEqual(
-    roll([
-      [10, 1000, true],
-      [15, 1010],
-    ]),
-    ["prev"],
-  );
-  // Another 60 px is the next tab, but not within 100 ms of the last.
-  deepStrictEqual(
-    roll([
-      [25, 1000, true],
-      [70, 1050],
-      [10, 1120],
-    ]),
-    ["prev", "prev"],
-  );
-  // A pause starts a new gesture.
-  deepStrictEqual(
-    roll([
-      [-25, 1000, true],
-      [-25, 1400],
-    ]),
-    ["next", "next"],
-  );
-  strictEqual(
-    swipeTab(newSwipe(), { dy: 0, lines: -1, started: false }, 0).go,
-    "next",
-  );
 });
 
 test("a window not sent or past its reset is hidden, not shown at 0 %", () => {
@@ -3435,4 +3413,133 @@ test("a parked review session goes once its view's tab, seen alive before, is go
     second.seen,
   );
   deepStrictEqual(third.orphans, ["t7"]);
+});
+
+test("a binding reads as its keycaps, the minus key too", () => {
+  deepStrictEqual(keyCaps("cmd-shift-d"), ["⌘", "⇧", "D"]);
+  deepStrictEqual(keyCaps("cmd--"), ["⌘", "-"]);
+  deepStrictEqual(keyCaps("-"), ["-"]);
+  deepStrictEqual(keyCaps("shift-pageup"), ["⇧", "PgUp"]);
+  deepStrictEqual(keyCaps("f2"), ["F2"]);
+  deepStrictEqual(keyCaps("cmd-alt-left"), ["⌘", "⌥", "←"]);
+  deepStrictEqual(keyCaps("ctrl-alt-shift-escape"), ["⌃", "⌥", "⇧", "Esc"]);
+  strictEqual(keyLabel("cmd--"), "⌘-");
+});
+
+test("an action reads as the manual names it, or as its own words", () => {
+  strictEqual(actionLabel("pane.split:right"), "Split right");
+  strictEqual(actionLabel("forgerdr-dev.start"), "Start work");
+  strictEqual(actionLabel("foo.bar_baz:x"), "Foo bar baz x");
+  strictEqual(
+    actionLabel(
+      JSON.stringify({
+        args: { argv: ["sh"], name: "forgerdr review" },
+        command: "tab.new",
+      }),
+    ),
+    "Review pull requests",
+  );
+  strictEqual(
+    actionLabel(
+      JSON.stringify({ args: { px: 240 }, command: "layout.resize" }),
+    ),
+    "Layout resize",
+  );
+});
+
+test("the manual groups the app's keys by what they work, numbered ones in one row, typing aids left out", () => {
+  const rows = keyRows([
+    { action: "tab.select:2", keys: "cmd-2", section: "global" },
+    { action: "pane.split:right", keys: "cmd-d", section: "global" },
+    { action: "tab.select:1", keys: "cmd-1", section: "global" },
+    { action: "tab.next", keys: "ctrl-tab", section: "global" },
+    { action: "tab.next", keys: "cmd-shift-]", section: "global" },
+    { action: "app.palette", keys: "cmd-shift-p", section: "global" },
+    { action: "forgerdr.inbox", keys: "cmd-i", section: "layout:forgerdr" },
+    { action: "app.quit", keys: "cmd-q", section: "layout:other" },
+    { action: "editor.save", keys: "cmd-s", section: "mod:editor" },
+    { action: "terminal.copy", keys: "cmd-c", section: "terminal" },
+    { action: "send:\u001bb", keys: "alt-left", section: "terminal" },
+  ]);
+  deepStrictEqual(
+    rows
+      .filter((row) => row.keys.length > 0)
+      .map(({ section, label, keys, range }) => [section, label, keys, range]),
+    [
+      [MANUAL_SECTION.forges, "Split right", ["cmd-d"], false],
+      [
+        MANUAL_SECTION.sessions,
+        "Next session",
+        ["ctrl-tab", "cmd-shift-]"],
+        false,
+      ],
+      [MANUAL_SECTION.sessions, "Show session 1–2", ["cmd-1", "cmd-2"], true],
+      [MANUAL_SECTION.forge, "Command palette", ["cmd-shift-p"], false],
+      [MANUAL_SECTION.forge, "Inbox", ["cmd-i"], false],
+      [MANUAL_SECTION.terminal, "Copy", ["cmd-c"], false],
+    ],
+  );
+});
+
+test("the manual lists forgerdr's own commands with no key too, so they can be bound", () => {
+  const rows = keyRows([
+    { action: "forgerdr.inbox", keys: "cmd-alt-i", section: "layout:forgerdr" },
+  ]);
+  deepStrictEqual(
+    rows
+      .filter((row) => row.section === MANUAL_SECTION.forge)
+      .map(({ label, keys, detail }) => [label, keys, detail]),
+    [
+      ["Start work", [], "forgerdr.start"],
+      ["Inbox", ["cmd-alt-i"], "forgerdr.inbox"],
+      ["Forge floor", [], "forgerdr.floor"],
+      ["Forge mode", [], "forgerdr.mode"],
+      ["New worktree", [], "forgerdr.worktree-new"],
+      ["Remove worktree", [], "forgerdr.worktree-remove"],
+      ["Fold or unfold the golem lanes", [], "forgerdr.lanes"],
+      ["Motion off or on", [], "forgerdr.motion"],
+      ["Smith's manual", [], "forgerdr.manual"],
+    ],
+  );
+});
+
+test("the manual lists forgerdr's commands from the cheat sheet, a description on the next line too", () => {
+  const sheet = readFileSync(
+    new URL("../references/cheatsheet.txt", import.meta.url),
+    "utf8",
+  );
+  const rows = commandRows(sheet);
+  const spec = rows.find((row) => row.label === "/forgerdr:spec <idea>");
+  deepStrictEqual(spec, {
+    detail: "study and design before code (spike, bounded, architectural)",
+    keys: [],
+    label: "/forgerdr:spec <idea>",
+    range: false,
+    section: MANUAL_SECTION.commands,
+  });
+  strictEqual(
+    rows.find((row) => row.label.startsWith("/forgerdr:workitem"))?.detail,
+    "items in the current clone",
+  );
+  strictEqual(
+    rows.every((row) => row.detail !== ""),
+    true,
+  );
+});
+
+test("the manual's search keeps the rows whose words or keys hold it", () => {
+  const rows = keyRows([
+    { action: "pane.split:right", keys: "cmd-d", section: "global" },
+    { action: "pane.split:down", keys: "cmd-shift-d", section: "global" },
+    { action: "pane.zoom", keys: "cmd-shift-enter", section: "global" },
+  ]);
+  deepStrictEqual(
+    filterRows(rows, " SPLIT ").map((row) => row.label),
+    ["Split right", "Split down"],
+  );
+  deepStrictEqual(
+    filterRows(rows, "shift-enter").map((row) => row.label),
+    ["Zoom pane"],
+  );
+  strictEqual(filterRows(rows, "").length, rows.length);
 });

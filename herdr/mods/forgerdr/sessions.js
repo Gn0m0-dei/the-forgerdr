@@ -1,6 +1,6 @@
 // What the session bar and the pane headers tell of a terminal, as the app's own tab bar and pane header tell it: a
-// tab's and a pane's name, which kind of program runs there, how a special session's view's tab is drawn, its folder,
-// and where a wheel swipe on the bar goes. Pure: Node tests it (test/herdr-mod.test.mjs).
+// tab's and a pane's name, which kind of program runs there, how a special session's view's tab is drawn and its
+// folder. Pure: Node tests it (test/herdr-mod.test.mjs).
 import { golemStatus } from "./lanes.js";
 import { SPECIAL_LOOK, specialTabOf } from "./specials.js";
 
@@ -137,48 +137,4 @@ export const folderLabel = (cwd, home) => {
   if (!cwd) return "";
   if (cwd === home) return "~";
   return cwd.startsWith(`${home}/`) ? `~${cwd.slice(home.length)}` : cwd;
-};
-
-// One tab per wheel notch. A touchpad or a smooth-scrolling mouse sends many small events per gesture: a short swipe or
-// one smoothed notch switches one tab, a longer swipe keeps going a tab per `next` px, at most one every `every` ms so
-// each shows. A pause or a turn starts a new gesture.
-export const SWIPE = Object.freeze({
-  every: 100,
-  first: 20,
-  next: 60,
-  pause: 250,
-});
-
-/** @typedef {{ acc: number, at: number, last: number, steps: number }} Swipe */
-
-/** @returns {Swipe} */
-export const newSwipe = () => ({ acc: 0, at: 0, last: 0, steps: 0 });
-
-/**
- * Where one wheel event on the bar goes: the previous tab (scrolled up), the next, or nowhere yet.
- * @param {Swipe} swipe the gesture so far
- * @param {{ dy: number, lines?: number, started: boolean }} wheel pixels down, lines when the device counts them
- * @param {number} now
- * @returns {{ go: "prev" | "next" | null, swipe: Swipe }}
- */
-export const swipeTab = (swipe, { dy, lines, started }, now) => {
-  if (lines !== undefined) {
-    return { go: lines === 0 ? null : lines > 0 ? "prev" : "next", swipe };
-  }
-  const fresh = started || now - swipe.at > SWIPE.pause || dy * swipe.acc < 0;
-  const acc = (fresh ? 0 : swipe.acc) + dy;
-  const steps = fresh ? 0 : swipe.steps;
-  const need = steps > 0 ? SWIPE.next : SWIPE.first;
-  if (Math.abs(acc) < need || now - swipe.last < SWIPE.every) {
-    return { go: null, swipe: { ...swipe, acc, at: now, steps } };
-  }
-  return {
-    go: dy > 0 ? "prev" : "next",
-    swipe: {
-      acc: acc - Math.sign(acc) * need,
-      at: now,
-      last: now,
-      steps: steps + 1,
-    },
-  };
 };

@@ -22,6 +22,7 @@ import {
   WINDOW,
   warningsDue,
 } from "../usage.js";
+import { openManual } from "./manual.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
@@ -40,7 +41,6 @@ const NAMES = {
   seven_day: { label: "WEEK", spoken: "weekly window" },
 };
 
-const MANUAL = Object.freeze({ height: 620, kind: "dialog", width: 720 });
 const HEAT = Object.freeze({ height: 560, kind: "dialog", width: 620 });
 
 const nowSeconds = () => Math.floor(Date.now() / 1000);
@@ -65,9 +65,6 @@ const saveTold = (told) => {
     // Storage is away: a restart may tell a threshold again.
   }
 };
-
-const openManual = () =>
-  openOverlay({ ...MANUAL, mod: MOD, props: { role: "manual" } });
 
 // The profile, lit while it is the one in use, opens its forge heat.
 const openHeat = () =>

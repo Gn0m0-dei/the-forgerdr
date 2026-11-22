@@ -1,4 +1,4 @@
-import { h_flex } from "gpui-base";
+import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { ICON, icon } from "./sprites.js";
 import { text } from "./text.js";
@@ -135,24 +135,52 @@ export const startButton = () => {
     .child(text("START WORK", "display", 11, BRAND.forgeGold));
 };
 
+// The line under the top bar, which the open inbox's button covers.
+export const BAR_LINE = 2;
+
 /**
- * Quiet when nothing waits on the human's mark.
+ * Quiet when nothing waits on the human's mark. While its drawer is open its words light up (in forge gold, or in the
+ * needs colour while something waits) and it is part of the drawer: on its grey, edged in its line, open at the bottom;
+ * run down to the bar's line, it covers the line under it, so it opens into the drawer below.
  * @param {number} count
+ * @param {boolean} [open] the drawer shows
  */
-export const inboxButton = (count) => {
+export const inboxButton = (count, open = false) => {
   const k = tokens();
-  const colour = count > 0 ? k.needs : k.muted;
-  return h_flex()
-    .flex_none()
+  const colour = count > 0 ? k.needs : open ? BRAND.forgeGold : k.muted;
+  // Its icon and words keep their row, centred on each other, whether it is open (and taller) or not.
+  const label = h_flex()
     .items_center()
     .gap(8)
-    .px(10)
-    .py(6)
-    .bg(k.bg2)
-    .border(2)
-    .border_color(count > 0 ? k.needs : k.line)
     .child(icon(ICON.inbox, colour))
     .child(text(count > 0 ? `INBOX ${count}` : "INBOX", "display", 11, colour));
+  return v_flex()
+    .flex_none()
+    .px(10)
+    .py(6)
+    .bg(open ? k.chrome : k.bg2)
+    .border_t(2)
+    .border_l(2)
+    .border_r(2)
+    .border_color(count > 0 && !open ? colour : k.line)
+    .when(!open, (el) => el.border_b(2))
+    .when(open, (el) =>
+      el
+        .relative()
+        .child(
+          div()
+            .absolute()
+            .left(-2)
+            .right(-2)
+            .bottom(-BAR_LINE)
+            .h(BAR_LINE)
+            .bg(k.chrome)
+            .border_l(2)
+            .border_r(2)
+            .border_color(k.line),
+        ),
+    )
+    .child(label);
 };
 
 /**

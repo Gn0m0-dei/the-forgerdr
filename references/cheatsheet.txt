@@ -36,6 +36,10 @@ SETTINGS                                      ~/.config/forgerdr/config.toml
 
 HERDR APP KEYS                                after bin/forge-setup-keys.sh (Ctrl+Alt on Linux)
   cmd+alt+p        review pull requests       cmd+alt+t        items in worktrees
+  in the forgerdr layout:
+  cmd+alt+s        start work                 cmd+alt+f        forge floor
+  cmd+alt+i        inbox                      cmd+alt+l        golem lanes
+  cmd+alt+m        forge mode                 cmd+alt+/        smith's manual
   START WORK under the forge's gnome (forgerdr.start): what the forge's mode takes, then cmd+enter
   MODE at the sidebar's foot (forgerdr.mode): chat, openspec, azure, github, gitlab
   + beside the repository, or a forge's menu: new worktree (forgerdr.worktree-new)

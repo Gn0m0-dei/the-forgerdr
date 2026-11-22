@@ -11,6 +11,9 @@ import { BRAND, NONE, TONE, tokens, toneColour } from "./tokens.js";
 /** @typedef {import("./tokens.js").Tone} Tone */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 
+// How tall each row of tabs is, which its arrows take.
+export const TAB_HEIGHT = Object.freeze({ forge: 36, session: 30 });
+
 /**
  * @typedef {object} ForgeTabProps
  * @property {string} name
@@ -38,7 +41,7 @@ export const forgeTab = ({
     .items_center()
     .gap(8)
     .px(14)
-    .h(36)
+    .h(TAB_HEIGHT.forge)
     .bg(active ? k.chrome : k.bg0)
     .border_t(2)
     .border_l(2)
@@ -95,7 +98,7 @@ export const sessionTab = ({
     .items_center()
     .gap(6)
     .px(12)
-    .h(30)
+    .h(TAB_HEIGHT.session)
     .bg(active ? k.bg1 : NONE)
     .border_t(2)
     .border_l(2)
@@ -135,18 +138,19 @@ export const panelToggle = (label, on) => {
 };
 
 /**
- * An arrow that scrolls a row of tabs; quiet when nothing is left on its side.
+ * An arrow that scrolls a row of tabs; quiet when nothing is left on its side. As tall as the tabs it scrolls.
  * @param {"left" | "right"} side
  * @param {boolean} enabled
+ * @param {number} [height] the tabs', the forge tabs' unless given
  */
-export const scrollArrow = (side, enabled) => {
+export const scrollArrow = (side, enabled, height = TAB_HEIGHT.forge) => {
   const k = tokens();
   return h_flex()
     .flex_none()
     .items_center()
     .justify_center()
     .w(20)
-    .h(36)
+    .h(height)
     .child(
       icon(
         side === "left" ? ICON.chevronLeft : ICON.chevronRight,

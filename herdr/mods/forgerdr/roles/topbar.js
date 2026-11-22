@@ -10,11 +10,12 @@
 // moves its spaces there together. When the tabs do not fit, the strip scrolls under the trackpad and with the arrows
 // beside it. The bar, always shown, also sounds the crack of a golem an API error breaks (bridges/sounds.js).
 import { h_flex, ScrollHandle } from "gpui-base";
+import { div } from "gpui-kit";
 import { checking, keys, nextCommand, panes, run, spaces } from "herdr";
 import { followFlows } from "../bridges/flows.js";
 import { readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
-import { followInbox, toggleInbox } from "../bridges/inbox.js";
+import { followInbox, inboxOpen, toggleInbox } from "../bridges/inbox.js";
 import { toggleLanes } from "../bridges/lanes.js";
 import { toggleMotion } from "../bridges/motion.js";
 import { readNames } from "../bridges/names.js";
@@ -33,18 +34,24 @@ import {
 import { keyLabel } from "../format.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
 import { cardsOf, quietAfter, quietNow } from "../inbox.js";
-import { floorButton, inboxButton, paletteHint } from "../kit/buttons.js";
+import {
+  BAR_LINE,
+  floorButton,
+  inboxButton,
+  paletteHint,
+} from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { ICON, iconButton } from "../kit/sprites.js";
 import { addTab, dropMark, forgeTab, scrollArrow } from "../kit/tabs.js";
 import { tokens } from "../kit/tokens.js";
-import { scrollTarget, stripState } from "../strip.js";
+import { arrowsOf, scrollTarget, stripState, wheeled } from "../strip.js";
 import { openFloor } from "./floor.js";
 import {
   newWorktreeOn,
   openForgeMenu,
   removeWorktreeOn,
 } from "./forge-menu.js";
+import { openManual } from "./manual.js";
 import { openMode } from "./mode.js";
 import { openStart } from "./start.js";
 
@@ -62,6 +69,9 @@ const WINDOW_BUTTONS = 84;
 
 const ADD_TAB = "forge-add";
 
+// The room above the bar's buttons, which the open inbox's button keeps as it runs down into its drawer.
+const BUTTON_TOP = 4;
+
 /** @param {string} id */
 const closeSpace = (id) => run("space.close", { id });
 
@@ -74,12 +84,13 @@ export const topbar = (cx) => {
   // The mod's own key commands come here, the one copy that is always shown: forgerdr.motion turns the motion off or on,
   // forgerdr.lanes folds or unfolds the golem lanes, forgerdr.start opens Start work on the forge shown,
   // forgerdr.mode its mode, forgerdr.worktree-new and forgerdr.worktree-remove its worktree dialogs, forgerdr.inbox
-  // opens or closes the inbox's drawer and forgerdr.floor opens the forge floor.
+  // opens or closes the inbox's drawer, forgerdr.floor opens the forge floor and forgerdr.manual the smith's manual.
   /** @type {Readonly<Record<string, () => void>>} */
   const handlers = Object.freeze({
     floor: openFloor,
     inbox: toggleInbox,
     lanes: toggleLanes,
+    manual: openManual,
     mode: () => modeShown(),
     motion: toggleMotion,
     start: () => startShown(),
@@ -321,6 +332,7 @@ export const topbar = (cx) => {
     const everyone = readAgents();
     // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
     const cracked = crackedOf(readTerminals());
+    const open = inboxOpen();
     const waiting = cardsOf(requests, readTerminals(), {
       quiet: quietNow(quiet, Date.now()),
     }).length;
@@ -355,90 +367,106 @@ export const topbar = (cx) => {
       control(
         scrollArrow(side, target !== null),
         `forge-scroll-${side}`,
-        () => {
-          if (target !== null) reveal(order, target);
+        (cx) => {
+          if (target === null) return;
+          reveal(order, target);
+          cx.notify();
         },
       );
     // The line under the bar closes the forge's frame from above: the active forge tab sits on it, in the frame's
     // colour, as the active session tab sits on the session bar's.
-    return h_flex()
-      .id("topbar")
-      .size_full()
-      .items_end()
-      .gap(12)
-      .pl(WINDOW_BUTTONS)
-      .pr(16)
-      .bg(k.bg0)
-      .border_b(2)
-      .border_color(k.line)
-      .on_mouse_up("left", (_event, cx) => {
-        drag.from = null;
-        drag.over = null;
-        cx.notify();
-      })
-      .on_mouse_down_out((_event, cx) => {
-        if (drag.from === null) return;
-        drag.from = null;
-        drag.over = null;
-        cx.notify();
-      })
-      .when(at.overflows, (el) =>
-        el.child(arrow("left", scrollTarget(at, "left"))),
-      )
-      .child(
-        h_flex()
-          .id("forge-tabs")
-          .flex_1()
-          .min_w(0)
-          .items_end()
-          .overflow_x_scroll()
-          .track_scroll(strip)
-          .on_size_change((size, cx) => {
-            if (visible === size.width) return;
-            visible = size.width;
-            // A narrower strip may hide the active forge: bring it back.
-            if (activeAt !== -1) reveal(order, activeAt);
-            cx.notify();
-          })
-          .on_scroll_wheel((event) => {
-            scrolled = geometry(order).clamp(scrolled - event.delta.x);
-          })
-          .children(
-            forges.map((forge) =>
-              forgeOf(
-                forge,
-                forges,
-                everyone,
-                all.map((space) => space.id),
-                cracked,
+    return (
+      h_flex()
+        .id("topbar")
+        .size_full()
+        .items_end()
+        .gap(12)
+        .pl(WINDOW_BUTTONS)
+        .pr(16)
+        .bg(k.bg0)
+        .pb(BAR_LINE)
+        .on_mouse_up("left", (_event, cx) => {
+          drag.from = null;
+          drag.over = null;
+          cx.notify();
+        })
+        .on_mouse_down_out((_event, cx) => {
+          if (drag.from === null) return;
+          drag.from = null;
+          drag.over = null;
+          cx.notify();
+        })
+        // The line under the bar, drawn first so that the open inbox's button can run down over it into its drawer (a
+        // border would be drawn over it).
+        .child(
+          div().absolute().left(0).right(0).bottom(0).h(BAR_LINE).bg(k.line),
+        )
+        .when(at.overflows, (el) =>
+          el.child(arrow("left", scrollTarget(at, "left"))),
+        )
+        .child(
+          h_flex()
+            .id("forge-tabs")
+            .flex_1()
+            .min_w(0)
+            .items_end()
+            .overflow_x_scroll()
+            .track_scroll(strip)
+            .on_size_change((size, cx) => {
+              if (visible === size.width) return;
+              visible = size.width;
+              // A narrower strip may hide the active forge: bring it back.
+              if (activeAt !== -1) reveal(order, activeAt);
+              cx.notify();
+            })
+            // The arrows redraw only when what they bring in changes, not on every step of a swipe.
+            .on_scroll_wheel((event, cx) => {
+              const before = geometry(order);
+              scrolled = wheeled(before, event.delta);
+              if (arrowsOf(before) !== arrowsOf(geometry(order))) cx.notify();
+            })
+            .children(
+              forges.map((forge) =>
+                forgeOf(
+                  forge,
+                  forges,
+                  everyone,
+                  all.map((space) => space.id),
+                  cracked,
+                ),
+              ),
+            )
+            .child(
+              control(addTab(), ADD_TAB, () => run("space.new")).on_size_change(
+                (size, cx) => measure(ADD_TAB, size.width, cx),
               ),
             ),
-          )
-          .child(
-            control(addTab(), ADD_TAB, () => run("space.new")).on_size_change(
-              (size, cx) => measure(ADD_TAB, size.width, cx),
-            ),
-          ),
-      )
-      .when(at.overflows, (el) =>
-        el.child(arrow("right", scrollTarget(at, "right"))),
-      )
-      .child(
-        h_flex()
-          .flex_none()
-          .h_full()
-          .items_center()
-          .gap(8)
-          .child(control(floorButton(floorWaiting), "floor", openFloor))
-          .child(control(inboxButton(waiting), "inbox", () => toggleInbox()))
-          .when(palette !== undefined, (el) =>
-            el.child(
-              control(paletteHint(keyLabel(palette.keys)), "palette", () =>
-                run("app.palette"),
+        )
+        .when(at.overflows, (el) =>
+          el.child(arrow("right", scrollTarget(at, "right"))),
+        )
+        .child(
+          h_flex()
+            .flex_none()
+            .h_full()
+            .items_start()
+            .pt(BUTTON_TOP)
+            .gap(8)
+            .child(control(floorButton(floorWaiting), "floor", openFloor))
+            .child(
+              control(inboxButton(waiting, open), "inbox", () => toggleInbox())
+                // Open, it runs down to the bar's line, into the drawer under it.
+                .when(open, (el) => el.self_stretch()),
+            )
+            .when(palette !== undefined, (el) =>
+              el.child(
+                control(paletteHint(keyLabel(palette.keys)), "palette", () =>
+                  run("app.palette"),
+                ),
               ),
             ),
-          ),
-      );
+        )
+    );
   };
 
   return {

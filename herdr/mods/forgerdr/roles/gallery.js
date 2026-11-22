@@ -177,6 +177,7 @@ const actions = () =>
       kbdHint("⌘"),
       inboxButton(2),
       inboxButton(0),
+      inboxButton(0, true),
       floorButton(1),
       floorButton(0),
       paletteHint(),
