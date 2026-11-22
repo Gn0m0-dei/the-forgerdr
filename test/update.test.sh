@@ -97,7 +97,8 @@ expect "check reads the release notes at the newest tag" \
 expect "the notes hold the versions after the installed one, newest first" \
   "## [0.37.0] - 2026-11-30|### Added|- The newest thing.|## [0.36.0] - 2026-11-25|### Fixed|- A fix." \
   "$(grep -v '^$' "$notes" | paste -sd '|' -)"
-expect "the state is the user's alone" 600 "$(stat -f '%Lp' "$state" 2>/dev/null || stat -c '%a' "$state")"
+expect "only its owner can read the folder" 700 "$(stat -c %a "$FORGE_UPDATE_DIR" 2>/dev/null || stat -f %Lp "$FORGE_UPDATE_DIR")"
+expect "nor the state" 600 "$(stat -c %a "$state" 2>/dev/null || stat -f %Lp "$state")"
 
 # Up to date: no notes left from before.
 installed 0.37.0
