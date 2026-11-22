@@ -11,11 +11,15 @@ Branch from `origin/site` and open the pull request against `site`. When a chang
 ```bash
 pnpm install
 pnpm dev     # local preview
-pnpm build   # static site in dist/
-pnpm test    # checks the built site
+pnpm build   # astro check, then the static site in dist/
+pnpm test    # the helpers' specs, then checks over the built site
 ```
 
+The screens in `public/screens` are the herdr app itself, shot on a demo forge of this repository, and the walkthrough in `public/media` is rendered from them. When the app's look changes, both are made again and committed together.
+
 The GitHub Actions workflow builds every pull request against `site` and deploys every push to it.
+
+Pages must publish from GitHub Actions, and the `github-pages` environment's deployment branch policy must name `site`: GitHub creates that environment allowing only the default branch, so until `site` is added the deploy job is refused.
 
 ## License
 
