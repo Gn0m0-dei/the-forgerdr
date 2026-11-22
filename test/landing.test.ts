@@ -33,6 +33,13 @@ describe("the landing page", () => {
     assert.match(html(), /aria-live="polite"/);
   });
 
+  test("plays the walkthrough muted and inline, and only when the script says so", () => {
+    const video = html().match(/<video[^>]*>/)?.join("") ?? "";
+    ["muted", "loop", "playsinline", "poster="].forEach((attribute) => assert.ok(video.includes(attribute), attribute));
+    assert.doesNotMatch(video, /\sautoplay/);
+    assert.match(html(), /<button[^>]*data-video-toggle[^>]*>/);
+  });
+
   test("walks the eight steps, each with what you decide", () => {
     assert.match(html(), /<section[^>]*id="how-it-works"/);
     assert.equal(count(html(), /data-step="\d+"/g), 8);
