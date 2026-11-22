@@ -1,0 +1,156 @@
+---
+import CopyCommand from "#components/landing/CopyCommand.astro";
+import { LANDING } from "#config/landing.ts";
+import { SCREENS } from "#config/screens.ts";
+import { SITE } from "#config/site.ts";
+import { withBase } from "#helpers/url.ts";
+import { ScreenId } from "#model/screen.ts";
+
+const appWindow = SCREENS[ScreenId.MainWindow];
+---
+
+<section class="hero">
+  <div class="container grid">
+    <div class="copy">
+      <h1 class="display">Forge once.<br />Herd many.</h1>
+      <p class="sentence muted">
+        Run many Claude Code agents at once in the herdr app. Every design, commit
+        and comment waits for your review before it leaves your machine.
+      </p>
+      <CopyCommand />
+      <p class="secondary">
+        <a href={withBase("docs/")}>Read the docs →</a>
+        <span class="muted">Open source · MIT</span>
+      </p>
+    </div>
+    <div class="stage">
+      <div class="crew" aria-hidden="true">
+        <img class="gnome pixelated" src={withBase("sprites/gnome-working.svg")} alt="" width="136" height="96" />
+        <span class="golems">
+          {
+            LANDING.crew.map((sprite) => (
+              <img class="pixelated" src={withBase(`sprites/${sprite.file}`)} alt="" width={sprite.width} height={sprite.height} />
+            ))
+          }
+        </span>
+      </div>
+      <div class="window">
+        <slot name="window">
+          <img
+            src={withBase(`screens/${appWindow.file}`)}
+            alt={`${appWindow.alt} ${SITE.tagline}`}
+            width={appWindow.size.width}
+            height={appWindow.size.height}
+          />
+        </slot>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    overflow: hidden;
+    padding-block: var(--space-8) var(--space-12);
+  }
+
+  .grid {
+    display: grid;
+    gap: var(--space-8);
+  }
+
+  h1 {
+    font-size: clamp(2.25rem, 1.82rem + 1.86vw, 3.25rem);
+  }
+
+  .copy {
+    display: grid;
+    gap: var(--space-6);
+    align-content: start;
+  }
+
+  .sentence {
+    margin: 0;
+    font-size: 1.125rem;
+  }
+
+  .secondary {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3) var(--space-6);
+    margin: 0;
+  }
+
+  .stage {
+    position: relative;
+    padding-top: 56px;
+  }
+
+  .crew {
+    position: absolute;
+    inset: 0 0 auto;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    height: 56px;
+  }
+
+  .crew img {
+    height: 48px;
+    width: auto;
+  }
+
+  .golems {
+    display: flex;
+    gap: var(--space-2);
+  }
+
+  .window {
+    border: 1px solid var(--line);
+    line-height: 0;
+  }
+
+  .window :global(img),
+  .window :global(video) {
+    width: 100%;
+    height: auto;
+  }
+
+  @media (min-width: 1024px) {
+    .hero {
+      min-height: min(85dvh, 860px);
+      padding-block: var(--space-16) var(--space-24);
+    }
+
+    .grid {
+      grid-template-columns: minmax(0, 560px) minmax(0, 1fr);
+      gap: var(--space-16);
+      align-items: center;
+    }
+
+    .sentence {
+      font-size: 1.25rem;
+    }
+
+    .stage {
+      padding-top: 96px;
+      margin-right: calc(-1 * var(--space-16) - 160px);
+    }
+
+    .crew {
+      height: 96px;
+      justify-content: flex-start;
+      gap: var(--space-24);
+      padding-left: var(--space-8);
+    }
+
+    .crew img {
+      height: auto;
+    }
+
+    .golems {
+      gap: var(--space-6);
+    }
+  }
+</style>

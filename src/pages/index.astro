@@ -1,10 +1,27 @@
 ---
+import Footer from "#components/landing/Footer.astro";
+import Glance from "#components/landing/Glance.astro";
+import Hero from "#components/landing/Hero.astro";
+import HowItWorks from "#components/landing/HowItWorks.astro";
+import Install from "#components/landing/Install.astro";
+import Mechanism from "#components/landing/Mechanism.astro";
+import Nav from "#components/landing/Nav.astro";
+import Problem from "#components/landing/Problem.astro";
+import Trust from "#components/landing/Trust.astro";
 import Landing from "#layouts/Landing.astro";
 import { SITE } from "#config/site.ts";
 ---
 
 <Landing title={`${SITE.title} · ${SITE.tagline}`} description={SITE.description}>
+  <Nav />
   <main id="main">
-    <h1>{SITE.tagline}</h1>
+    <Hero />
+    <Problem />
+    <Mechanism />
+    <HowItWorks />
+    <Glance />
+    <Trust />
+    <Install />
   </main>
+  <Footer />
 </Landing>

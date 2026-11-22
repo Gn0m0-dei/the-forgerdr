@@ -1,0 +1,104 @@
+---
+import { LANDING } from "#config/landing.ts";
+import { SCREENS } from "#config/screens.ts";
+import { withBase } from "#helpers/url.ts";
+import { ScreenId } from "#model/screen.ts";
+
+const screen = SCREENS[ScreenId.Agents];
+---
+
+<section class="section section--raised">
+  <div class="container">
+    <header class="head">
+      <h2 class="display h2">Every golem,<br />at a glance.</h2>
+      <p class="prose muted">
+        The pixels are not just for show. Each one tells you who is forging, who
+        waits on you, who is done and how full each context is.
+      </p>
+    </header>
+    <figure class="window">
+      <img src={withBase(`screens/${screen.file}`)} alt={screen.alt} width={screen.size.width} height={screen.size.height} loading="lazy" />
+      {
+        LANDING.pins.map((pin, index) => (
+          <span class="pin display" data-pin={index + 1} style={`--pin-left: ${pin.left}%; --pin-top: ${pin.top}%;`} aria-hidden="true">
+            {index + 1}
+          </span>
+        ))
+      }
+    </figure>
+    <ol class="legend">
+      {
+        LANDING.pins.map((pin, index) => (
+          <li data-legend={index + 1}>
+            <span class="pin display" aria-hidden="true">{index + 1}</span>
+            {pin.label}
+          </li>
+        ))
+      }
+    </ol>
+  </div>
+</section>
+
+<style>
+  .head {
+    display: grid;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+  }
+
+  .window {
+    position: relative;
+    margin: 0;
+    border: 1px solid var(--line);
+    line-height: 0;
+  }
+
+  .window img {
+    width: 100%;
+    height: auto;
+  }
+
+  .pin {
+    display: inline-grid;
+    place-items: center;
+    width: 22px;
+    height: 22px;
+    background: var(--ember);
+    color: var(--ink);
+    font-size: 0.75rem;
+    line-height: 1;
+  }
+
+  .window .pin {
+    position: absolute;
+    top: var(--pin-top);
+    left: var(--pin-left);
+  }
+
+  .legend {
+    display: grid;
+    gap: var(--space-3);
+    margin: var(--space-6) 0 0;
+    padding: 0;
+    list-style: none;
+    color: var(--fg-muted);
+  }
+
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+  }
+
+  @media (min-width: 1024px) {
+    .head {
+      grid-template-columns: minmax(0, 1fr) minmax(0, 520px);
+      align-items: end;
+    }
+
+    .legend {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: var(--space-3) var(--space-12);
+    }
+  }
+</style>

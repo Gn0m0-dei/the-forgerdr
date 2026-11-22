@@ -1,0 +1,63 @@
+---
+import { SITE } from "#config/site.ts";
+---
+
+<div class="install" data-copy-root>
+  <div class="bar">
+    <span class="label display">Install · macOS, openSUSE</span>
+    <button class="copy display" type="button" data-copy>Copy</button>
+  </div>
+  <pre><code data-copy-source>{SITE.install}</code></pre>
+  <span class="sr-only" aria-live="polite" data-copy-status></span>
+</div>
+
+<script>
+  import "#scripts/copy.ts";
+</script>
+
+<style>
+  .install {
+    border: 1px solid var(--line);
+    background: var(--ink);
+  }
+
+  .bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+    border-bottom: 1px solid var(--line);
+  }
+
+  .label {
+    color: var(--fg-muted);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+  }
+
+  .copy {
+    min-height: 44px;
+    padding-inline: var(--space-4);
+    border: 0;
+    background: var(--ember);
+    color: var(--ink);
+    cursor: pointer;
+    font-size: 0.75rem;
+    letter-spacing: 0.15em;
+  }
+
+  .copy:hover {
+    background: var(--ember-hot);
+  }
+
+  pre {
+    margin: 0;
+    padding: var(--space-3) var(--space-3) var(--space-4);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-all;
+  }
+</style>

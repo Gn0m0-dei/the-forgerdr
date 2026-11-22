@@ -1,0 +1,44 @@
+---
+import { LANDING } from "#config/landing.ts";
+import { SITE } from "#config/site.ts";
+---
+
+<footer class="footer">
+  <div class="container bar">
+    <span class="muted">{SITE.title} · MIT</span>
+    <nav aria-label="Footer">
+      {LANDING.footerLinks.map((link) => <a class="tap" href={link.href}>{link.label}</a>)}
+    </nav>
+  </div>
+</footer>
+
+<style>
+  .footer {
+    border-top: 1px solid var(--line);
+    font-size: 0.875rem;
+  }
+
+  .bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding-block: var(--space-6);
+  }
+
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
+  }
+
+  nav a {
+    color: var(--fg-muted);
+    text-decoration: none;
+  }
+
+  nav a:hover {
+    color: var(--fg);
+  }
+</style>
