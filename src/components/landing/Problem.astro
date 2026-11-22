@@ -1,0 +1,39 @@
+<section class="section">
+  <div class="container grid">
+    <h2 class="display h2">Ten agents.<br />One pair<br />of eyes.</h2>
+    <div class="body">
+      <p class="prose lead">
+        Starting several Claude Code sessions is easy. Keeping up with them is not:
+        a permission prompt waiting in a pane you are not looking at, a push you
+        never saw, a comment posted in your name.
+      </p>
+      <p class="prose lead muted">
+        The forgerdr gathers every one of those moments in front of you, in one
+        place, before it happens. The agents do the forging. You do the reviewing.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    gap: var(--space-6);
+  }
+
+  .body {
+    display: grid;
+    gap: var(--space-6);
+  }
+
+  .lead {
+    font-size: clamp(1.0625rem, 0.9rem + 0.7vw, 1.375rem);
+  }
+
+  @media (min-width: 1024px) {
+    .grid {
+      grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+      gap: var(--space-24);
+    }
+  }
+</style>

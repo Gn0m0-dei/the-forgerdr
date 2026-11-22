@@ -1,0 +1,42 @@
+---
+import CopyCommand from "#components/landing/CopyCommand.astro";
+import { withBase } from "#helpers/url.ts";
+---
+
+<section class="section install" id="install">
+  <div class="container column">
+    <img class="pixelated" src={withBase("sprites/gnome-asleep.svg")} alt="" width="136" height="96" />
+    <h2 class="display h2">Light your forge.</h2>
+    <div class="command"><CopyCommand /></div>
+    <p class="prose muted">
+      Needs Claude Code, the herdr app and git, plus Homebrew on macOS. It asks
+      before it installs anything, and <code>/forgerdr:setup</code> checks every
+      piece whenever you want.
+    </p>
+    <a href={withBase("docs/")}>Read the install guide →</a>
+  </div>
+</section>
+
+<style>
+  .install {
+    background: linear-gradient(to bottom, transparent, var(--glow));
+  }
+
+  .column {
+    display: grid;
+    justify-items: center;
+    gap: var(--space-6);
+    text-align: center;
+  }
+
+  .command {
+    width: 100%;
+    max-width: 760px;
+    text-align: left;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+</style>

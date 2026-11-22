@@ -1,0 +1,67 @@
+---
+import StampCard from "#components/landing/StampCard.astro";
+import { LANDING } from "#config/landing.ts";
+---
+
+<section class="section section--raised">
+  <div class="container grid">
+    <div class="text">
+      <h2 class="display h2">Nothing leaves<br />without your mark.</h2>
+      <p class="prose muted">
+        Each write that leaves the machine stops at a gate and lands in the inbox
+        with its draft in full. You read it, change it if you like, and stamp it
+        with the gnomemark. Until then it stays put.
+      </p>
+      <ul class="marks" aria-label="What waits for your mark">
+        {LANDING.marks.map((mark) => <li class="display">{mark}</li>)}
+      </ul>
+    </div>
+    <div class="try">
+      <p class="muted hint">Try it: stamp this one.</p>
+      <StampCard />
+    </div>
+  </div>
+</section>
+
+<style>
+  .grid {
+    display: grid;
+    gap: var(--space-12);
+  }
+
+  .text {
+    display: grid;
+    gap: var(--space-6);
+    align-content: start;
+  }
+
+  .marks {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .marks li {
+    padding: var(--space-1) var(--space-3);
+    border: 1px solid var(--done);
+    color: var(--done);
+    font-size: 0.6875rem;
+    letter-spacing: 0.15em;
+  }
+
+  .hint {
+    margin: 0 0 var(--space-3);
+    font-size: 0.9375rem;
+  }
+
+  @media (min-width: 1024px) {
+    .grid {
+      grid-template-columns: minmax(0, 520px) minmax(0, 1fr);
+      gap: var(--space-20);
+      align-items: center;
+    }
+  }
+</style>

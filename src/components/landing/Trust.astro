@@ -1,0 +1,115 @@
+---
+import { LANDING } from "#config/landing.ts";
+---
+
+<section class="section">
+  <div class="container">
+    <header class="head">
+      <p class="eyebrow">Under the hood</p>
+      <h2 class="display h2">Built to be trusted<br />with your repository.</h2>
+    </header>
+    <div class="grid">
+      <figure class="log-figure">
+        <figcaption class="sr-only">Commands the guard refuses or cleans up</figcaption>
+        <div class="log">
+          {
+            LANDING.guard.map((line) => (
+              <>
+                <code class="command">$ {line.command}</code>
+                <code class:list={["outcome", { refused: line.isRefused }]}>{line.outcome}</code>
+              </>
+            ))
+          }
+        </div>
+      </figure>
+      <dl class="facts">
+        {
+          LANDING.facts.map((fact) => (
+            <div class="fact">
+              <dt>{fact.title}</dt>
+              <dd class="muted">{fact.detail}</dd>
+            </div>
+          ))
+        }
+      </dl>
+    </div>
+  </div>
+</section>
+
+<style>
+  .head {
+    display: grid;
+    gap: var(--space-4);
+    margin-bottom: var(--space-8);
+  }
+
+  .head .eyebrow {
+    margin: 0;
+  }
+
+  .grid {
+    display: grid;
+    gap: var(--space-8);
+  }
+
+  .log-figure {
+    min-width: 0;
+    margin: 0;
+  }
+
+  .log {
+    margin: 0;
+    padding: var(--space-4);
+    overflow-x: auto;
+    border: 1px solid var(--line);
+    background: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    line-height: 1.8;
+  }
+
+  .log code {
+    display: block;
+    font: inherit;
+    white-space: pre;
+  }
+
+  .outcome {
+    padding-inline-start: 2ch;
+    color: var(--ok);
+  }
+
+  .outcome.refused {
+    color: var(--failed);
+  }
+
+  .facts {
+    display: grid;
+    margin: 0;
+  }
+
+  .fact {
+    padding: var(--space-4) 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  dt {
+    font-size: 1.125rem;
+  }
+
+  dd {
+    margin: var(--space-1) 0 0;
+  }
+
+  @media (min-width: 1024px) {
+    .grid {
+      grid-template-columns: minmax(0, 640px) minmax(0, 1fr);
+      gap: var(--space-16);
+      align-items: start;
+    }
+
+    .log {
+      font-size: 0.875rem;
+    }
+  }
+</style>

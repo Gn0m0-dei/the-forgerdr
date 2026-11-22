@@ -1,0 +1,68 @@
+import { ScreenId, type Step } from "#model/screen.ts";
+
+export const STEPS: readonly Step[] = Object.freeze([
+  {
+    body: "Say what you want, or pick issues, work items, OpenSpec changes or pull requests. Each item gets its own titled session, here or in a worktree with its own dev server.",
+    card: { scale: 0.25, x: 0.19, y: 0.15 },
+    decide: "What goes in, and where it runs.",
+    screen: ScreenId.StartWork,
+    stage: { scale: 0.5, x: 0.19, y: 0.15 },
+    title: "Start work",
+  },
+  {
+    body: "The golem classifies the request, asks only what matters and writes its understanding back. Its questions reach the inbox from any session.",
+    card: { scale: 0.25, x: 0.675, y: 0.16 },
+    decide: "Approve the design, or change it.",
+    screen: ScreenId.InboxDesign,
+    stage: { scale: 0.5, x: 0.5, y: 0.1 },
+    title: "The design, before any code",
+  },
+  {
+    body: "Bite-sized tasks an engineer new to the code could follow: the exact files, the failing test, the minimal code and the check.",
+    card: { scale: 0.25, x: 0.675, y: 0.17 },
+    decide: "Approve the plan, or send it back.",
+    screen: ScreenId.InboxPlan,
+    stage: { scale: 0.5, x: 0.5, y: 0.15 },
+    title: "The plan",
+  },
+  {
+    body: "Task by task with test-driven development and a ledger. A fresh reviewer reads the diff at the end; the forge floor shows every step of every item.",
+    card: { scale: 0.25, x: 0.3, y: 0.45 },
+    decide: "Nothing: watch, or discuss with the golem.",
+    screen: ScreenId.Floor,
+    stage: { scale: 0.5, x: 0.08, y: 0.2 },
+    title: "Build, red then green",
+  },
+  {
+    body: "A review round snapshots what the agent changed. Comment on any line; each comment follows its line from round to round.",
+    card: { scale: 0.25, x: 0.24, y: 0.5 },
+    decide: "Request changes, or stamp the round.",
+    screen: ScreenId.ReviewRound,
+    stage: { scale: 0.5, x: 0.2, y: 0.16 },
+    title: "Review what it changed",
+  },
+  {
+    body: "A fresh auditor reads the diff and a second agent tries to refute every critical and high finding. Nothing is ticked for you.",
+    card: { scale: 0.25, x: 0.2, y: 0.25 },
+    decide: "Which findings get fixed.",
+    screen: ScreenId.Security,
+    stage: { scale: 0.5, x: 0.2, y: 0.12 },
+    title: "Security, triaged by you",
+  },
+  {
+    body: "Commit, push, pull request and the comment on the item: each waits in the inbox as drafted, until you stamp it.",
+    card: { scale: 0.25, x: 0.675, y: 0.16 },
+    decide: "Every write that leaves your machine.",
+    screen: ScreenId.InboxShip,
+    stage: { scale: 0.5, x: 0.5, y: 0.1 },
+    title: "Ship",
+  },
+  {
+    body: "Every finding explained and grouped by severity. You tick them one by one, edit the drafts in place and publish them with one stamp.",
+    card: { scale: 0.25, x: 0.71, y: 0.27 },
+    decide: "What is said, in your words.",
+    screen: ScreenId.PrColleague,
+    stage: { scale: 0.5, x: 0.5, y: 0.26 },
+    title: "Your colleagues' pull requests",
+  },
+]);

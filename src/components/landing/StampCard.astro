@@ -1,0 +1,165 @@
+---
+import { LANDING } from "#config/landing.ts";
+import { withBase } from "#helpers/url.ts";
+---
+
+<article class="card" data-stamp-card aria-label="A commit waiting at its gate">
+  <header class="head">
+    <span class="display kind">Gate · commit</span>
+    <span class="display age"><span class="sr-only">Waiting for </span><time datetime="PT2M">2:00</time></span>
+  </header>
+  <p class="message">{LANDING.gateMessage}</p>
+  <table class="files">
+    <caption class="sr-only">Files the commit takes</caption>
+    <tbody>
+      {
+        LANDING.gateFiles.map((file) => (
+          <tr>
+            <td>{file.path}</td>
+            <td class="added">+{file.added}</td>
+            <td class="removed">−{file.removed}</td>
+          </tr>
+        ))
+      }
+    </tbody>
+  </table>
+  <p class="note muted">Claude Code's own dialog stays open in the pane too; whichever answers first wins.</p>
+  <div class="actions">
+    <button class="stamp-button" type="button" data-stamp>Stamp gnomemark</button>
+    <span class="key" aria-hidden="true">Discuss</span>
+  </div>
+  <img class="gnomemark pixelated" src={withBase("sprites/gnomemark.svg")} alt="" width="291" height="121" />
+  <p class="status" aria-live="polite" data-stamp-status></p>
+</article>
+
+<script>
+  import "#scripts/stamp.ts";
+</script>
+
+<style>
+  .card {
+    position: relative;
+    display: grid;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    border: 2px solid var(--needs);
+    background: var(--bg-2);
+    transition: border-color 300ms ease-out, opacity 300ms ease-out;
+  }
+
+  .head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    font-size: 0.6875rem;
+    letter-spacing: 0.15em;
+  }
+
+  .kind {
+    color: var(--needs);
+  }
+
+  .age {
+    color: var(--fg-muted);
+  }
+
+  .message {
+    margin: 0;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+  }
+
+  .files {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+  }
+
+  .files td {
+    padding: var(--space-1) var(--space-3);
+  }
+
+  .files tr:first-child td {
+    padding-top: var(--space-3);
+  }
+
+  .files tr:last-child td {
+    padding-bottom: var(--space-3);
+  }
+
+  .files td:first-child {
+    word-break: break-all;
+  }
+
+  .added {
+    color: var(--ok);
+    text-align: right;
+  }
+
+  .removed {
+    color: var(--failed);
+  }
+
+  .note {
+    margin: 0;
+    font-size: 0.8125rem;
+  }
+
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .stamp-button {
+    min-height: 44px;
+    padding-inline: var(--space-4);
+    border: 0;
+    background: var(--done);
+    color: var(--ink);
+    cursor: pointer;
+    font: inherit;
+  }
+
+  .stamp-button[aria-disabled="true"] {
+    cursor: default;
+    opacity: 0.6;
+  }
+
+  .gnomemark {
+    position: absolute;
+    right: var(--space-4);
+    bottom: var(--space-12);
+    width: min(290px, 70%);
+    height: auto;
+    opacity: 0;
+    pointer-events: none;
+    transform: scale(1.6) rotate(-8deg);
+  }
+
+  .status {
+    min-height: 1.5em;
+    margin: 0;
+    color: var(--done);
+    font-size: 0.875rem;
+  }
+
+  .card[data-stamped] {
+    border-color: var(--line);
+  }
+
+  .card[data-stamped] .gnomemark {
+    opacity: 1;
+    transform: scale(1) rotate(-8deg);
+    transition: opacity 120ms steps(3), transform 180ms steps(3);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card,
+    .card[data-stamped] .gnomemark {
+      transition: none;
+    }
+  }
+</style>

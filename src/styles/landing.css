@@ -1,5 +1,10 @@
 /* What the landing page's sections share. Mobile first; the desktop layout starts at 1024px. */
 
+:root {
+  --nav-height: 65px;
+  scroll-padding-top: var(--nav-height);
+}
+
 body {
   margin: 0;
   background: var(--bg-0);
@@ -114,4 +119,10 @@ a {
   .section {
     padding-block: var(--space-30);
   }
+}
+
+.tap {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
 }

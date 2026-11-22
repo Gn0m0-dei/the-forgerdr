@@ -1,0 +1,282 @@
+---
+import { SCREENS } from "#config/screens.ts";
+import { STEPS } from "#config/steps.ts";
+import { withBase } from "#helpers/url.ts";
+import { cropVariables, zoomTransform } from "#helpers/zoom.ts";
+
+const STAGE = { height: 450, width: 720 };
+const stepNumber = (index: number) => String(index + 1).padStart(2, "0");
+const shots = STEPS.map((step) => ({ ...step, screen: SCREENS[step.screen] }));
+---
+
+<section class="section" id="how-it-works">
+  <div class="container">
+    <header class="head">
+      <p class="eyebrow">How it works</p>
+      <h2 class="display h2">One item, from idea<br />to pull request.</h2>
+      <p class="prose muted">
+        Run it all with <code>--auto</code>, or drive it step by step. Either way
+        the golems work and the marks are yours.
+      </p>
+    </header>
+    <div class="layout" style={`--stage-width: ${STAGE.width}px; --stage-height: ${STAGE.height}px;`}>
+      <div class="stage-column" aria-hidden="true">
+        <div class="stage">
+          {
+            shots.map((step, index) => (
+              <img
+                class:list={["pixelated", { active: index === 0 }]}
+                data-stage-step={index}
+                src={withBase(`screens/${step.screen.file}`)}
+                alt=""
+                width={step.screen.size.width}
+                height={step.screen.size.height}
+                loading="lazy"
+                style={`--shot: ${zoomTransform(step.stage, step.screen.size, STAGE)};`}
+              />
+            ))
+          }
+        </div>
+        <ol class="progress">
+          {shots.map((_, index) => <li class:list={["display", { active: index === 0 }]} data-progress={index}>{stepNumber(index)}</li>)}
+        </ol>
+        <p class="note muted">
+          The window stays put while the steps scroll past. Each step moves it onto
+          its part at 1× of the app's own pixels, so nothing blurs.
+        </p>
+      </div>
+      <ol class="steps">
+        {
+          shots.map((step, index) => (
+            <li class:list={["step", { active: index === 0 }]} data-step={index}>
+              <a class="card" href={withBase(`screens/${step.screen.file}`)}>
+                <img
+                  src={withBase(`screens/${step.screen.file}`)}
+                  alt={step.screen.alt}
+                  width={step.screen.size.width}
+                  height={step.screen.size.height}
+                  loading="lazy"
+                  style={cropVariables(step.card, step.screen.size)}
+                />
+                <span class="zoom display">Full screen</span>
+              </a>
+              <h3>
+                <span class="number display">{stepNumber(index)}</span>
+                {step.title}
+              </h3>
+              <p class="body muted">{step.body}</p>
+              <p class="decide">
+                <span class="display">You decide</span>
+                {step.decide}
+              </p>
+            </li>
+          ))
+        }
+      </ol>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "#scripts/steps.ts";
+</script>
+
+<style>
+  .head {
+    display: grid;
+    gap: var(--space-4);
+    max-width: 720px;
+    margin-bottom: var(--space-12);
+  }
+
+  .head .eyebrow {
+    margin: 0;
+  }
+
+  code {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  .stage-column {
+    display: none;
+  }
+
+  .steps {
+    display: grid;
+    gap: var(--space-12);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .step {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .card {
+    position: relative;
+    display: block;
+    overflow: hidden;
+    aspect-ratio: 16 / 10;
+    border: 1px solid var(--line);
+    background: var(--bg-1);
+  }
+
+  .card img {
+    position: absolute;
+    top: var(--crop-top);
+    left: var(--crop-left);
+    width: var(--crop-width);
+    max-width: none;
+    height: auto;
+  }
+
+  .zoom {
+    position: absolute;
+    right: var(--space-2);
+    bottom: var(--space-2);
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--line);
+    background: var(--ink);
+    font-size: 0.625rem;
+    letter-spacing: 0.12em;
+  }
+
+  h3 {
+    display: flex;
+    align-items: baseline;
+    gap: var(--space-3);
+    margin: 0;
+    font-size: 1.25rem;
+    font-weight: 500;
+  }
+
+  .number {
+    color: var(--ember);
+    font-size: 0.875rem;
+  }
+
+  .body {
+    margin: 0;
+  }
+
+  .decide {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: var(--space-2) var(--space-3);
+    margin: 0;
+  }
+
+  .decide .display {
+    color: var(--needs);
+    font-size: 0.625rem;
+    letter-spacing: 0.15em;
+  }
+
+  @media (min-width: 1024px) {
+    .layout {
+      display: grid;
+      grid-template-columns: var(--stage-width) minmax(0, 1fr);
+      gap: var(--space-16);
+      align-items: start;
+    }
+
+    .stage-column {
+      position: sticky;
+      top: calc(var(--nav-height) + var(--space-8));
+      display: grid;
+      gap: var(--space-3);
+    }
+
+    .stage {
+      position: relative;
+      width: var(--stage-width);
+      height: var(--stage-height);
+      overflow: hidden;
+      border: 1px solid var(--line);
+      background: var(--bg-1);
+    }
+
+    .stage img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      max-width: none;
+      opacity: 0;
+      transform: var(--shot);
+      transform-origin: 0 0;
+      transition: opacity 240ms steps(4);
+    }
+
+    .stage img.active {
+      opacity: 1;
+    }
+
+    .progress {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: var(--space-1);
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .progress li {
+      padding: var(--space-1) 0;
+      border: 1px solid var(--line);
+      color: var(--fg-muted);
+      font-size: 0.6875rem;
+      text-align: center;
+    }
+
+    .progress li.done {
+      border-color: var(--done);
+      color: var(--done);
+    }
+
+    .progress li.active {
+      border: 2px solid var(--working);
+      color: var(--working);
+    }
+
+    .note {
+      margin: 0;
+      font-size: 0.8125rem;
+    }
+
+    .steps {
+      gap: 0;
+    }
+
+    .step {
+      min-height: 52dvh;
+      align-content: center;
+      padding: var(--space-6);
+      border-left: 3px solid transparent;
+      transition: background-color 240ms steps(4), border-color 240ms steps(4);
+    }
+
+    .step:not(.active) h3 {
+      color: var(--fg-muted);
+    }
+
+    .step.active {
+      border-left-color: var(--ember);
+      background: var(--bg-1);
+    }
+
+    .card {
+      display: none;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .stage img,
+    .step {
+      transition: none;
+    }
+  }
+</style>
