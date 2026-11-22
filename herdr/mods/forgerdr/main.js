@@ -14,6 +14,7 @@ import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
 import { modeDialog } from "./roles/mode.js";
 import { newWorktree } from "./roles/new-worktree.js";
+import { news } from "./roles/news.js";
 import { pane } from "./roles/pane.js";
 import { worktreeRemoval } from "./roles/remove-worktree.js";
 import { review } from "./roles/review.js";
@@ -46,6 +47,7 @@ const ROLES = {
   lanes,
   manual,
   mode: modeDialog,
+  news,
   pane,
   review,
   round,

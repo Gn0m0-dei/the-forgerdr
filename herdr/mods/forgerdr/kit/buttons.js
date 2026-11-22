@@ -220,6 +220,24 @@ export const updateChip = (version) =>
     .child(text(`v${version} forged · restart`, "ui", 12, BRAND.forgeGold));
 
 /**
+ * A new forgerdr is out, beside Herdr's chip and in its gold: a click opens the gnome's notice. Putting it in that
+ * failed shows in the failed colour.
+ * @param {string} label FORGERDR x.y.z, and how putting it in goes
+ * @param {boolean} failed
+ */
+export const forgerdrChip = (label, failed) => {
+  const colour = failed ? tokens().failed : BRAND.forgeGold;
+  return h_flex()
+    .flex_none()
+    .items_center()
+    .px(10)
+    .py(3)
+    .border(1)
+    .border_color(colour)
+    .child(text(label, "ui", 12, colour));
+};
+
+/**
  * A button that is only its words, quiet until it is needed: ? MANUAL.
  * @param {string} label
  */

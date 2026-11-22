@@ -128,6 +128,13 @@ import {
   wheeled,
 } from "../herdr/mods/forgerdr/strip.js";
 import {
+  checkDue,
+  newerVersion,
+  parseUpdate,
+  phaseOf,
+  UPDATE_PHASE,
+} from "../herdr/mods/forgerdr/update.js";
+import {
   bandOf,
   clockOf,
   fillLevel,
@@ -3542,4 +3549,79 @@ test("the manual's search keeps the rows whose words or keys hold it", () => {
     ["Zoom pane"],
   );
   strictEqual(filterRows(rows, "").length, rows.length);
+});
+
+test("versions compare by their numbers, not their letters", () => {
+  strictEqual(newerVersion("0.10.0", "0.9.9"), true);
+  strictEqual(newerVersion("0.35.0", "0.35.0"), false);
+  strictEqual(newerVersion("0.35.0", "1.0.0"), false);
+});
+
+const UPDATE = Object.freeze({
+  applied: null,
+  applying: null,
+  checked: 1000,
+  error: null,
+  installed: "0.35.0",
+  latest: "0.36.0",
+});
+
+test("the update's state is read only in the shape forge-update.sh writes", () => {
+  deepStrictEqual(
+    parseUpdate(JSON.stringify({ ...UPDATE, updated: 5 })),
+    UPDATE,
+  );
+  deepStrictEqual(
+    parseUpdate('{"installed":"0.35.0","latest":"0.36.0","checked":1000}'),
+    UPDATE,
+  );
+  strictEqual(parseUpdate("not json"), null);
+  strictEqual(parseUpdate("[]"), null);
+  strictEqual(parseUpdate('{"installed":3,"latest":"0.36.0"}'), null);
+  strictEqual(
+    parseUpdate(
+      '{"installed":"0.35.0","latest":"0.36.0","checked":1,"applying":"soon"}',
+    ),
+    null,
+  );
+});
+
+test("an update is offered, under way, failed or applied, and an apply that never ends counts as failed", () => {
+  const minute = 60_000;
+  strictEqual(phaseOf(null, 0), UPDATE_PHASE.none);
+  strictEqual(phaseOf(UPDATE, 0), UPDATE_PHASE.available);
+  strictEqual(
+    phaseOf({ ...UPDATE, error: "plugin update: boom" }, 0),
+    UPDATE_PHASE.failed,
+  );
+  strictEqual(
+    phaseOf({ ...UPDATE, applying: 1000 }, 1000 + minute),
+    UPDATE_PHASE.applying,
+  );
+  strictEqual(
+    phaseOf({ ...UPDATE, applying: 1000 }, 1000 + 16 * minute),
+    UPDATE_PHASE.failed,
+  );
+  strictEqual(
+    phaseOf({ ...UPDATE, applied: "0.36.0", installed: "0.36.0" }, 0),
+    UPDATE_PHASE.applied,
+  );
+  strictEqual(
+    phaseOf({ ...UPDATE, installed: "0.36.0" }, 0),
+    UPDATE_PHASE.none,
+  );
+  // An apply that died after the plugin went in leaves nothing to offer.
+  strictEqual(
+    phaseOf(
+      { ...UPDATE, applying: 1000, installed: "0.36.0" },
+      1000 + 16 * minute,
+    ),
+    UPDATE_PHASE.none,
+  );
+});
+
+test("a check is due with none yet and an hour after the last", () => {
+  strictEqual(checkDue(null, 0), true);
+  strictEqual(checkDue(UPDATE, 1000 + 59 * 60_000), false);
+  strictEqual(checkDue(UPDATE, 1000 + 61 * 60_000), true);
 });
