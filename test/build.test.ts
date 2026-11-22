@@ -7,9 +7,16 @@ const SITE = Object.freeze({
   base: "/the-forgerdr/",
   dist: "dist",
   pages: ["index.html", "docs/index.html"],
+  media: "public/media",
+  mediaBudget: 7 * 1024 * 1024,
   screens: "public/screens",
   screensBudget: 4 * 1024 * 1024,
 });
+
+const folderBytes = (folder: string) =>
+  readdirSync(folder)
+    .map((name) => statSync(join(folder, name)).size)
+    .reduce((total, size) => total + size, 0);
 
 // A root-relative path in an href, a src or a poster, without what follows a ? or a #.
 const ROOT_PATH = /(?<=\s(?:href|src|poster)=")\/(?!\/)[^"?#]*/g;
@@ -57,10 +64,8 @@ describe("the built site", () => {
     });
   });
 
-  test("keeps the screens within their budget", () => {
-    const bytes = readdirSync(SITE.screens)
-      .map((name) => statSync(join(SITE.screens, name)).size)
-      .reduce((total, size) => total + size, 0);
-    assert.ok(bytes <= SITE.screensBudget, `${bytes} bytes of screens`);
+  test("keeps the screens and the video within their budgets", () => {
+    assert.ok(folderBytes(SITE.screens) <= SITE.screensBudget, `${folderBytes(SITE.screens)} bytes of screens`);
+    assert.ok(folderBytes(SITE.media) <= SITE.mediaBudget, `${folderBytes(SITE.media)} bytes of video`);
   });
 });

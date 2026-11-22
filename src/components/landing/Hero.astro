@@ -2,7 +2,6 @@
 import CopyCommand from "#components/landing/CopyCommand.astro";
 import { LANDING } from "#config/landing.ts";
 import { SCREENS } from "#config/screens.ts";
-import { SITE } from "#config/site.ts";
 import { withBase } from "#helpers/url.ts";
 import { ScreenId } from "#model/screen.ts";
 
@@ -19,7 +18,7 @@ const appWindow = SCREENS[ScreenId.MainWindow];
       </p>
       <CopyCommand />
       <p class="secondary">
-        <a href={withBase("docs/")}>Read the docs →</a>
+        <a class="tap" href={withBase("docs/")}>Read the docs →</a>
         <span class="muted">Open source · MIT</span>
       </p>
     </div>
@@ -34,22 +33,34 @@ const appWindow = SCREENS[ScreenId.MainWindow];
           }
         </span>
       </div>
-      <div class="window">
-        <slot name="window">
-          <img
-            src={withBase(`screens/${appWindow.file}`)}
-            alt={`${appWindow.alt} ${SITE.tagline}`}
-            width={appWindow.size.width}
-            height={appWindow.size.height}
-          />
-        </slot>
+      <div class="window" data-walkthrough-frame>
+        <video
+          data-walkthrough
+          muted
+          loop
+          playsinline
+          preload="metadata"
+          poster={withBase("media/walkthrough-poster.png")}
+          width={appWindow.size.width}
+          height={appWindow.size.height}
+          aria-label={`A walkthrough of the forgerdr in the herdr app, from Start work to a colleague's pull request. ${appWindow.alt}`}
+        >
+          <source src={withBase("media/walkthrough.av1.webm")} type='video/webm; codecs="av01.0.08M.08"' />
+          <source src={withBase("media/walkthrough.mp4")} type='video/mp4; codecs="avc1.640032"' />
+        </video>
+        <button class="toggle display" type="button" data-video-toggle>Play</button>
       </div>
     </div>
   </div>
 </section>
 
+<script>
+  import "#scripts/video.ts";
+</script>
+
 <style>
   .hero {
+    --stage-bleed: 160px;
     overflow: hidden;
     padding-block: var(--space-8) var(--space-12);
   }
@@ -107,8 +118,24 @@ const appWindow = SCREENS[ScreenId.MainWindow];
   }
 
   .window {
+    position: relative;
     border: 1px solid var(--line);
     line-height: 0;
+  }
+
+  .toggle {
+    position: absolute;
+    left: var(--space-3);
+    bottom: var(--space-3);
+    min-height: 44px;
+    padding-inline: var(--space-4);
+    border: 1px solid var(--line);
+    background: var(--ink);
+    color: var(--fg);
+    cursor: pointer;
+    font-size: 0.6875rem;
+    letter-spacing: 0.15em;
+    line-height: 1;
   }
 
   .window :global(img),
@@ -135,7 +162,7 @@ const appWindow = SCREENS[ScreenId.MainWindow];
 
     .stage {
       padding-top: 96px;
-      margin-right: calc(-1 * var(--space-16) - 160px);
+      margin-right: calc(-1 * var(--space-16) - var(--stage-bleed));
     }
 
     .crew {

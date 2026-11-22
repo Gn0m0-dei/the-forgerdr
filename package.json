@@ -23,7 +23,7 @@
     "build": "astro check && astro build",
     "preview": "astro preview",
     "check": "astro check",
-    "test": "node --test \"src/**/*.spec.ts\" \"test/**/*.test.ts\""
+    "test": "node --experimental-transform-types --no-warnings=ExperimentalWarning --test \"src/**/*.spec.ts\" \"test/**/*.test.ts\""
   },
   "dependencies": {
     "@astrojs/starlight": "0.43.1",
