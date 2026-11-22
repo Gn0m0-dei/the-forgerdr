@@ -1,0 +1,38 @@
+/* Starlight's dark theme, mapped onto forge-night. Unlayered, so it wins over Starlight's own layers. */
+
+:root {
+  --sl-color-accent-low: var(--glow);
+  --sl-color-accent: var(--ember);
+  --sl-color-accent-high: var(--ember-hot);
+  --sl-color-white: var(--fg);
+  --sl-color-gray-1: var(--fg);
+  --sl-color-gray-2: var(--fg-soft);
+  --sl-color-gray-3: var(--fg-muted);
+  --sl-color-gray-4: var(--fg-dim);
+  --sl-color-gray-5: var(--line);
+  --sl-color-gray-6: var(--bg-2);
+  --sl-color-black: var(--bg-0);
+  --sl-color-bg-nav: var(--bg-1);
+  --sl-color-bg-sidebar: var(--bg-0);
+  --sl-color-hairline: var(--line);
+  --sl-color-hairline-shade: var(--ink);
+  --sl-font: var(--font-ui);
+  --sl-font-mono: var(--font-mono), ui-monospace, monospace;
+  --sl-content-width: 45rem;
+}
+
+.sl-markdown-content :is(img, picture img) {
+  image-rendering: pixelated;
+  border: 1px solid var(--line);
+}
+
+.site-title {
+  font-family: var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ember-hot);
+  outline-offset: 2px;
+}

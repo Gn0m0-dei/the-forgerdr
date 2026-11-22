@@ -1,0 +1,10 @@
+---
+import Landing from "#layouts/Landing.astro";
+import { SITE } from "#config/site.ts";
+---
+
+<Landing title={`${SITE.title} · ${SITE.tagline}`} description={SITE.description}>
+  <main id="main">
+    <h1>{SITE.tagline}</h1>
+  </main>
+</Landing>

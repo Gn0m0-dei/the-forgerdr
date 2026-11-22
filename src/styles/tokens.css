@@ -1,0 +1,71 @@
+/* The forge-night palette and the brand of the herdr app's forgerdr layout. */
+
+@font-face {
+  font-display: swap;
+  font-family: "Silkscreen";
+  font-weight: 400;
+  src: url("../assets/fonts/Silkscreen-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Silkscreen";
+  font-weight: 700;
+  src: url("../assets/fonts/Silkscreen-Bold.ttf") format("truetype");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Pixelify Sans";
+  font-weight: 400;
+  src: url("../assets/fonts/PixelifySans-Regular.ttf") format("truetype");
+}
+
+@font-face {
+  font-display: swap;
+  font-family: "Pixelify Sans";
+  font-weight: 500;
+  src: url("../assets/fonts/PixelifySans-Medium.ttf") format("truetype");
+}
+
+:root {
+  --bg-0: #141318;
+  --bg-1: #1c1b20;
+  --bg-2: #25242a;
+  --bg-3: #313035;
+  --line: #3f3e43;
+  --fg: #ece4d8;
+  --fg-soft: #cfc7bb;
+  --fg-muted: #99948e;
+  --fg-dim: #6e6876;
+  --ink: #0d0d12;
+  --ember: #ff6b1a;
+  --ember-hot: #ffb347;
+  --ember-deep: #b8380c;
+  --glow: #40251d;
+  --forge-gold: #e5a93b;
+  --accent: #6fa8ff;
+  --working: #5fd7d7;
+  --needs: #f5b43c;
+  --done: #f2de6e;
+  --failed: #f0607a;
+  --ok: #8fcf7a;
+  --font-display: "Silkscreen", ui-monospace, monospace;
+  --font-ui: "Pixelify Sans", system-ui, sans-serif;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --space-16: 64px;
+  --space-20: 80px;
+  --space-24: 96px;
+  --space-30: 120px;
+  color-scheme: dark;
+}
+
+.pixelated {
+  image-rendering: pixelated;
+}
