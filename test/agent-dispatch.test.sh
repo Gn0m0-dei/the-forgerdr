@@ -66,6 +66,10 @@ expect "and says why" yes "$(logged "statusline-setup has no definition")"
 expect "a type that is a path is refused" "" "$(in_herdr decision ../../notes)"
 expect "and says why" yes "$(logged "unexpected agent type: ../../notes")"
 expect "no messaging socket, in-process" "" "$(HC_TERMINAL_ID=t5 decision general-purpose)"
+expect "a claude -p run in a herdr terminal keeps its agents in-process" "" \
+  "$(CLAUDE_CODE_ENTRYPOINT=sdk-cli in_herdr decision general-purpose)"
+expect "and opens no pane for them" "no no" "$(called hc run) $(called herdr-app "do" pane.split)"
+expect "and says why" yes "$(logged "a non-interactive run (claude -p)")"
 
 fresh
 printf '%s\n' '{"type":"assistant","message":{"model":"claude-haiku-5-5"}}' '{"type":"assistant","message":{"model":"<synthetic>"}}' > "$sandbox/transcript.jsonl"
@@ -276,6 +280,14 @@ expect "nor a second done message" "" "$(hook stop false "$task_line" "$report_l
 expect "a note from Claude Code does not open a turn" yes "$(contains "$(hook stop false "$task_line" "$report_line" "$meta_line" "$text_line" | jq -r '.systemMessage // empty')" DONE)"
 expect "a new task from the session that dispatched it needs its own report" block "$(stop "$task_line" "$report_line" "$peer_task_line" "$text_line")"
 expect "and once reported, it is done again" yes "$(contains "$(hook stop false "$task_line" "$report_line" "$peer_task_line" "$report_line" "$text_line" | jq -r '.systemMessage // empty')" DONE)"
+
+new_record "done"
+expect "a claude -p run started from the agent's Bash is not the agent: never reminded" "" \
+  "$(CLAUDE_CODE_ENTRYPOINT=sdk-cli hook stop false "$task_line" "$text_line")"
+CLAUDE_CODE_ENTRYPOINT=sdk-cli hook session false "$task_line" >/dev/null
+CLAUDE_CODE_ENTRYPOINT=sdk-cli hook prompt false "$task_line" >/dev/null
+expect "nor does it take over the agent's record" "done  " \
+  "$(jq -r '"\(.state) \(.claude_session) \(.socket)"' "$agent_record")"
 
 new_record "done"
 fakes_reset

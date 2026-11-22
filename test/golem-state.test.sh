@@ -55,6 +55,8 @@ expect "and so does claude started again in the terminal" false "$(exists "$FORG
 : > "$FAKE_CALLS"
 printf '{"error":"rate_limit"}' | bash "$hook" crack
 expect "outside herdr nothing is marked" "" "$(calls)"
+printf '{"hook_event_name":"Stop"}' | HC_TERMINAL_ID=t7 CLAUDE_CODE_ENTRYPOINT=sdk-cli bash "$hook" rest
+expect "nor by a claude -p run in a herdr terminal, which no golem stands for" "" "$(calls)"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

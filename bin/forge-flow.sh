@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # The forge floor's flows (forge_flows_dir): the flow of the item a Claude session works, in a file named for the herdr
 # terminal it runs in, which only that session writes. The forgerdr skills report what only they know, the hooks what
-# they see (hooks/flow.sh, hooks/agent-dispatch.sh), and the forgerdr mod lists them. Outside herdr, in an agent forgerdr
-# dispatched and in a security session launched with --report-to (each with FORGE_PARENT_TERMINAL), it writes nothing.
+# they see (hooks/flow.sh, hooks/agent-dispatch.sh), and the forgerdr mod lists them. Outside herdr, in a
+# non-interactive run (claude -p, the Agent SDK), in an agent forgerdr dispatched and in a security session launched
+# with --report-to (each with FORGE_PARENT_TERMINAL), it writes nothing.
 # The cells and what reports them: references/flows.md.
 #   start <auto|manual> <feature|bug|content|change> <key> <title...>
 #                       names the item once its brief knows it; a flow of another key starts afresh.
@@ -58,7 +59,7 @@ json_words() {
 # The flow file of this session's terminal, or nothing when this session keeps no flow.
 own_flow() {
   local terminal="${HC_TERMINAL_ID:-}"
-  [ -n "$terminal" ] && [ -z "${FORGE_PARENT_TERMINAL:-}" ] || return 0
+  forge_attended && [ -z "${FORGE_PARENT_TERMINAL:-}" ] || return 0
   [[ "$terminal" =~ $TERMINAL_PATTERN ]] || forge_die "not a herdr terminal id: $terminal"
   printf '%s/%s.json\n' "$flows" "$terminal"
 }

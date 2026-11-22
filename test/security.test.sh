@@ -299,6 +299,9 @@ launched() { FAKE_TAB_SIZE="310 66" FAKE_LS_PANES=1 lead launch "$@"; }
 fakes_reset
 cannot='forgerdr: cannot open the security session:'
 expect "launch outside the herdr app is refused" "$cannot not inside the herdr app" "$(bash "$script" launch 2>&1 || true)"
+expect "and from a claude -p run, which would end before the report" \
+  "$cannot a non-interactive run (claude -p) ends before its report could reach it" \
+  "$(CLAUDE_CODE_ENTRYPOINT=sdk-cli lead launch 2>&1 || true)"
 layout main
 expect "and in another layout" "$cannot the security view needs the forgerdr layout (shown: main)" \
   "$(lead launch --cwd repo 2>&1 || true)"

@@ -18,7 +18,8 @@
 #           with it. Then a turn that ends on a question typed in the chat, which the inbox never sees, goes back once
 #           to ask it with AskUserQuestion. Only the final message is read, never the transcript. An agent forgerdr
 #           dispatched (FORGE_REPORT_TO) asks the session that dispatched it instead: hooks/agent-state.sh.
-# Outside herdr it does nothing: the pane's dialog is the only one.
+# Outside herdr it does nothing: the pane's dialog is the only one. Nor for a claude -p run in a herdr terminal, which
+# nobody answers there and which has no AskUserQuestion: Claude Code denies what it would ask, as in any claude -p.
 # shellcheck source-path=SCRIPTDIR/..
 set -euo pipefail
 
@@ -26,7 +27,7 @@ plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 # shellcheck source=bin/forge-lib.sh
 . "$plugin_root/bin/forge-lib.sh"
 
-forge_in_herdr || exit 0
+forge_attended || exit 0
 inbox="$(forge_inbox_dir)"
 readonly PAUSE="${FORGE_INBOX_PAUSE:-0.5}"
 

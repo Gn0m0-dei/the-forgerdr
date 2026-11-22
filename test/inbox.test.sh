@@ -62,6 +62,15 @@ settling() { printf '%s' "$2" | HC_TERMINAL_ID="$1" bash "$hook" settle; }
 printf '%s' "$push" | bash "$hook" ask > "$sandbox/outside"
 expect "outside herdr the hook says nothing" "" "$(cat "$sandbox/outside")"
 expect "and puts nothing in the inbox" "no" "$([ -e "$inbox" ] && echo yes || echo no)"
+# Nor for a non-interactive run (claude -p, the Agent SDK) in a herdr terminal: nobody is at it to answer.
+printf '%s' "$push" | HC_TERMINAL_ID=t7 CLAUDE_CODE_ENTRYPOINT=sdk-cli bash "$hook" ask > "$sandbox/printed" &
+printed=$!
+for _ in $(seq 1 100); do kill -0 "$printed" 2>/dev/null || break; sleep 0.05; done
+expect "a claude -p's permission request waits on no inbox" "no" \
+  "$(kill -0 "$printed" 2>/dev/null && echo yes || echo no)"
+expect "and goes in none" "no" "$([ -e "$inbox" ] && echo yes || echo no)"
+kill "$printed" 2>/dev/null || true
+wait "$printed" 2>/dev/null || true
 
 asking "$push"
 id="$(requests)"
@@ -265,6 +274,10 @@ expect "it blocks the stop" "block" "$(jq -r '.decision' <<<"$sent_back")"
 expect "and tells Claude to ask it with AskUserQuestion" "yes" \
   "$(jq -r '.reason | if startswith("Your turn ended on a question typed in the chat") and contains("AskUserQuestion") then "yes" else "no" end' <<<"$sent_back")"
 expect "outside herdr it goes nowhere" "" "$(stop_input "$typed" | bash "$hook" stop)"
+expect "nor in a claude -p run in a herdr terminal, which has no AskUserQuestion and nobody to answer" "" \
+  "$(stop_input "$typed" | HC_TERMINAL_ID=t7 CLAUDE_CODE_ENTRYPOINT=sdk-cli bash "$hook" stop)"
+expect "an interactive session's still goes back" "block" \
+  "$(stop_input "$typed" | HC_TERMINAL_ID=t7 CLAUDE_CODE_ENTRYPOINT=cli bash "$hook" stop | jq -r '.decision')"
 expect "sent back once, never twice" "" "$(stopping "$typed" true)"
 expect "an agent forgerdr dispatched asks the session that dispatched it instead" "" \
   "$(stop_input "$typed" | HC_TERMINAL_ID=t7 FORGE_REPORT_TO=uds:/tmp/parent.sock bash "$hook" stop)"

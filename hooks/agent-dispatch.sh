@@ -8,8 +8,8 @@
 # It gets the agent's definition (instructions, model, tool list) and this session's permission mode, and sends its
 # final report back with SendMessage. A record of it is kept (hooks/agent-state.sh keeps it up to date), so a later
 # SendMessage to its name gives it another task. The Agent call is then denied with a reason that says so. Outside the
-# herdr app, for a fork, for a type it cannot reproduce, or when anything here fails, the subagent runs in this session as
-# usual, and inside the app the reason is logged.
+# herdr app, in a claude -p run, for a fork, for a type it cannot reproduce, or when anything here fails, the subagent
+# runs in this session as usual, and inside the app the reason is logged.
 # hooks/agent-message.sh also runs it, with FORGE_RESUME_AGENT set, for a SendMessage to an agent whose terminal ended:
 # the agent is reopened the same way, resuming its Claude session, and given the message as its task; when it cannot be,
 # the SendMessage is denied with the reason.
@@ -182,6 +182,7 @@ session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
 forge_in_herdr || in_process "not inside the herdr app"
 mkdir -p "$state_dir"
 exec 2>>"$state_dir/dispatch.log"
+forge_attended || in_process "a non-interactive run (claude -p) ends before an agent in a pane of its own could report"
 [ -n "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ] || in_process "no CLAUDE_CODE_MESSAGING_SOCKET: this session cannot receive a report"
 field() { printf '%s' "$input" | jq -r --arg key "$1" '.tool_input[$key] // empty'; }
 permission_mode="$(printf '%s' "$input" | jq -r '.permission_mode // empty')"

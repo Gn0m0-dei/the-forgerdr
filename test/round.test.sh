@@ -79,6 +79,9 @@ expect "rounds survive git gc" yes "$(git cat-file -e refs/forgerdr/rounds/t7/1 
 
 S=s1 base
 expect "the same session resumed keeps its rounds" '1 2 base ' "$(refs)"
+CLAUDE_CODE_ENTRYPOINT=sdk-cli S=s3 base
+expect "a claude -p run started from the session's Bash leaves them alone" 's1 1 2 base ' \
+  "$(field '.session_id') $(refs)"
 S=s2 base
 expect "another session in the terminal starts afresh" 'base ' "$(refs)"
 expect "with no rounds" 0 "$(field '.rounds | length')"

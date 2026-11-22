@@ -22,6 +22,17 @@ forge_in_herdr() {
   [ -n "${HC_TERMINAL_ID:-}" ]
 }
 
+# Whether this runs in a herdr-core terminal for someone at it: a shell or an interactive Claude session, which answers
+# in its pane or the inbox and can wait for a report. A non-interactive Claude run there (claude -p, the Agent SDK)
+# carries the terminal too, but nobody is at it and it ends with its answer: it still opens tabs, never waits on them.
+# forge: CLAUDE_CODE_ENTRYPOINT is undocumented: Claude Code sets sdk-cli for claude -p (cli for an interactive session)
+# when it is unset or an inherited cli, and keeps any other inherited value; the Agent SDK sets sdk-ts or sdk-py
+# (2.1.330). So a session started where it is already sdk-* (the herdr app launched from claude -p) counts as not
+# attended. Upgrade: a documented field, when Claude Code has one.
+forge_attended() {
+  forge_in_herdr && [[ "${CLAUDE_CODE_ENTRYPOINT:-}" != sdk-* ]]
+}
+
 # Whether the herdr app answers: its spaces can be opened and closed, from one of its terminals or from one of its
 # mods, whose commands run with no terminal of their own.
 forge_app_answers() {

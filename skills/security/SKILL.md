@@ -15,7 +15,7 @@ Default: the branch diff (`git diff origin/<base>...HEAD`). The user can name a 
 
 ## Inside the herdr app
 
-With `HC_TERMINAL_ID` set, this session runs inside the herdr app, and `/forgerdr:security` always runs in a security session of its own: a new Claude session parked out of sight behind its security view, the two in a tab of their own, as a review runs behind its review view (`${CLAUDE_PLUGIN_ROOT}/references/reviews.md`, "The security triage"). The method does not change: every finding shown, the user picks, nothing fixed that was not picked. Which part this session plays:
+With `HC_TERMINAL_ID` set, this session runs inside the herdr app, and `/forgerdr:security` runs in a security session of its own (except in a `claude -p` run, whose launch fails: "Launch"): a new Claude session parked out of sight behind its security view, the two in a tab of their own, as a review runs behind its review view (`${CLAUDE_PLUGIN_ROOT}/references/reviews.md`, "The security triage"). The method does not change: every finding shown, the user picks, nothing fixed that was not picked. Which part this session plays:
 
 - `FORGE_SECURITY_VIEW` set: this is the security session; "In the security session" says what it does.
 - An agent forgerdr dispatched (`FORGE_REPORT_TO` set, which the dispatch hook gives it, and `FORGE_SECURITY_VIEW` unset) never launches a security session, never opens a view and never asks the user: it audits and triages here, asking the session that dispatched it (standards, Gates).

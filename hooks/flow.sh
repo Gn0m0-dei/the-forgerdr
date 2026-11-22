@@ -32,7 +32,7 @@ works_here() {
 
 prompt() {
   local input prompt cwd session command given
-  forge_in_herdr || return 0
+  forge_attended || return 0
   input="$(cat)"
   prompt="$(printf '%s' "$input" | jq -r '.prompt // empty')"
   cwd="$(printf '%s' "$input" | jq -r '.cwd // empty')"

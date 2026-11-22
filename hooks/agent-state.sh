@@ -17,6 +17,9 @@ plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 # shellcheck source=bin/forge-lib.sh
 . "$plugin_root/bin/forge-lib.sh"
 
+# A claude -p run started from an agent's Bash carries its FORGE_REPORT_TO and FORGE_AGENT_RECORD, but is not the agent.
+forge_attended || exit 0
+
 readonly TRANSCRIPT_TAIL=5000
 
 record="${FORGE_AGENT_RECORD:-}"

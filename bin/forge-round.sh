@@ -5,9 +5,9 @@
 # touched (forge_snapshot). The state, a file per terminal, keeps the base, the rounds and the human's comments for the
 # forgerdr mod, which shows a round's diff and sends the comments back to the agent.
 #   base                          SessionStart (reads the hook's JSON): pins the base of a new session, dropping the
-#                                 terminal's earlier rounds; a session resumed keeps them. Outside herdr or git, nothing.
-#                                 Any terminal's rounds a week untouched go then too: a session ended, or its terminal
-#                                 closed, leaves them for a resume until then.
+#                                 terminal's earlier rounds; a session resumed keeps them. Outside herdr or git, or
+#                                 in a claude -p run, nothing. Any terminal's rounds a week untouched go then too: a
+#                                 session ended, or its terminal closed, leaves them for a resume until then.
 #   snap <terminal> [folder]      a round of what the worktree holds now, from the last round's head (the base for the
 #                                 first); prints it. Exits 3, saying so, when nothing changed since, printing the last
 #                                 round when there is one. With no base yet
@@ -88,7 +88,7 @@ start_state() {
 
 base() {
   local input session cwd repo file old_repo
-  forge_in_herdr || return 0
+  forge_attended || return 0
   file="$(file_of "$HC_TERMINAL_ID")"
   input="$(cat)"
   sweep

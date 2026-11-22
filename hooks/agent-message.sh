@@ -14,7 +14,7 @@ state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/worktrees"
 # The names forge_agent_name gives an agent; anything else is not one of this session's agents.
 readonly AGENT_NAME_PATTERN='^[a-z][a-z0-9_-]{0,31}$'
 
-forge_in_herdr && [ -n "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ] || exit 0
+forge_attended && [ -n "${CLAUDE_CODE_MESSAGING_SOCKET:-}" ] || exit 0
 input="$(cat)"
 session="$(printf '%s' "$input" | jq -r '.session_id // empty')"
 to="$(printf '%s' "$input" | jq -r '.tool_input.to // empty')"

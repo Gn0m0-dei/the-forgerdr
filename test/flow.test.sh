@@ -101,6 +101,8 @@ rm -f "$dir/t15.json"
 status=0
 HC_TERMINAL_ID='' bash "$script" stage ship "done" || status=$?
 expect "outside herdr it does nothing" '0 false' "$status $(exists "$dir/.json")"
+CLAUDE_CODE_ENTRYPOINT=sdk-cli T=t9 flow launch plan
+expect "nor does a claude -p run in a herdr terminal" false "$(exists "$dir/t9.json")"
 FORGE_PARENT_TERMINAL=t7 T=t9 flow launch plan
 expect "a dispatched agent writes no flow" false "$(exists "$dir/t9.json")"
 T=t9 flow stage plan running

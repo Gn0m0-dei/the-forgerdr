@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Marks a Claude session's golem in the herdr terminal it runs in (HC_TERMINAL_ID), with labels the forgerdr look reads
 # (the sidebar's CRACKED chip, the golem lanes): when its current task started and stopped, whether its turn ended in an
-# API error, and, for an agent forgerdr dispatched, the session it belongs to. A session outside herdr has nothing to mark.
+# API error, and, for an agent forgerdr dispatched, the session it belongs to. A session outside herdr, or a claude -p
+# run in it, has nothing to mark.
 #   crack  StopFailure: forge.state=cracked, forge.error=<the error's kind: rate_limit, server_error, ...>, and stopped.
 #   rest   Stop: forge.stopped=<now, ms>.
 #   mend   UserPromptSubmit: a task starts (forge.started=<now, ms>); the cracked mark and the stop go.
@@ -18,8 +19,8 @@ plugin_root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 # shellcheck source=bin/forge-lib.sh
 . "$plugin_root/bin/forge-lib.sh"
 
-terminal="${HC_TERMINAL_ID:-}"
-[ -n "$terminal" ] || exit 0
+forge_attended || exit 0
+terminal="$HC_TERMINAL_ID"
 
 now_ms=$(($(date +%s) * 1000))
 case "${1:-}" in

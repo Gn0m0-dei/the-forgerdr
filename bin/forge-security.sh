@@ -177,6 +177,7 @@ launch() {
     shift 2
   done
   forge_in_herdr || cannot_launch "not inside the herdr app"
+  forge_attended || cannot_launch "a non-interactive run (claude -p) ends before its report could reach it"
   if [ -z "$mod" ]; then
     mod="$(forge_app status 2>/dev/null | jq -r '.layout // empty' 2>/dev/null || true)"
     [[ "$mod" =~ $LAYOUT_PATTERN ]] || cannot_launch "the security view needs the forgerdr layout (shown: $mod)"

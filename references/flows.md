@@ -1,6 +1,6 @@
 # Flows
 
-The forge floor of the herdr app (FLOOR, beside INBOX in the forgerdr layout) shows the flow of every item a Claude session works: the cells of its pipeline, which ran and how many times, its build tasks and its pull request. `${CLAUDE_PLUGIN_ROOT}/bin/forge-flow.sh` keeps it, in a file named for the herdr terminal the session runs in. Outside the herdr app, and in a session another one started and waits on (an agent forgerdr dispatched, a security session launched with an address to report to: each carries that session's terminal, `FORGE_PARENT_TERMINAL`), it writes nothing, so every report below is safe to run anywhere.
+The forge floor of the herdr app (FLOOR, beside INBOX in the forgerdr layout) shows the flow of every item a Claude session works: the cells of its pipeline, which ran and how many times, its build tasks and its pull request. `${CLAUDE_PLUGIN_ROOT}/bin/forge-flow.sh` keeps it, in a file named for the herdr terminal the session runs in. Outside the herdr app, in a non-interactive run (`claude -p`, the Agent SDK), and in a session another one started and waits on (an agent forgerdr dispatched, a security session launched with an address to report to: each carries that session's terminal, `FORGE_PARENT_TERMINAL`), it writes nothing, so every report below is safe to run anywhere.
 
 ## Who reports what
 
