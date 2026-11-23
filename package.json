@@ -20,7 +20,7 @@
     "typecheck:herdr": "bash herdr/tools/typecheck.sh"
   },
   "devDependencies": {
-    "@biomejs/biome": "2.6.7",
+    "@biomejs/biome": "2.6.8",
     "husky": "9.1.7",
     "typescript": "7.0.2"
   }
