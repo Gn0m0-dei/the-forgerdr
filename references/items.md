@@ -59,6 +59,8 @@ A work item is external when its backlog is not the repository's own: an Azure D
 
 The item itself is read, commented and updated in its own organization, the one of its URL.
 
+In a parent folder of repositories there is no clone to ask: the backlog is the one forgerdr keeps for the folder, `"${CLAUDE_PLUGIN_ROOT}/bin/forge-config.sh" get backlog <key>`, and whether an item is external is decided per repository (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`).
+
 Where the backlog is, when no item URL is at hand (a design in spec mode `azure`, a pull request from a branch that only carries the id): `git config azdospec.organization` (the organization's name) and `git config azdospec.project`, the keys azdospec's `/azdo:init` writes. They live in `.git/config`: never committed, shared by every worktree of the clone. Unset, the backlog is the remote's. Without azdospec, the first item worked from another organization than the remote's offers to save them from its URL (the project decoded: `%20` is a space) and saves them on a yes:
 
 ```bash

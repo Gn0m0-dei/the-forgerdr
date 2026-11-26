@@ -508,6 +508,36 @@ bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-broken" >/dev/nu
 for name in sub-stash sub-tag sub-left sub-away; do bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/$name" >/dev/null; done
 expect "--discard takes them all" "" "$(find "$sandbox/wt" -maxdepth 1 -name "sub-*")"
 
+# A repository joined to its parent folder (its forge was indexed) is worked with the folder's mode, from wherever the
+# script runs: the folder's mode names the branch.
+mkdir -p "$sandbox/suite"
+git clone -q "$sandbox/origin.git" "$sandbox/suite/front" 2>/dev/null
+bash "$bin/forge-config.sh" set spec azure suite >/dev/null
+expect "before its folder is indexed, the repository's own mode" "feature/#77-not-yet" \
+  "$(bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/suite/front" --kind feature --title "Not yet" 77 | jq -r .branch)"
+git -C "$sandbox/suite/front" config --local forgerdr.workspace "$sandbox/suite"
+expect "joined, the branch follows the folder's mode" "feature/AB77-from-the-folder" \
+  "$(cd "$sandbox/suite" && bash "$bin/forge-worktree.sh" --plan --repo "$sandbox/suite/front" --kind feature --title "From the folder" 77 | jq -r .branch)"
+expect "from inside the repository too" "feature/AB78-inside" \
+  "$(cd "$sandbox/suite/front" && bash "$bin/forge-worktree.sh" --plan --kind feature --title "Inside" 78 | jq -r .branch)"
+# An id alone is an item of the forge's backlog: of another Azure DevOps organization than the repository's, it is
+# external there, as its URL would be.
+git -C "$sandbox/suite/front" remote set-url origin https://dev.azure.com/codehost/Suite/_git/front
+bash "$bin/forge-config.sh" set backlog https://dev.azure.com/boardhost/Planning suite >/dev/null
+expect "an id of a backlog in another organization is external" "feature/EXT-80-by-id" \
+  "$(cd "$sandbox/suite" && bash "$bin/forge-worktree.sh" --plan --repo front --kind feature --title "By id" 80 | jq -r .branch)"
+bash "$bin/forge-config.sh" set backlog https://dev.azure.com/codehost/Suite suite >/dev/null
+expect "of the repository's own organization, its own" "feature/AB81-by-id" \
+  "$(cd "$sandbox/suite" && bash "$bin/forge-worktree.sh" --plan --repo front --kind feature --title "By id" 81 | jq -r .branch)"
+bash "$bin/forge-config.sh" set backlog - suite >/dev/null
+# With none named in the forge's mode, the backlog /azdo:init keeps in the clone is the one.
+git -C "$sandbox/suite/front" config --local azdospec.organization boardhost
+git -C "$sandbox/suite/front" config --local azdospec.project "Planning Board"
+expect "an id of the backlog the clone keeps for azdospec is external too" "feature/EXT-82-by-id" \
+  "$(cd "$sandbox/suite" && bash "$bin/forge-worktree.sh" --plan --repo front --kind feature --title "By id" 82 | jq -r .branch)"
+git -C "$sandbox/suite/front" config --local --remove-section azdospec
+git -C "$sandbox/suite/front" remote set-url origin "$sandbox/origin.git"
+
 # forge-worktree.sh: a new worktree comes with its submodules, which git leaves empty.
 fakes_reset
 out="$(bash "$bin/forge-worktree.sh" --repo "$shell" --no-agent --no-dev --kind feature --title "With core" "")"

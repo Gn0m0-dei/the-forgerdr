@@ -102,6 +102,21 @@ printf '{"changes":[{"name":"fix-scroll","completedTasks":0,"totalTasks":0,"stat
 expect "the changes with their tasks" "fix-scroll 0/0 no-tasks|add-inbox 2/3 in-progress" \
   "$(bash "$bin" changes "$github" | jq -r 'map("\(.name) \(.done)/\(.total) \(.status)") | join("|")')"
 expect "read in the repository" "openspec list --changes --sort name --json" "$(tail -n 1 "$calls")"
+# The OpenSpec changes of a parent folder: its store's, read from the folder; with OpenSpec in each repository, the
+# changes of the repositories that have it, each told by its repository.
+mkdir -p "$sandbox/folder"
+git init -q "$sandbox/folder/api"
+git init -q "$sandbox/folder/web"
+config="$(dirname "$bin")/forge-config.sh"
+bash "$config" set spec openspec:shared folder >/dev/null
+expect "a parent folder reads its store's changes" "fix-scroll|add-inbox" "$(bash "$bin" changes "$sandbox/folder" | jq -r 'map(.name) | join("|")')"
+expect "from the folder, with its store" "openspec list --changes --sort name --store shared --json" "$(tail -n 1 "$calls")"
+bash "$config" set spec openspec folder >/dev/null
+expect "with OpenSpec in no repository, it says so" "no repository of this folder has OpenSpec" "$(bash "$bin" changes "$sandbox/folder" | jq -r .error)"
+mkdir -p "$sandbox/folder/api/openspec" "$sandbox/folder/web/openspec"
+expect "else the changes of each repository, told by it" "api:fix-scroll|api:add-inbox|web:fix-scroll|web:add-inbox" \
+  "$(bash "$bin" changes "$sandbox/folder" | jq -r 'map("\(.repo):\(.name)") | join("|")')"
+
 expect "not in OpenSpec mode" "this forge's mode is gitlab, not OpenSpec" "$(bash "$bin" changes "$gitlab" | jq -r '.error')"
 printf '[spec.projects]\norders = "openspec:team-specs"\n' > "$FORGERDR_CONFIG"
 bash "$bin" changes "$github" >/dev/null
@@ -136,6 +151,124 @@ printf 'gitdir: elsewhere\n' > "$sandbox/many/linked/.git"
 many="$(cd "$sandbox/many" && pwd -P)"
 expect "the repositories of a parent folder, by name" "$many|$many/api,$many/web" \
   "$(bash "$bin" repos "$sandbox/many" | jq -r '"\(.root)|\(.repos | join(","))"')"
+# A repository joined to its parent folder is read with the folder's key, mode and backlog.
+bash "$config" set mode azure folder >/dev/null
+bash "$config" set backlog https://dev.azure.com/acme/Shop folder >/dev/null
+expect "a repository read alone has its own key, mode and backlog" "api|chat|" "$(bash "$bin" info "$sandbox/folder/api" | jq -r '"\(.key)|\(.mode)|\(.backlog)"')"
+git -C "$sandbox/folder/api" config --local forgerdr.workspace "$sandbox/folder"
+expect "joined to its folder, the folder's" "folder|azure|https://dev.azure.com/acme/Shop" \
+  "$(bash "$bin" info "$sandbox/folder/api" | jq -r '"\(.key)|\(.mode)|\(.backlog)"')"
+git -C "$sandbox/folder/api" config --local --unset forgerdr.workspace
+
+# Indexing a forge: its repositories are joined to their parent folder (recorded in each one's own git config) and its
+# code is indexed as one project from the forge's root, through the code index's command line (a fake here, which
+# logs what it is asked and answers a project named after the folder).
+export XDG_STATE_HOME="$sandbox/state"
+cat > "$sandbox/bin/codeindex" <<SH
+#!/usr/bin/env bash
+printf 'codeindex %s\n' "\$*" >> "$calls"
+[ ! -f "$sandbox/codeindex.wait" ] || sleep 3
+# As the real program fails: a root it refuses, in plain words; a run that breaks, as JSON with its status and a hint.
+[ ! -f "$sandbox/codeindex.refuse" ] || { printf '%s: path is too broad to index as one root\n' "\${*: -1}"; exit 1; }
+[ ! -f "$sandbox/codeindex.fail" ] || { printf '{"project":"x","status":"error","hint":"Pipeline failed."}\n'; exit 0; }
+# A run that goes well may still say something on its errors' side.
+[ ! -f "$sandbox/codeindex.warn" ] || printf 'warning: 3 files were skipped\n' >&2
+jq -cn --arg project "fake-\$(basename "\${*: -1}")" '{project: \$project, nodes: 3}'
+SH
+chmod +x "$sandbox/bin/codeindex"
+export FORGE_CODE_INDEX="$sandbox/bin/codeindex"
+state_of() { bash "$bin" indexed "$1" | jq -r "${2:-.state}"; }
+real_folder="$(cd "$sandbox/folder" && pwd -P)"
+expect "a parent folder nobody indexed" "none|0/2" "$(state_of "$sandbox/folder" '"\(.state)|\(.joined)/\(.repos)"')"
+expect "nor are its repositories" "none" "$(state_of "$sandbox/folder/api")"
+expect "indexing it answers its state" "ready|fake-folder|2/2" "$(bash "$bin" index "$sandbox/folder" | jq -r '"\(.state)|\(.project)|\(.joined)/\(.repos)"')"
+expect "the code is indexed from the folder, as one project" "codeindex cli --quiet index_repository --repo-path $real_folder" "$(tail -n 1 "$calls")"
+expect "each repository records its folder" "$real_folder $real_folder" \
+  "$(git -C "$sandbox/folder/api" config --local forgerdr.workspace) $(git -C "$sandbox/folder/web" config --local forgerdr.workspace)"
+expect "and is read with the folder's key from then on" "folder" "$(bash "$bin" info "$sandbox/folder/web" | jq -r .key)"
+expect "the folder is indexed" "ready" "$(state_of "$sandbox/folder")"
+# shellcheck source=bin/forge-lib.sh
+. "$(dirname "$bin")/forge-lib.sh"
+expect "a session in one of its repositories is told the project that covers the folder" yes \
+  "$(forge_index_note "$sandbox/folder/web" | grep -c "project .fake-folder. covers $real_folder" | sed 's/^1$/yes/')"
+expect "one in a forge nobody indexed is told nothing" "" "$(forge_index_note "$sandbox/many")"
+expect "seen from any of its repositories too, as the folder's" "ready|$real_folder" "$(state_of "$sandbox/folder/api" '"\(.state)|\(.root)"')"
+git init -q "$sandbox/folder/late"
+expect "a repository added later makes it not indexed again" "none|2/3" "$(state_of "$sandbox/folder" '"\(.state)|\(.joined)/\(.repos)"')"
+rm -rf "$sandbox/folder/late"
+touch "$sandbox/codeindex.wait"
+bash "$bin" index "$sandbox/folder" >/dev/null &
+sleep 1
+expect "while it runs, from another process, it is indexing" "indexing" "$(state_of "$sandbox/folder")"
+wait
+rm "$sandbox/codeindex.wait"
+expect "and ready once done" "ready" "$(state_of "$sandbox/folder")"
+# The app starts it and goes on: the run is on its own, and the state is asked meanwhile.
+touch "$sandbox/codeindex.wait"
+expect "started for the app, it answers at once that it is indexing" "indexing" "$(bash "$bin" index-start "$sandbox/folder" | jq -r .state)"
+expect "a second start while it runs starts nothing" "indexing 1" \
+  "$(bash "$bin" index-start "$sandbox/folder" | jq -r .state) $(grep -c "index_repository --repo-path $real_folder" "$calls" | awk '{print ($1 == 3) ? 1 : $1}')"
+for _ in 1 2 3 4 5 6 7 8; do [ "$(state_of "$sandbox/folder")" = indexing ] || break; sleep 1; done
+rm "$sandbox/codeindex.wait"
+expect "and is ready once its run ends" "ready" "$(state_of "$sandbox/folder")"
+# What goes wrong is kept with the state, so the app can say it: a run that breaks, a root the program refuses.
+bash "$bin" unindex "$sandbox/folder" >/dev/null
+touch "$sandbox/codeindex.fail"
+expect "a code index that breaks says why, and the folder is not indexed" "the code index failed: Pipeline failed.|none|the code index failed: Pipeline failed." \
+  "$(bash "$bin" index "$sandbox/folder" | jq -r .error)|$(state_of "$sandbox/folder")|$(state_of "$sandbox/folder" .failed)"
+rm "$sandbox/codeindex.fail"
+touch "$sandbox/codeindex.refuse"
+expect "a root the program refuses, in its own words" "the code index failed: $real_folder: path is too broad to index as one root" \
+  "$(bash "$bin" index "$sandbox/folder" | jq -r .error)"
+rm "$sandbox/codeindex.refuse"
+expect "the next good run clears what went wrong" "ready|" "$(bash "$bin" index "$sandbox/folder" | jq -r '"\(.state)|\(.failed)"')"
+expect "and its answer is no error for whoever reads it" false "$(bash "$bin" indexed "$sandbox/folder" | jq 'has("error")')"
+touch "$sandbox/codeindex.warn"
+expect "a run that goes well with a warning on the side is a good run" "ready|fake-folder|" "$(bash "$bin" index "$sandbox/folder" | jq -r '"\(.state)|\(.project)|\(.failed)"')"
+rm "$sandbox/codeindex.warn"
+# Undoing waits for a run to end: it would be joined again under it.
+touch "$sandbox/codeindex.wait"
+bash "$bin" index-start "$sandbox/folder" >/dev/null
+expect "a forge that is indexing is not undone" "a run is indexing this forge|2/2" \
+  "$(bash "$bin" unindex "$sandbox/folder" | jq -r .error)|$(bash "$bin" indexed "$sandbox/folder" | jq -r '"\(.joined)/\(.repos)"')"
+for _ in 1 2 3 4 5 6 7 8; do [ "$(state_of "$sandbox/folder")" = indexing ] || break; sleep 1; done
+rm "$sandbox/codeindex.wait"
+# A record that cannot be read, or a run that died without a word, never leave the state unanswered or stuck.
+record="$(find "$XDG_STATE_HOME/forgerdr/index" -name '*.json' | head -n 1)"
+printf 'not json' > "$record"
+expect "a record that cannot be read is no record" "none" "$(state_of "$sandbox/folder")"
+printf '999999\n' > "$record.running"
+expect "a run that is gone is not a run" "none" "$(state_of "$sandbox/folder")"
+printf '%s\n' "$$" > "$record.running"
+expect "nor is another program that got its process id" "none" "$(state_of "$sandbox/folder")"
+bash "$bin" index "$sandbox/folder" >/dev/null
+# From inside one of its repositories, the forge indexed and undone is the folder's.
+expect "asked from inside a repository, it is the folder that is undone" "none|0/2|$real_folder" \
+  "$(bash "$bin" unindex "$sandbox/folder/api" | jq -r '"\(.state)|\(.joined)/\(.repos)|\(.root)"')"
+# A child that is a link to a repository elsewhere is not the folder's to join: it is left alone and does not keep the
+# folder from being indexed.
+git init -q "$sandbox/outside-repo"
+ln -s "$sandbox/outside-repo" "$sandbox/folder/linked"
+expect "a linked repository is not joined, and the folder is indexed without it" "ready|2/2|" \
+  "$(bash "$bin" index "$sandbox/folder" | jq -r '"\(.state)|\(.joined)/\(.repos)"')|$(git -C "$sandbox/outside-repo" config --local forgerdr.workspace || true)"
+rm "$sandbox/folder/linked"
+expect "undone, its repositories are on their own again" "none|api" \
+  "$(bash "$bin" unindex "$sandbox/folder" | jq -r .state)|$(bash "$bin" info "$sandbox/folder/api" | jq -r .key)"
+expect "a repository on its own is indexed alone, with nothing recorded in it" "ready|fake-orders|" \
+  "$(bash "$bin" index "$github" | jq -r '"\(.state)|\(.project)"')|$(git -C "$github" config --local forgerdr.workspace || true)"
+expect "without the code index, indexing still joins the repositories" "ready|false|2/2" \
+  "$(FORGE_CODE_INDEX="$sandbox/bin/none" bash "$bin" index "$sandbox/folder" | jq -r '"\(.state)|\(.code)|\(.joined)/\(.repos)"')"
+bash "$bin" unindex "$sandbox/folder" >/dev/null
+
+# Start work on a parent folder takes the issues of any of its repositories: info names the origin of each.
+git -C "$sandbox/many/api" remote add origin https://github.com/acme/shop-api.git
+git -C "$sandbox/many/web" remote add origin git@gitlab.com:acme/front/shop-web.git
+expect "a parent folder's info names its repositories' origins" "none|github:acme/shop-api,gitlab:acme/front/shop-web" \
+  "$(bash "$bin" info "$sandbox/many" | jq -r '"\(.provider)|\(.repos | map("\(.provider):\(.project)") | join(","))"')"
+expect "a repository's info names none" "[]" "$(bash "$bin" info "$sandbox/many/api" | jq -c .repos)"
+git -C "$sandbox/many/api" remote remove origin
+git -C "$sandbox/many/web" remote remove origin
+
 # A child that is a link to a repository elsewhere is named as git names it, so its spaces are found under the folder.
 git init -q "$sandbox/elsewhere-repo"
 ln -s "$sandbox/elsewhere-repo" "$sandbox/many/linked-repo"

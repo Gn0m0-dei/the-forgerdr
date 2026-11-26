@@ -81,22 +81,83 @@ forge_die() {
   exit 1
 }
 
-# Workspace root of a directory: the parent of the repository when that parent carries its own
-# .claude, CLAUDE.md or AGENTS.md (a workspace of several repositories), the repository otherwise.
-# A linked worktree belongs to its main checkout, a submodule to the repository that holds it. Outside git, the
-# directory itself.
+# The parent folder a repository works with, as indexing that folder's forge recorded it in the clone's own git config
+# (forgerdr.workspace: never committed, shared by every worktree of the clone). Told only while it still is the folder
+# right above the main checkout: a clone moved elsewhere is on its own again.
+forge_joined_workspace() {
+  local main="$1" kept
+  kept="$(git -C "$main" config --local --get forgerdr.workspace 2>/dev/null)" || return 1
+  [ -n "$kept" ] && [ "$(cd "$kept" 2>/dev/null && pwd -P)" = "$(dirname "$main")" ] || return 1
+  dirname "$main"
+}
+
+# Workspace root of a directory: the parent folder of its repository when that folder is a workspace of several
+# repositories, the repository otherwise. A parent folder is one when it carries its own .claude, CLAUDE.md or
+# AGENTS.md (never the home folder for the .claude Claude Code keeps there), or when its forge was indexed, which
+# records the folder in each of its repositories (forge_joined_workspace). A linked worktree belongs to its main
+# checkout, a submodule to the repository that holds it. Outside git, the directory itself.
 forge_workspace_root() {
-  local dir top common parent holder
+  local dir top common parent holder home
   dir="$(cd "$1" 2>/dev/null && pwd -P)" || dir="$1"
   while holder="$(git -C "$dir" rev-parse --show-superproject-working-tree 2>/dev/null)" && [ -n "$holder" ]; do dir="$holder"; done
-  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || top="$dir"
+  if ! top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)"; then
+    # Outside git, the directory itself; a bare repository has no checkout and goes on by its git folder, below.
+    git -C "$dir" rev-parse --git-common-dir >/dev/null 2>&1 || { printf '%s\n' "$dir"; return; }
+    top="$dir"
+  fi
   common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$common" ] && top="$(dirname "$common")"
   parent="$(dirname "$top")"
-  if [ -d "$parent/.claude" ] || [ -f "$parent/CLAUDE.md" ] || [ -f "$parent/AGENTS.md" ]; then
+  home="$(cd "$HOME" 2>/dev/null && pwd -P)" || home="$HOME"
+  if [ -f "$parent/CLAUDE.md" ] || [ -f "$parent/AGENTS.md" ] || { [ -d "$parent/.claude" ] && [ "$parent" != "$home" ]; } \
+    || forge_joined_workspace "$top" >/dev/null; then
     printf '%s\n' "$parent"
   else
     printf '%s\n' "$top"
   fi
+}
+
+# Where the indexing of a forge is recorded, by the forge's root (bin/forge-start.sh index): the code index's project
+# for it and when it was indexed. A run in progress keeps its process id beside it, in <file>.running.
+forge_index_file() {
+  printf '%s/forgerdr/index/%s.json\n' "${XDG_STATE_HOME:-$HOME/.local/state}" "$(printf '%s' "$1" | cksum | tr -s ' \t' '--')"
+}
+
+# The root of the forge a directory is of, as it is indexed: the folder itself outside git; else the parent folder its
+# repository works with, or its repository.
+forge_index_root() {
+  local where
+  where="$(cd "$1" 2>/dev/null && pwd -P)" || where="$1"
+  if git -C "$where" rev-parse --show-toplevel >/dev/null 2>&1; then forge_workspace_root "$where"; else printf '%s\n' "$where"; fi
+}
+
+# What a session is told of its forge's code index, once the forge was indexed with one: the project to pass the
+# codebase-memory tools, which covers the whole root (every repository of a parent folder). Nothing otherwise.
+forge_index_note() {
+  local root file project
+  root="$(forge_index_root "$1")"
+  file="$(forge_index_file "$root")"
+  project="$(jq -r '.project // empty' "$file" 2>/dev/null || true)"
+  [ -n "$project" ] || return 0
+  # shellcheck disable=SC2016 # backticks of the text, not a command
+  printf 'Code index: the codebase-memory project `%s` covers %s, indexed as one; pass it as `project`.\n\n' "$project" "$root"
+}
+
+# The code index forgerdr drives: the codebase-memory server's own program, which also runs one tool and exits.
+forge_code_index() {
+  printf '%s\n' "${FORGE_CODE_INDEX:-$HOME/.local/bin/codebase-memory-mcp}"
+}
+
+# Whether a directory's repository has its parent folder for a workspace only because an indexing recorded it there:
+# the folder carries none of the files that make it one for everybody.
+forge_joined_only() {
+  local dir="$1" main parent home holder
+  # A submodule is of the repository that holds it, as forge_workspace_root takes it.
+  while holder="$(git -C "$dir" rev-parse --show-superproject-working-tree 2>/dev/null)" && [ -n "$holder" ]; do dir="$holder"; done
+  main="$(forge_main_checkout "$dir" 2>/dev/null)" || return 1
+  forge_joined_workspace "$main" >/dev/null || return 1
+  parent="$(dirname "$main")"
+  home="$(cd "$HOME" 2>/dev/null && pwd -P)" || home="$HOME"
+  [ ! -f "$parent/CLAUDE.md" ] && [ ! -f "$parent/AGENTS.md" ] && { [ ! -d "$parent/.claude" ] || [ "$parent" = "$home" ]; }
 }
 
 # Memory project key: the workspace root's name, lowercase.
@@ -146,7 +207,8 @@ forge_child_repo_skills() {
   git -C "$dir" rev-parse --show-toplevel >/dev/null 2>&1 && return 0
   for child in "$dir"/*/; do
     [ -d "$child/.git" ] || [ -f "$child/.git" ] || continue
-    forge_skills_in "${child%/}/.claude/skills" | sed "s#^#$(basename "$child")\t#"
+    # The folder's name goes in as a value, never as part of a script: a worktree's folder carries a # (feature-#12-x).
+    forge_skills_in "${child%/}/.claude/skills" | awk -v repo="$(basename "$child")" '{ print repo "\t" $0 }'
   done
 }
 
@@ -384,16 +446,39 @@ forge_item_meta() {
   printf '%s\t%s\t%s\n' "$id" "$type" "$title"
 }
 
-# Local clone of a repository name under a base directory: the base itself, a child, or the base as fallback.
-forge_find_clone() {
-  local base="$1" name="$2" candidate remote
-  [ "$(basename "$base")" = "$name" ] && { printf '%s\n' "$base"; return; }
-  [ -d "$base/$name/.git" ] && { printf '%s\n' "$base/$name"; return; }
-  for candidate in "$base"/*/; do
+# Whether a clone's origin names a repository: its URL ends in the name, with or without .git or a last slash. Never a
+# segment in its middle: on Azure DevOps a project's first repository is named after the project, which the URL of
+# every other repository of it carries.
+forge_clone_is() {
+  local remote
+  remote="$(git -C "$1" remote get-url origin 2>/dev/null)" || return 1
+  case "$remote" in *"/$2"|*"/$2.git"|*"/$2/"|*":$2"|*":$2.git") return 0 ;; esac
+  return 1
+}
+
+# The clone of a repository among the folders directly under one: the one named after it, else the one whose origin
+# names it. Fails when there is none.
+forge_clone_under() {
+  local folder="$1" name="$2" candidate
+  [ -d "$folder/$name/.git" ] && { printf '%s\n' "$folder/$name"; return 0; }
+  for candidate in "$folder"/*/; do
     [ -d "$candidate/.git" ] || continue
-    remote="$(git -C "$candidate" remote get-url origin 2>/dev/null)" || continue
-    case "$remote" in *"/$name"|*"/$name.git"|*"/$name/"*) printf '%s\n' "${candidate%/}"; return ;; esac
+    forge_clone_is "$candidate" "$name" && { printf '%s\n' "${candidate%/}"; return 0; }
   done
+  return 1
+}
+
+# The clone of a repository, by its name, from where a session stands: that folder when it is named after it or its
+# own repository is that one (a worktree of it stays where it is); else a clone directly under it (a parent folder of
+# repositories); else, from inside a repository or one of its worktrees, a sibling of its main checkout, as the
+# repositories of one parent folder are. With none, where the session stands.
+forge_find_clone() {
+  local base="$1" name="$2" main
+  [ "$(basename "$base")" = "$name" ] && { printf '%s\n' "$base"; return; }
+  ! forge_clone_is "$base" "$name" || { printf '%s\n' "$base"; return; }
+  forge_clone_under "$base" "$name" && return
+  main="$(forge_main_checkout "$base" 2>/dev/null)" || main=""
+  if [ -n "$main" ] && forge_clone_under "$(dirname "$main")" "$name"; then return; fi
   printf '%s\n' "$base"
 }
 

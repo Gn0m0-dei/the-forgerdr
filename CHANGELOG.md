@@ -9,11 +9,23 @@ All notable changes to this project are documented here. The format follows
 ### Added
 
 - The forgerdr's website, <https://gn0m0-dei.github.io/the-forgerdr/>: a landing page with a walkthrough of the herdr app at work, and the documentation, page by page. It is built from the `site` branch, which the plugin's installed copies never carry.
+- Forges of several repositories: a folder that is not a repository and holds repositories, opened in the herdr app, is one forge with one tab and one gnome. The sidebar shows the folder with its own sessions, every repository under it with its own New worktree (one with nothing open opens its main checkout on a click) and the worktrees of each, wherever they live. Its golem lanes gather the golems of all its spaces, each told by its repository's name. Without the folder open, a repository is a forge of its own, as before.
+- Git submodules: a new worktree comes with its submodules filled (`bin/forge-worktree.sh --no-submodules` skips it), the worktrees Claude Code makes too; a space open inside a submodule shows as a folder under the checkout that holds it; and `references/submodules.md` tells `/forgerdr:workitem`, `/forgerdr:build` and `/forgerdr:ship` how to branch, commit and open pull requests inside one, the submodule first.
+- Working from a parent folder: Start work there takes the issues of any of its repositories on GitHub and GitLab (a number alone, with a backlog named in Forge mode), lists the OpenSpec changes of its store or of each repository that has OpenSpec, and once the folder's forge is indexed, every session in one of its repositories, however it was opened, takes the folder's key, mode, backlog, skills and `CLAUDE.md`. `references/workspaces.md` tells every skill of the pipeline how a session there works: the repositories an item touches, their skills, a branch and a pull request in each, an external backlog decided per repository.
+- Indexing a forge. Under its gnome's name the sidebar says how it stands: `NOT INDEXED · CLICK` beside a blinking warning, `INDEXING` while it runs, `INDEXED` once done, `INDEX FAILED · CLICK` with a notice saying why when the code index refuses it. A click indexes it, in a run of its own (`bin/forge-start.sh index <dir>`, with `indexed`, `index-start` and `unindex` beside it): each repository of a parent folder records the folder in its own git config (`forgerdr.workspace`, never committed, shared by its worktrees), and the code of the whole forge is indexed as one codebase-memory project, which a session is then told at its start. A repository added to the folder later makes it not indexed again.
+- A settings button beside Start work, which opens the gnome's dialog.
+- A session is told, by path, the skills only the main checkout of its repository has (kept out of git, so no worktree gets them), and inside a submodule those of the checkout that holds it, beside the workspace's and each repository's.
 
 ### Changed
 
 - The README is short: what the forgerdr is, how to install it and where the documentation lives; everything it explained is on the website now. Its banner is the forge-night one, with the gnome, its golems and the gnomemark.
 - `homepage` in `package.json` and in the plugin manifest points at the website.
+
+### Fixed
+
+- A worktree with git submodules can be removed: git refuses one even when clean. `bin/forge-worktree-remove.sh`, the Remove worktree dialog and the worktree hook now look inside every submodule's clone, which goes with the worktree, for uncommitted files and for commits no remote has (on a branch, under a tag, in a stash or only in the reflog, in a submodule that is no longer checked out too), refuse when there is one and name it, and force git otherwise. `--plan` answers `forced`, and the dialog warns that such a removal is by force.
+- A folder outside git is its own memory project key and never its parent's, and the home folder is not a workspace for the `.claude` Claude Code keeps there: a repository or a parent folder right under it keeps its own key.
+- A review asked from inside a repository, or from one of its worktrees, of a pull request of another repository of the same parent folder starts in that repository's clone, with its code and its skills; it started where the session stood.
 
 ## [0.38.0] - 2026-11-22
 

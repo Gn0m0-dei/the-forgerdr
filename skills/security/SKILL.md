@@ -11,7 +11,7 @@ On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `se
 
 ## Scope
 
-Default: the branch diff (`git diff origin/<base>...HEAD`). The user can name a directory or the whole repository. Add the trust boundaries the project documents (README, architecture notes, routes, handlers, CLI entry points) so the auditor knows where the outside comes in.
+Default: the branch diff (`git diff origin/<base>...HEAD`). In a parent folder of repositories, the diff of each repository the work touched (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`). The user can name a directory or the whole repository. Add the trust boundaries the project documents (README, architecture notes, routes, handlers, CLI entry points) so the auditor knows where the outside comes in.
 
 ## Inside the herdr app
 

@@ -1,5 +1,5 @@
 // What forgerdr's scripts know of a forge and the app does not: its origin, project key and mode, the repositories of a
-// parent folder, its OpenSpec changes and stores (bin/forge-start.sh), its settings (bin/forge-config.sh), and its worktrees, planned, made and removed
+// parent folder, its indexing, its OpenSpec changes and stores (bin/forge-start.sh), its settings (bin/forge-config.sh), and its worktrees, planned, made and removed
 // (bin/forge-worktree.sh, bin/forge-worktree-remove.sh). Every answer is JSON, an error object when something cannot be
 // read or done; the format is tested from bash (test/forge-start.test.sh, test/herdr-app.test.sh). Saving a mode bumps
 // a shared key, so the sidebar reads the forge again at once.
@@ -27,11 +27,15 @@ export const PROMPT = SCRIPT.prompt;
 const MODES_KEY = "forgerdr.modes.saved";
 
 /**
- * What forge-start.sh info says of a forge.
- * @typedef {ModeInfo & { provider: string, dir: string, root: string, origin: string, key: string, spec: string, host?: string, repo?: string }} ForgeInfo
+ * What forge-start.sh info says of a forge; for a parent folder of repositories, which has no origin, the origin of
+ * each one it holds (repos).
+ * @typedef {ModeInfo & { provider: string, dir: string, root: string, origin: string, key: string, spec: string, host?: string, repo?: string, repos?: import("../start.js").Origin[] }} ForgeInfo
  */
 
-/** @typedef {{ name: string, done: number, total: number, status: string }} Change */
+/**
+ * An OpenSpec change; in a parent folder that reads the changes of its repositories, the repository it is in.
+ * @typedef {{ name: string, done: number, total: number, status: string, repo?: string }} Change
+ */
 
 /**
  * What forge-worktree.sh --plan says a new worktree would be: its branch, its folder, the base and the ref it starts
@@ -194,6 +198,40 @@ export const keepAzdospec = async (dir, url) => {
   const done = await answer(SCRIPT.start, ["azdospec", dir, url], dir);
   return done.state === "error" ? done.error : null;
 };
+
+// How a forge's indexing stands, as forge-start.sh answers it.
+export const INDEX_STATE = Object.freeze({
+  indexing: "indexing",
+  none: "none",
+  ready: "ready",
+});
+
+/**
+ * What forge-start.sh indexed says of a forge's indexing: its state; its root (the parent folder of repositories, else
+ * the repository), how many repositories a parent folder holds and how many joined it, whether the code index is
+ * installed, its project there, when it was indexed, and what went wrong in its last run (failed, "" when nothing did).
+ * @typedef {{ state: typeof INDEX_STATE[keyof typeof INDEX_STATE], root: string, folder: boolean, repos: number, joined: number, code: boolean, project: string, indexed_at: string, failed: string }} IndexInfo
+ */
+
+/**
+ * How the indexing of the forge a folder is of stands.
+ * @param {string} dir
+ * @returns {Promise<Loaded<IndexInfo>>}
+ */
+export const readIndex = (dir) => answer(SCRIPT.start, ["indexed", dir], dir);
+
+/**
+ * Starts the indexing of the forge a folder is of and answers how it stands, at once: its repositories join their
+ * parent folder and its code is indexed by a run of its own, which takes minutes on a large folder; readIndex says
+ * when it ends.
+ * @param {string} dir
+ * @returns {Promise<Loaded<IndexInfo>>}
+ */
+export const startIndex = (dir) =>
+  answer(SCRIPT.start, ["index-start", dir], dir);
+
+/** A forge was indexed: its repositories take their folder's key and mode, so the modes are read again. */
+export const forgeIndexed = () => setShared(MODES_KEY, Date.now());
 
 /** @returns {number} when a mode was last kept, 0 before any */
 export const modesSaved = () => {

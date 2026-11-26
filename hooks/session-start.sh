@@ -30,9 +30,13 @@ done
 # workspace, above the git tree; those of each repository, below a workspace root; those only the main checkout has,
 # in a worktree. No apostrophe in a comment here: bash 3.2 reads it as a quote inside this substitution.
 forge_skills_context "$cwd"
+forge_index_note "$cwd"
 
 if engram_ensure_serve; then
-  engram_merge_split_projects "$cwd" "$key"
+  # The memories kept under the repository own name are folded into its workspace only when the folder itself says it is
+  # one (its .claude, CLAUDE.md or AGENTS.md). A repository that joined its folder by an indexing writes under the
+  # folder key from then on and leaves what it had where it was: indexing moves nothing.
+  forge_joined_only "$cwd" || engram_merge_split_projects "$cwd" "$key"
   [ -n "$session_id" ] && engram_register_session "$session_id" "$key" "$cwd"
   if [ "$source" = compact ]; then
     printf '\n## Memory context after compaction\n\n'

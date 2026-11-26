@@ -9,6 +9,8 @@ Nothing leaves the machine without fresh evidence and an explicit yes.
 
 On the forge floor (`${CLAUDE_PLUGIN_ROOT}/references/flows.md`) this is the `ship` cell: `stage ship running` as it starts, `pr <number> <url>` once the pull request is open, `stage ship done` at the end.
 
+A session in a parent folder of repositories ships each repository the work touched on its own, with its own verification, rebase, commit, push and pull request, each at its gate (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`).
+
 ## 1. Verify
 
 Run the project's checks now, in this turn: tests, lint, typecheck, build, whatever `package.json`, `Makefile` or the CI workflow define. Quote the output. Red: stop here and fix with `/forgerdr:debug`.

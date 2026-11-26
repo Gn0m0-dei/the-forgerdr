@@ -12,8 +12,16 @@
 // what it knew until git answers again.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { checking, focused, run, spaces, terminals } from "herdr";
-import { modesSaved, readForge, readRepos } from "../bridges/forge.js";
+import { checking, focused, notify, run, spaces, terminals } from "herdr";
+import {
+  forgeIndexed,
+  INDEX_STATE,
+  modesSaved,
+  readForge,
+  readIndex,
+  readRepos,
+  startIndex,
+} from "../bridges/forge.js";
 import {
   placeGit,
   publishFolders,
@@ -41,7 +49,12 @@ import { reviewTabOf } from "../inbox.js";
 import { settingsButton, startButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { SIGN } from "../kit/motion.js";
-import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
+import {
+  emptyState,
+  forgeMode,
+  gnomeHeader,
+  indexLine,
+} from "../kit/panels.js";
 import { gnome, golem, ICON, icon, iconButton } from "../kit/sprites.js";
 import { BRAND, TONE, tokens, toneOf } from "../kit/tokens.js";
 import {
@@ -298,6 +311,89 @@ export const sidebar = (cx) => {
     );
   };
 
+  /**
+   * How the indexing of each forge shown stands, by forge key, as forge-start.sh last said; null while it could not be
+   * read.
+   * @type {Map<string, import("../bridges/forge.js").IndexInfo | null>}
+   */
+  const indexes = new Map();
+  /** @type {Map<string, string>} what went wrong in each forge's indexing that the human was already told, by key */
+  const toldIndexErrors = new Map();
+
+  // Where a forge is indexed from: its parent folder's space, or the checkout shown.
+  /** @param {{ forge: import("../forges.js").Forge, shown: SpaceInfo }} now */
+  const indexDir = (now) =>
+    placeOf(
+      (readSpacesGit()[now.forge.main.id] ?? null) === null
+        ? now.forge.main
+        : now.shown,
+    );
+
+  // Whether the forge shown waits for its indexing to be read: never read yet.
+  const indexDue = () => {
+    const now = shownForge();
+    if (now === null || now.forge.main.machine !== null) return false;
+    return !indexes.has(now.forge.key);
+  };
+
+  /**
+   * Keeps what forge-start.sh said of a forge's indexing: a run that ended means its repositories took their folder's
+   * key and mode, which are read again; what went wrong in it is told once, since nobody waits on a run of its own.
+   * @param {string} key the forge's
+   * @param {import("../bridges/forge.js").Loaded<import("../bridges/forge.js").IndexInfo>} read
+   */
+  const keepIndex = (key, read) => {
+    if (read.state !== "ready") {
+      // Said once, not at every poll: a read that keeps failing would fill the log.
+      if (indexes.get(key) !== null)
+        console.error(
+          "forgerdr sidebar: the forge's indexing could not be read",
+          read,
+        );
+      indexes.set(key, null);
+      return;
+    }
+    const before = indexes.get(key) ?? null;
+    indexes.set(key, read.value);
+    if (
+      before?.state === INDEX_STATE.indexing &&
+      read.value.state !== INDEX_STATE.indexing
+    )
+      forgeIndexed();
+    if (read.value.failed === "") toldIndexErrors.delete(key);
+    else if (toldIndexErrors.get(key) !== read.value.failed) {
+      toldIndexErrors.set(key, read.value.failed);
+      notify({
+        body: read.value.failed,
+        level: "error",
+        title: "The forge was not indexed",
+      });
+    }
+  };
+
+  // Reads the indexing of the forge shown, at every poll: a session can index it too, and it is one quick script.
+  const readIndexing = async () => {
+    const now = shownForge();
+    if (now === null || now.forge.main.machine !== null) return;
+    keepIndex(now.forge.key, await readIndex(indexDir(now)));
+  };
+
+  /**
+   * Starts the indexing of the forge shown, on a click on its "not indexed": a run of its own, whose state the poll
+   * follows from then on.
+   * @param {Context} click the click's context, which starts the task
+   */
+  const index = (click) => {
+    const now = shownForge();
+    if (now === null) return;
+    const { key } = now.forge;
+    const dir = indexDir(now);
+    click.spawn(async (task) => {
+      keepIndex(key, await startIndex(dir));
+      task.notify();
+    });
+  };
+
   // Reads the mode of the forge shown when it is due; a forge on another machine keeps none.
   const readMode = async () => {
     // The modes kept for spaces that are gone are forgotten.
@@ -343,13 +439,14 @@ export const sidebar = (cx) => {
           await refreshReviews();
           await refresh();
           await readMode();
+          await readIndexing();
           contexts = await readContexts(
             readAgents().map((agent) => agent.address),
           );
           cx.notify();
           for (
             let slept = 0;
-            slept < TIMING.poll && !waiting() && !modeDue();
+            slept < TIMING.poll && !waiting() && !modeDue() && !indexDue();
             slept += TIMING.step
           )
             await cx.sleep(TIMING.step);
@@ -531,6 +628,18 @@ export const sidebar = (cx) => {
         space: spaceId,
       });
     const startWork = () => openStart(forge, shown);
+    // The forge's indexing, under its gnome's name: none on another machine or before it is read; a click on "not
+    // indexed" indexes it.
+    const indexOf = () => {
+      const info = indexes.get(forge.key) ?? null;
+      if (forge.main.machine !== null || info === null) return undefined;
+      if (info.state !== INDEX_STATE.none) return indexLine(info.state);
+      return control(
+        indexLine(info.failed === "" ? "none" : "failed"),
+        "forge-index",
+        index,
+      );
+    };
     // The forge's settings: its gnome, for now.
     const editForge = () => openGnome({ forge: forge.main.name, key, name });
 
@@ -738,6 +847,7 @@ export const sidebar = (cx) => {
             .child(control(settingsButton(), "forge-settings", editForge))
             .child(control(startButton().flex_1(), "start-work", startWork)),
           forge: forge.main.name,
+          index: indexOf(),
           look,
           mood: forgeMood(golems),
           name,

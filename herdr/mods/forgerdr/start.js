@@ -220,12 +220,17 @@ const itemUrl = (kind, backlog, id) => {
     : `${backlog}/issues/${id}`;
 };
 
+// A number names an issue of one repository: in a parent folder of several, of the backlog the forge names.
+const NEEDS_BACKLOG =
+  "a number needs the forge's backlog: name it in Forge mode, or paste the URL";
+
 /**
  * A forge's work as its mode takes it, a line each, with what starts it: on GitHub and GitLab the issues of its
  * backlog by URL or number (#12), on Azure DevOps its work items by URL or id (1234, AB#1234), a number completed with
  * the backlog (modes.js). A line it cannot start is skipped and says why; an item given twice starts once.
+ * A parent folder of repositories takes the issues of any of them (info.repos), a number only with a backlog named.
  * @param {string} text
- * @param {import("./modes.js").ModeInfo & Origin & { host?: string }} info
+ * @param {import("./modes.js").ModeInfo & Origin & { host?: string, repos?: Origin[] }} info
  * @param {Way} way
  * @returns {PreviewRow[]}
  */
@@ -235,6 +240,8 @@ export const workRows = (text, info, way) => {
   const backlog = backlogOf(info);
   // The repository the issues are of, as a link names it.
   const home = { project: backlogParts(backlog).path, provider: kind };
+  // The repositories of a parent folder, each a home of its own issues.
+  const homes = [home, ...(info.repos ?? [])];
   const what = azure ? "a work item URL or id" : "an issue URL or number";
   /** @type {PreviewRow[]} */
   const rows = [];
@@ -258,6 +265,10 @@ export const workRows = (text, info, way) => {
         add(link);
         continue;
       }
+      if (backlog === "" && (info.repos ?? []).length > 0) {
+        rows.push({ action: NEEDS_BACKLOG, kind: "skip", label: line });
+        continue;
+      }
     }
     const link = linkOf(line);
     if (link.kind === "skip") {
@@ -268,7 +279,11 @@ export const workRows = (text, info, way) => {
         kind: "skip",
         label: labelOf(link),
       });
-    } else if (azure ? link.provider !== "azure" : !belongsTo(link, home)) {
+    } else if (
+      azure
+        ? link.provider !== "azure"
+        : !homes.some((one) => belongsTo(link, one))
+    ) {
       rows.push({
         action: azure
           ? `not ${what}`

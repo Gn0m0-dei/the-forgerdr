@@ -70,7 +70,47 @@ expect "workspace skills none in a lonely repo" "" "$(forge_workspace_skills "$s
 mkdir -p "$sandbox/workspace/back/.claude/skills/back-rules"
 printf -- '---\nname: back-rules\ndescription: Backend conventions\n---\n' > "$sandbox/workspace/back/.claude/skills/back-rules/SKILL.md"
 expect "child repo skills from the workspace root" "back	back-rules" "$(forge_child_repo_skills "$sandbox/workspace" | cut -f1,2)"
+# A child folder named with the character a sed script would end at, as a worktree's folder is (feature-#12-login).
+mkdir -p "$sandbox/trees/feature-#12-login/.claude/skills/tree-rules"
+printf 'gitdir: elsewhere\n' > "$sandbox/trees/feature-#12-login/.git"
+printf -- '---\nname: tree-rules\ndescription: d\n---\n' > "$sandbox/trees/feature-#12-login/.claude/skills/tree-rules/SKILL.md"
+expect "a child folder with a # in its name is named whole" "feature-#12-login	tree-rules" "$(forge_child_repo_skills "$sandbox/trees" | cut -f1,2)"
 expect "child repo skills none inside a repo" "" "$(forge_child_repo_skills "$sandbox/workspace/back")"
+# A folder outside git is its own root, whatever sits above it; and the home folder is never a workspace because of the
+# .claude Claude Code keeps there.
+mkdir -p "$sandbox/workspace/notes" "$sandbox/userhome/.claude" "$sandbox/userhome/shop"
+git init -q "$sandbox/userhome/tool"
+expect "a folder outside git, inside a workspace, is its own root" "notes" "$(forge_project_key "$sandbox/workspace/notes")"
+expect "a parent folder right under the home is its own root" "shop" "$(HOME="$sandbox/userhome" forge_project_key "$sandbox/userhome/shop")"
+expect "a repository right under the home keeps its own key" "tool" "$(HOME="$sandbox/userhome" forge_project_key "$sandbox/userhome/tool")"
+
+# A parent folder with no .claude, CLAUDE.md or AGENTS.md: a repository under it keeps its own key until the folder's
+# forge is indexed, which records the folder in the repository's own git config; then it, and its worktrees wherever
+# they live, take the folder's key, mode and backlog. The record only counts while the folder is right above it.
+mkdir -p "$sandbox/plain"
+git init -q "$sandbox/plain/svc"
+git -C "$sandbox/plain/svc" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$sandbox/plain/svc" worktree add -q "$sandbox/elsewhere/svc-next" -b next 2>/dev/null
+expect "a repository under a plain folder keeps its own key" "svc" "$(forge_project_key "$sandbox/plain/svc")"
+git -C "$sandbox/plain/svc" config --local forgerdr.workspace "$sandbox/plain"
+expect "joined to its folder, it takes the folder's" "plain" "$(forge_project_key "$sandbox/plain/svc")"
+expect "its worktrees too, wherever they live" "plain" "$(forge_project_key "$sandbox/elsewhere/svc-next")"
+expect "joined by an indexing alone, with no file of the folder saying so" yes "$(forge_joined_only "$sandbox/elsewhere/svc-next" && echo yes)"
+expect "a repository of a folder that says so itself is not" no "$(forge_joined_only "$sandbox/workspace/front" && echo yes || echo no)"
+# The memories of a repository are folded into its folder's only when the folder says it is a workspace: a submodule of
+# a joined repository is joined by the indexing alone too, and a folder that is both joined and marked folds.
+git init -q "$sandbox/plain/dep"
+git -C "$sandbox/plain/dep" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$sandbox/plain/svc" -c protocol.file.allow=always submodule --quiet add "$sandbox/plain/dep" libs/dep 2>/dev/null
+expect "a submodule of a joined repository has the folder's key" "plain" "$(forge_project_key "$sandbox/plain/svc/libs/dep")"
+expect "and is joined by the indexing alone, as its holder" yes "$(forge_joined_only "$sandbox/plain/svc/libs/dep" && echo yes || echo no)"
+touch "$sandbox/plain/CLAUDE.md"
+expect "a folder joined and marked is a workspace for everybody" no "$(forge_joined_only "$sandbox/plain/svc" && echo yes || echo no)"
+rm "$sandbox/plain/CLAUDE.md"
+git -C "$sandbox/plain/svc" config --local forgerdr.workspace "$sandbox/elsewhere"
+expect "a record that names another folder does not count" "svc" "$(forge_project_key "$sandbox/plain/svc")"
+git -C "$sandbox/plain/svc" config --local --unset forgerdr.workspace
+
 # What a session is told of the skills Claude Code does not load for it, in each place it can start: at the workspace
 # root, in a repository and in a worktree outside the workspace. Nothing is copied: each is named with its path.
 skill() { mkdir -p "$1/.claude/skills/$2" && printf -- '---\nname: %s\ndescription: d\n---\n' "$2" > "$1/.claude/skills/$2/SKILL.md"; }
@@ -155,6 +195,24 @@ expect "and with none left it holds no work" "" "$(forge_submodule_work "$sandbo
 
 expect "find clone by name" "$sandbox/workspace/front" "$(forge_find_clone "$sandbox/workspace" front)"
 expect "find clone by remote" "$sandbox/workspace/back" "$(forge_find_clone "$sandbox/workspace" MY.Repo)"
+# Asked from inside a repository or one of its worktrees, a sibling repository of the same folder is found too: a
+# review of its pull request starts in its clone, with its skills, not in the one the session stands in.
+expect "find a sibling clone from inside a repository" "$sandbox/workspace/back" "$(forge_find_clone "$sandbox/workspace/front" MY.Repo)"
+expect "and from a worktree outside the folder" "$sandbox/workspace/back" "$(forge_find_clone "$sandbox/elsewhere/front-feature" MY.Repo)"
+expect "a sibling by its folder's name" "$sandbox/workspace/front" "$(forge_find_clone "$sandbox/workspace/back" front)"
+git -C "$sandbox/workspace/front" remote add origin https://example.com/acme/shop-front.git
+expect "its own repository, by its remote, where the session stands" "$sandbox/elsewhere/front-feature" "$(forge_find_clone "$sandbox/elsewhere/front-feature" shop-front)"
+git -C "$sandbox/workspace/front" remote remove origin
+# A name is matched at the end of a remote, never in its middle: on Azure DevOps a project's first repository is named
+# after the project, which every other repository of it carries in its URL.
+mkdir -p "$sandbox/azure"
+for name in Shop Shop-web admin; do git init -q "$sandbox/azure/$name"; done
+git -C "$sandbox/azure/Shop" remote add origin https://dev.azure.com/codehost/Shop/_git/Shop
+git -C "$sandbox/azure/Shop-web" remote add origin https://dev.azure.com/codehost/Shop/_git/Shop-web
+git -C "$sandbox/azure/admin" remote add origin https://dev.azure.com/codehost/Shop/_git/Backoffice
+expect "the repository named after its project, from a sibling" "$sandbox/azure/Shop" "$(forge_find_clone "$sandbox/azure/Shop-web" Shop)"
+mv "$sandbox/azure/Shop" "$sandbox/azure/core"
+expect "and cloned under another name, by its remote alone" "$sandbox/azure/core" "$(forge_find_clone "$sandbox/azure" Shop)"
 expect "find clone fallback" "$sandbox/workspace" "$(forge_find_clone "$sandbox/workspace" nothing)"
 expect "detect repos children" "$sandbox/workspace/back
 $sandbox/workspace/front" "$(forge_detect_repos "$sandbox/workspace")"
