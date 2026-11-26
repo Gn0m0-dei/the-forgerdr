@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.39.0] - 2026-11-26
+
 ### Added
 
 - The forgerdr's website, <https://gn0m0-dei.github.io/the-forgerdr/>: a landing page with a walkthrough of the herdr app at work, and the documentation, page by page. It is built from the `site` branch, which the plugin's installed copies never carry.
