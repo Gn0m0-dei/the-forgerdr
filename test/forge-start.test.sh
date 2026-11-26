@@ -127,6 +127,24 @@ rm "$sandbox/bin/openspec"
 expect "says how to get it" "the OpenSpec CLI is not installed|/forgerdr:setup installs it" \
   "$(bash "$bin" register "$sandbox/team-specs" | jq -r '"\(.error)|\(.fix)"')"
 
+# The repositories of a parent folder, as the sidebar shows them under it: its first-level children that hold a .git
+# directory; a linked worktree or a submodule checkout (.git is a file) is not one, and a folder inside git has none.
+mkdir -p "$sandbox/many/notes" "$sandbox/many/linked"
+git init -q "$sandbox/many/web"
+git init -q "$sandbox/many/api"
+printf 'gitdir: elsewhere\n' > "$sandbox/many/linked/.git"
+many="$(cd "$sandbox/many" && pwd -P)"
+expect "the repositories of a parent folder, by name" "$many|$many/api,$many/web" \
+  "$(bash "$bin" repos "$sandbox/many" | jq -r '"\(.root)|\(.repos | join(","))"')"
+# A child that is a link to a repository elsewhere is named as git names it, so its spaces are found under the folder.
+git init -q "$sandbox/elsewhere-repo"
+ln -s "$sandbox/elsewhere-repo" "$sandbox/many/linked-repo"
+expect "a linked repository, by its real path" "$(cd "$sandbox/elsewhere-repo" && pwd -P)" \
+  "$(bash "$bin" repos "$sandbox/many" | jq -r '.repos[] | select(endswith("elsewhere-repo"))')"
+rm "$sandbox/many/linked-repo"
+expect "a folder inside git has none" "[]" "$(bash "$bin" repos "$sandbox/many/api" | jq -c .repos)"
+expect "nor has a folder with no repository" "[]" "$(bash "$bin" repos "$sandbox/many/notes" | jq -c .repos)"
+
 expect "a command it does not know" 1 "$(bash "$bin" list "$github" >/dev/null 2>&1; echo $?)"
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }

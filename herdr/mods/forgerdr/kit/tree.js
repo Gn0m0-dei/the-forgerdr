@@ -11,7 +11,8 @@ import { NONE, tokens } from "./tokens.js";
 /** @typedef {import("./tokens.js").Tone} Tone */
 
 /**
- * The head of a group of the tree: its icon, its name in capitals and what it offers after it.
+ * The head of a group of the tree: its icon, its name in capitals, cut short with an ellipsis when it does not fit, and
+ * what it offers at the row's end, wherever the name ends.
  * @param {IconName} glyph
  * @param {string} name
  * @param {NativeElement} [action]
@@ -24,9 +25,13 @@ const groupRow = (glyph, name, action) => {
     .px(8)
     .py(5)
     .child(icon(glyph, k.muted))
-    .child(text(name.toUpperCase(), "display", 11, k.fg))
+    .child(fill(name.toUpperCase(), "display", 11, k.fg))
     .when(action !== undefined, (el) =>
-      el.child(div().flex_1()).child(action ?? div()),
+      el.child(
+        div()
+          .flex_none()
+          .child(action ?? div()),
+      ),
     );
 };
 
@@ -74,6 +79,23 @@ export const worktreeRow = ({
     .when(sync !== undefined, (el) =>
       el.child(text(sync, "mono", 11, k.muted)),
     );
+};
+
+/**
+ * A submodule with a space open in it, under the checkout that holds it: its path from there.
+ * @param {string} name
+ * @param {boolean} [selected]
+ */
+export const submoduleRow = (name, selected = false) => {
+  const k = tokens();
+  return h_flex()
+    .items_center()
+    .gap(8)
+    .pl(24)
+    .pr(8)
+    .py(5)
+    .child(icon(ICON.repo, k.muted))
+    .child(fill(name, "ui", 13, selected ? k.fg : k.muted));
 };
 
 /**
@@ -185,8 +207,8 @@ export const prRow = ({
  * @property {string} [chip] what its chip reads, else its status (AGENT_LABEL)
  */
 
-// How far a row of the tree steps in for each level under its session.
-const TREE_STEP = 16;
+// How far a row of the tree steps in for each level: under its session, its repository or its checkout.
+export const TREE_STEP = 16;
 
 /** @param {SubagentRowProps} props */
 export const subagentRow = ({

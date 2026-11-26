@@ -1,5 +1,5 @@
-// What forgerdr's scripts know of a forge and the app does not: its origin, project key and mode, its OpenSpec changes
-// and stores (bin/forge-start.sh), its settings (bin/forge-config.sh), and its worktrees, planned, made and removed
+// What forgerdr's scripts know of a forge and the app does not: its origin, project key and mode, the repositories of a
+// parent folder, its OpenSpec changes and stores (bin/forge-start.sh), its settings (bin/forge-config.sh), and its worktrees, planned, made and removed
 // (bin/forge-worktree.sh, bin/forge-worktree-remove.sh). Every answer is JSON, an error object when something cannot be
 // read or done; the format is tested from bash (test/forge-start.test.sh, test/herdr-app.test.sh). Saving a mode bumps
 // a shared key, so the sidebar reads the forge again at once.
@@ -45,9 +45,9 @@ const MODES_KEY = "forgerdr.modes.saved";
  */
 
 /**
- * What forge-worktree-remove.sh --plan says of the worktree a folder is in: its top, its branch and its uncommitted
- * files.
- * @typedef {{ path: string, branch: string, changes: string[] }} RemovalPlan
+ * What forge-worktree-remove.sh --plan says of the worktree a folder is in: its top, its branch, whether it goes by
+ * force (one with submodules, which git removes no other way and without looking inside) and its uncommitted files.
+ * @typedef {{ path: string, branch: string, forced: boolean, changes: string[] }} RemovalPlan
  */
 
 /**
@@ -115,6 +115,13 @@ const answer = async (script, args, cwd, timeout = SCRIPT.timeout) => {
  * @returns {Promise<Loaded<ForgeInfo>>}
  */
 export const readForge = (dir) => answer(SCRIPT.start, ["info", dir], dir);
+
+/**
+ * The repositories a folder outside git holds, by their main checkout's folder; none for a folder inside git.
+ * @param {string} dir
+ * @returns {Promise<Loaded<import("../forges.js").Folder>>}
+ */
+export const readRepos = (dir) => answer(SCRIPT.start, ["repos", dir], dir);
 
 /**
  * The OpenSpec changes of a forge in an OpenSpec mode.

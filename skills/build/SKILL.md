@@ -27,7 +27,7 @@ Load the project skills for the code the plan touches (standards, "Project skill
 2. Minimal code to pass. No production code without a failing test first; code written before the test is deleted and rewritten from the test.
 3. Run the suite. Green, all of it.
 4. Refactor only while green, only what the task touches.
-5. Commit when the plan says so, after a commit gate (standards, Gates): its yes covers that commit only.
+5. Commit when the plan says so, after a commit gate (standards, Gates): its yes covers that commit only. A task that changes code inside a git submodule commits there first, on a branch of the submodule (`${CLAUDE_PLUGIN_ROOT}/references/submodules.md`).
 6. Ledger the result and mark the task done.
 
 Plan wrong: decide, write `Ruling: <what> — <why> — <cost if wrong>` in the ledger, continue. Code wrong: root cause first (read the error, reproduce, check recent changes, trace the data), never a symptom fix. Deviating without a ledgered ruling is a decision made in secret.

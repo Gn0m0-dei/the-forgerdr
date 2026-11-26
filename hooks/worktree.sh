@@ -19,6 +19,8 @@ readonly WORKTREES_DIR=".claude/worktrees"
 readonly BRANCH_PREFIX="worktree-"
 # Claude Code caps its own fetch for a new worktree at five seconds.
 readonly FETCH_SECONDS=5
+# A new worktree clones each of its submodules anew; the hook itself is given 120 seconds (hooks/hooks.json).
+readonly SUBMODULES_SECONDS=90
 readonly TAB=$'\t'
 state_dir="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/worktrees"
 
@@ -66,15 +68,20 @@ forget() {
 
 # Uncommitted changes or untracked files in a worktree; fails when git cannot tell.
 uncommitted() {
-  git -C "$1" status --porcelain
+  git -C "$1" status --porcelain && forge_submodule_work "$1"
 }
 
 # Removes a clean worktree, then closes its herdr app spaces; nothing goes when git refuses (a dirty one) or a space must
 # stay (the one this session runs in, one with an agent at work).
 drop_worktree() {
-  local root="$1" path="$2"
+  local root="$1" path="$2" changes force=""
   ! forge_in_herdr || forge_spaces_closable "$path" || return 1
-  git -C "$root" worktree remove "$path" || return 1
+  # git refuses a worktree with submodules, clean or not: it is forced only while it and they hold no work.
+  if forge_has_submodules "$path"; then
+    changes="$(uncommitted "$path")" && [ -z "$changes" ] || return 1
+    force=--force
+  fi
+  git -C "$root" worktree remove ${force:+"$force"} "$path" || return 1
   ! forge_in_herdr || forge_close_spaces_of "$path" \
     || printf 'forgerdr: the space of %s stays open until the app closes it as an orphan\n' "$path" >&2
 }
@@ -135,6 +142,9 @@ create() {
   start="$(git -C "$path" rev-parse HEAD)" || forge_die "no commit in $path"
   record "$session" "$path" "$branch" "$start"
   forge_drop_inherited_upstream "$path" "$branch"
+  [ ! -f "$path/.gitmodules" ] || GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="ssh -o BatchMode=yes" \
+    capped "$SUBMODULES_SECONDS" git -C "$path" submodule update --init --recursive --quiet >&2 \
+    || printf 'forgerdr: the submodules of %s did not come; run git submodule update --init --recursive there\n' "$path" >&2
   { forge_env_files "$root"; forge_worktree_includes "$root"; } | sort -u | forge_copy_listed "$root" "$path" >/dev/null \
     || printf 'forgerdr: some ignored files could not be copied into %s\n' "$path" >&2
   open_space "$label" "$path"

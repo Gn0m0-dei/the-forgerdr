@@ -12,6 +12,8 @@ trap 'rm -rf "$sandbox"' EXIT
 . "$root/test/fakes.sh"
 fakes_install "$sandbox/fakes"
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state"
+# git config --global below must land in the sandbox whatever XDG_CONFIG_HOME holds.
+export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
 mkdir -p "$HOME"
 git config --global user.name forgerdr-test
 git config --global user.email forgerdr-test@example.invalid
@@ -82,6 +84,28 @@ echo change > "$dirty_removed/file.txt"
 expect "remove refuses uncommitted work" 1 "$(remove "$dirty_removed" >/dev/null 2>&1; echo $?)"
 expect "remove leaves that worktree in place" yes "$(exists "$dirty_removed/file.txt")"
 
+# A worktree with submodules: git refuses to remove it even when clean, so the hook forces it once it has looked inside
+# each one, where the superproject's status does not reach.
+git config --global protocol.file.allow always
+git init -q --bare -b main "$sandbox/core.git"
+git clone -q "$sandbox/core.git" "$sandbox/core" 2>/dev/null
+echo core > "$sandbox/core/core.txt"
+git -C "$sandbox/core" add core.txt && git -C "$sandbox/core" commit -qm init && git -C "$sandbox/core" push -q origin main
+git -C "$sandbox/other" pull -q origin main
+git -C "$sandbox/other" submodule --quiet add "$sandbox/core.git" core
+git -C "$sandbox/other" commit -qm "add core" && git -C "$sandbox/other" push -q origin main
+with_core="$(create with-core "$repo")"
+expect "create fills the worktree's submodules, which git leaves empty" yes "$(exists "$with_core/core/core.txt")"
+echo more >> "$with_core/core/core.txt"
+git -C "$with_core/core" commit -qam local
+git -C "$with_core" commit -qam "bump core"
+expect "the superproject sees nothing of a submodule's commit no remote has" "" "$(git -C "$with_core" status --porcelain)"
+remove "$with_core" >/dev/null 2>&1 || true
+expect "remove leaves in place a submodule's commit no remote has" "local" "$(git -C "$with_core/core" log -1 --format=%s 2>/dev/null)"
+git -C "$with_core/core" push -q origin HEAD:main
+remove "$with_core" 2>/dev/null || true
+expect "remove takes a worktree whose submodules hold no work" no "$(exists "$with_core")"
+
 clean="$(create clean "$repo")"
 dirty="$(create dirty "$repo")"
 committed="$(create committed "$repo")"
@@ -90,10 +114,21 @@ shared="$(create shared "$repo")"
 expect "another session reusing a worktree gets it" "$shared" "$(create shared "$repo" s2)"
 echo change > "$dirty/file.txt"
 git -C "$committed" commit -q --allow-empty -m "kept work"
+# The sweep forces git past a worktree's submodules, so it looks inside them first: a stash there is nowhere else.
+expect "a worktree to sweep has its submodule" yes "$(exists "$clean/core/core.txt")"
+stashed="$(create stashed "$repo")"
+echo more >> "$stashed/core/core.txt"
+git -C "$stashed/core" stash -q
+mv "$sandbox/core.git" "$sandbox/core-away.git"
+unfilled="$(create unfilled "$repo" s9 2>"$sandbox/create.err")"
+mv "$sandbox/core-away.git" "$sandbox/core.git"
+expect "create keeps a worktree whose submodules did not come, and says so" "yes yes" \
+  "$(exists "$unfilled/.gitmodules") $(grep -c 'git submodule update --init --recursive' "$sandbox/create.err" | sed 's/^1$/yes/')"
 bash "$hook" sweep-session s1 "$here/src"
 expect "sweep removes a clean worktree" no "$(exists "$clean")"
 expect "sweep deletes its branch while the main checkout is behind" "" "$(git -C "$repo" branch --list worktree-clean)"
 expect "sweep keeps uncommitted work" yes "$(exists "$dirty")"
+expect "sweep keeps a stash inside a submodule" yes "$(exists "$stashed/core/core.txt")"
 expect "sweep keeps commits" yes "$(exists "$committed")"
 expect "sweep keeps the worktree the session stands in" yes "$(exists "$here")"
 expect "sweep keeps a worktree another session holds" yes "$(exists "$shared")"

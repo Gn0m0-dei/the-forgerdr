@@ -20,7 +20,7 @@ import {
   spaces,
 } from "herdr";
 import { followFlows } from "../bridges/flows.js";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { followInbox, inboxOpen, toggleInbox } from "../bridges/inbox.js";
 import { readNames } from "../bridges/names.js";
@@ -190,7 +190,7 @@ export const floor = (cx) => {
 
   /** @param {FloorForge} forge */
   const forgeOf = (forge) => {
-    const key = lookKeyOf(forge);
+    const key = lookKeyOf(forge.forge ?? { key: forge.key, main: { id: "" } });
     const open = !readFolded().has(forge.key);
     const header = control(
       forgeHeader({
@@ -216,7 +216,7 @@ export const floor = (cx) => {
   /** @param {Context} _cx */
   const render = (_cx) => {
     const k = tokens();
-    const forges = groupForges(spaces(), readSpacesGit());
+    const forges = groupForges(spaces(), readSpacesGit(), readFolders());
     const floorNow = floorOf({
       flows,
       forges,

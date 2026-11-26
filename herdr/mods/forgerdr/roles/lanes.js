@@ -1,20 +1,22 @@
 // The golem lanes under the panes (design 04), an accordion that stays whatever tab shows: the golems the sessions of the
-// active space spawned, the most urgent first, each with what it is doing, its context, how long it has been at it and
+// active space spawned (of every space of its forge, when that is a parent folder of repositories), the most urgent first, each with what it is doing, its context, how long it has been at it and
 // its status. Folded, one line: the arrow, how many there are and the most urgent; with none, "no golems at work".
 // Unfolded, every lane. A security session another launched is drawn as the warden reading TRIAGE (specials.js). A lane
 // goes to its terminal on a click (a subagent inside a session, to that session's). The session bar sizes the block to
 // the fold (roles/sessions.js).
 import { h_flex, v_flex } from "gpui-base";
 import { checking, panes, run, spaces } from "herdr";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { lanesOpen, toggleLanes } from "../bridges/lanes.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { readContexts } from "../bridges/usage.js";
+import { lanesSpacesOf, placeNamesOf } from "../forges.js";
 import { reviewTabOf } from "../inbox.js";
 import { control } from "../kit/control.js";
 import { laneRow, lanesHead } from "../kit/lanes.js";
 import { fill } from "../kit/text.js";
 import { TONE, tokens, toneOf } from "../kit/tokens.js";
-import { elapsed, spaceLanes } from "../lanes.js";
+import { elapsed, forgeLanes } from "../lanes.js";
 import { laneLook } from "../specials.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -77,14 +79,16 @@ export const lanes = (cx) => {
    * @param {LaneTerminal | undefined} terminal its own, none for a subagent inside a session
    * @param {number} now
    * @param {boolean} ruled
+   * @param {string} [place] where its session works, told when the lanes gather several spaces
    */
-  const row = (lane, terminal, now, ruled) =>
+  const row = (lane, terminal, now, ruled, place) =>
     control(
       laneRow({
         ...laneLook(lane, terminal),
         activity: lane.activity || (lane.status === "done" ? "finished" : ""),
         context: lane.context,
         name: lane.name,
+        place,
         ruled,
         time: elapsed(lane.since, lane.until ?? now),
         tone: toneOfLane(lane.status),
@@ -101,15 +105,20 @@ export const lanes = (cx) => {
     const byAddress = new Map(
       all.map((terminal) => [terminal.address, terminal]),
     );
-    const space = spaces().find((one) => one.active);
+    const everySpace = spaces();
+    const shownSpaces = lanesSpacesOf(
+      everySpace,
+      readSpacesGit(),
+      readFolders(),
+    );
     for (const terminal of all) {
       for (const key of Object.keys(terminal.records ?? {}))
         seen[`${terminal.address}/${key}`] ??= now;
     }
-    const shown =
-      space === undefined
-        ? []
-        : spaceLanes(space.id, all, contexts, seen, spaces());
+    const shown = forgeLanes(shownSpaces, all, contexts, seen, everySpace);
+    // Golems of several spaces are told apart by where their session works.
+    const places =
+      shownSpaces.length > 1 ? placeNamesOf(everySpace, readSpacesGit()) : {};
     ticking = shown.some(
       (lane) => lane.until === undefined && lane.status === "working",
     );
@@ -136,7 +145,13 @@ export const lanes = (cx) => {
           .child(
             first === undefined
               ? fill("no golems at work", "ui", 12, k.muted)
-              : row(first, byAddress.get(first.id), now, false)
+              : row(
+                  first,
+                  byAddress.get(first.id),
+                  now,
+                  false,
+                  places[first.space],
+                )
                   .flex_1()
                   .min_w(0),
           ),
@@ -149,7 +164,9 @@ export const lanes = (cx) => {
         .min_h(0)
         .overflow_y_scrollbar()
         .children(
-          shown.map((lane) => row(lane, byAddress.get(lane.id), now, true)),
+          shown.map((lane) =>
+            row(lane, byAddress.get(lane.id), now, true, places[lane.space]),
+          ),
         ),
     );
   };

@@ -1,18 +1,26 @@
 // The forge's sidebar (design 04): its gnome, the tree of the forge the window shows (the repository, its main
-// checkout and worktrees, the golems at work in each and their subagents) and the forge's heat at its foot. Narrower
+// checkout and worktrees, the golems at work in each and their subagents; for a parent folder of repositories, the
+// folder with its own golems and every repository under it; a space inside a submodule under the checkout that holds
+// it) and the forge's heat at its foot. Narrower
 // than a rail, it shows the golems alone (design 04b). Under the gnome, START WORK opens the forge's Start work
-// (roles/start.js), a hammer on the rail; at its foot, the forge's mode opens the mode dialog (roles/mode.js). A double
+// (roles/start.js), a hammer on the rail, and the cog beside it the forge's settings (its gnome's dialog, for now); at its foot, the forge's mode opens the mode dialog (roles/mode.js). A double
 // click on the gnome opens its dialog (roles/gnome.js), a right click the forge's menu, as on its tab. A review session
 // is drawn as the reviewer golem (specials.js), and once parked behind its view leaves the tree for its PULL REQUESTS
 // group, a row each, which a click takes to the review; a security session, parked behind its Security tab, is drawn
 // as the warden reading TRIAGE, under the session that launched it, and a click takes to its tab. It also asks git
 // about every space's place, which the app does not tell, and publishes it for the top bar (bridges/git.js), keeping
 // what it knew until git answers again.
-import { v_flex } from "gpui-base";
+import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, focused, run, spaces, terminals } from "herdr";
-import { modesSaved, readForge } from "../bridges/forge.js";
-import { placeGit, publishSpacesGit, readSpacesGit } from "../bridges/git.js";
+import { modesSaved, readForge, readRepos } from "../bridges/forge.js";
+import {
+  placeGit,
+  publishFolders,
+  publishSpacesGit,
+  readFolders,
+  readSpacesGit,
+} from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
@@ -23,13 +31,14 @@ import { readContexts } from "../bridges/usage.js";
 import {
   forgeMood,
   forgeState,
+  forgeTree,
   groupForges,
   knownGit,
   lookKeyOf,
 } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
 import { reviewTabOf } from "../inbox.js";
-import { startButton } from "../kit/buttons.js";
+import { settingsButton, startButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { SIGN } from "../kit/motion.js";
 import { emptyState, forgeMode, gnomeHeader } from "../kit/panels.js";
@@ -41,6 +50,8 @@ import {
   pullRequestsRow,
   repoRow,
   subagentRow,
+  submoduleRow,
+  TREE_STEP,
   worktreeRow,
 } from "../kit/tree.js";
 import { orphanedReviews, parentOf } from "../lanes.js";
@@ -56,6 +67,7 @@ import {
 import { newWorktreeOn, openForgeMenu } from "./forge-menu.js";
 import { openGnome } from "./gnome.js";
 import { openMode } from "./mode.js";
+import { openNewWorktree } from "./new-worktree.js";
 import { openStart } from "./start.js";
 
 /** @typedef {import("herdr").AgentInfo} AgentInfo */
@@ -63,6 +75,7 @@ import { openStart } from "./start.js";
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
+/** @typedef {import("../forges.js").Folder} Folder */
 /** @typedef {import("../forges.js").PlaceGit} PlaceGit */
 /** @typedef {import("../lanes.js").LaneTerminal} LaneTerminal */
 /** @typedef {import("../review.js").Review} Review */
@@ -148,7 +161,10 @@ const spaceRow = (element, id, spaceId, menu) =>
  * @returns {Role}
  */
 export const sidebar = (cx) => {
-  /** @type {Map<string, { git: PlaceGit | null, at: number }>} */
+  /**
+   * What each place is: what git says of it and, outside git on this machine, the repositories its folder holds.
+   * @type {Map<string, { git: PlaceGit | null, folder: Folder | undefined, at: number }>}
+   */
   const places = new Map();
   /** @type {Set<string>} the places git was asked about, answered or not */
   const tried = new Set();
@@ -182,9 +198,24 @@ export const sidebar = (cx) => {
         due.slice(start, start + AT_ONCE).map(async (place) => {
           tried.add(keyOf(place));
           try {
+            const git = await placeGit(place.where, place.on);
+            // forgerdr's scripts run on this machine alone.
+            const repos =
+              git === null && place.on === null
+                ? await readRepos(place.where)
+                : undefined;
             places.set(keyOf(place), {
               at: now,
-              git: await placeGit(place.where, place.on),
+              // A read that fails keeps what the folder held: its forge does not fall apart until the next one.
+              folder:
+                repos === undefined
+                  ? undefined
+                  : repos.state === "ready"
+                    ? repos.value.repos.length > 0
+                      ? repos.value
+                      : undefined
+                    : places.get(keyOf(place))?.folder,
+              git,
             });
           } catch {
             // The machine is away or git cannot run: asked again next time.
@@ -209,6 +240,20 @@ export const sidebar = (cx) => {
         readSpacesGit(),
       ),
     );
+    // A space not asked yet keeps the folder it had, so a start never shows a parent folder's repositories as forges
+    // of their own; before the app has its spaces, everything known stays.
+    const before = readFolders();
+    if (all.length > 0)
+      publishFolders(
+        Object.fromEntries(
+          all.flatMap((place) => {
+            const known = places.get(keyOf(place));
+            const folder =
+              known === undefined ? before[place.id] : known.folder;
+            return folder === undefined ? [] : [[place.id, folder]];
+          }),
+        ),
+      );
   };
 
   // Whether a space waits for git: one in a place git was never asked about (a new space, or one that moved).
@@ -224,10 +269,17 @@ export const sidebar = (cx) => {
    */
   const modes = new Map();
 
+  /**
+   * What a mode is kept by: the space shown as well as its forge, since each repository of a parent folder has its own.
+   * @param {{ key: string }} forge
+   * @param {{ id: string }} shown
+   */
+  const modeKey = (forge, shown) => `${forge.key}|${shown.id}`;
+
   // The forge shown and the space it shows, else null.
   const shownForge = () => {
     const all = spaces();
-    const forge = groupForges(all, readSpacesGit()).find((one) =>
+    const forge = groupForges(all, readSpacesGit(), readFolders()).find((one) =>
       one.spaces.some((space) => space.active),
     );
     const shown = forge?.spaces.find((space) => space.active);
@@ -238,7 +290,7 @@ export const sidebar = (cx) => {
   const modeDue = () => {
     const now = shownForge();
     if (now === null || now.forge.main.machine !== null) return false;
-    const known = modes.get(now.forge.key);
+    const known = modes.get(modeKey(now.forge, now.shown));
     return (
       known === undefined ||
       known.saved !== modesSaved() ||
@@ -248,11 +300,15 @@ export const sidebar = (cx) => {
 
   // Reads the mode of the forge shown when it is due; a forge on another machine keeps none.
   const readMode = async () => {
+    // The modes kept for spaces that are gone are forgotten.
+    const open = new Set(spaces().map((space) => space.id));
+    for (const key of modes.keys())
+      if (!open.has(key.slice(key.lastIndexOf("|") + 1))) modes.delete(key);
     const now = shownForge();
     if (now === null || !modeDue()) return;
     const saved = modesSaved();
     const read = await readForge(placeOf(now.shown));
-    modes.set(now.forge.key, {
+    modes.set(modeKey(now.forge, now.shown), {
       at: Date.now(),
       info: read.state === "ready" ? read.value : null,
       saved,
@@ -406,7 +462,7 @@ export const sidebar = (cx) => {
     const k = tokens();
     const all = spaces();
     const git = readSpacesGit();
-    const forge = groupForges(all, git).find((group) =>
+    const forge = groupForges(all, git, readFolders()).find((group) =>
       group.spaces.some((space) => space.active),
     );
     const root = v_flex()
@@ -475,6 +531,8 @@ export const sidebar = (cx) => {
         space: spaceId,
       });
     const startWork = () => openStart(forge, shown);
+    // The forge's settings: its gnome, for now.
+    const editForge = () => openGnome({ forge: forge.main.name, key, name });
 
     if (width < RAIL) {
       return root
@@ -541,10 +599,144 @@ export const sidebar = (cx) => {
       );
     };
 
+    /** @param {SpaceInfo} space */
+    const golemsIn = (space) =>
+      golemsOf(
+        space,
+        everyone,
+        parents,
+        looking,
+        toneOfAgent,
+        byAddress,
+        pullRequests,
+      );
+    /** @param {SpaceInfo} space a checkout's row, by its branch, and its golems */
+    const checkoutRows = (space) => {
+      const placeGitOf = git[space.id];
+      const branch = placeGitOf?.branch ?? space.branch ?? "";
+      return [
+        spaceRow(
+          worktreeRow({
+            branch,
+            item: itemOf(branch),
+            selected: space.active,
+            sync: placeGitOf ? syncOf(placeGitOf) : undefined,
+          }),
+          `space-${space.id}`,
+          space.id,
+          menuOn,
+        ),
+        ...golemsIn(space),
+      ];
+    };
+    /** @param {import("../forges.js").TreeSubmodule} submodule its folder, a step in, and the golems at work in it */
+    const submoduleRows = ({ name, space }) => [
+      v_flex()
+        .pl(TREE_STEP)
+        .child(
+          spaceRow(
+            submoduleRow(name, space.active),
+            `space-${space.id}`,
+            space.id,
+            menuOn,
+          ),
+        )
+        .children(golemsIn(space)),
+    ];
+    /** @param {import("../forges.js").TreeRepo} repo its checkouts open, each with the submodules open in it */
+    const repoRows = (repo) => [
+      ...repo.checkouts.flatMap((checkout) => [
+        ...checkoutRows(checkout.space),
+        ...checkout.submodules.flatMap(submoduleRows),
+      ]),
+      ...repo.orphans.flatMap(submoduleRows),
+    ];
+    /**
+     * @param {string} of the repository it is for
+     * @param {() => void} open
+     */
+    const newWorktree = (of, open) =>
+      control(
+        div().p(2).child(icon(ICON.add, k.muted)),
+        `forge-new-worktree-${of}`,
+        open,
+      );
+    // The tree: a forge of one repository is that repository; a parent folder is a level above its repositories, every
+    // one of them, where its own golems hang; a forge outside git is its one row.
+    const treeRows = () => {
+      const tree = forgeTree(forge, git, readFolders());
+      const own = tree.roots.length > 0;
+      // Each space outside git has its row (a folder open twice has two); one git has not answered for yet keeps its
+      // branch's row, as the app tells it.
+      const head = tree.roots.flatMap((space) => [
+        spaceRow(
+          repoRow(space.name),
+          `forge-root-${space.id}`,
+          space.id,
+          menuOn,
+        ),
+        ...(git[space.id] === undefined &&
+        space.branch !== null &&
+        space.branch !== undefined
+          ? checkoutRows(space)
+          : golemsIn(space)),
+      ]);
+      if (!own)
+        return tree.repos.flatMap((repo) => [
+          spaceRow(
+            repoRow(
+              forge.main.name,
+              // The repository's own, even when the one space open is inside a submodule of it.
+              newWorktree(repo.path, () =>
+                forge.main.machine === null
+                  ? openNewWorktree({ dir: repo.path, forge: forge.main.name })
+                  : newWorktreeOn(forge.main, forge.main.name),
+              ),
+            ),
+            "forge-repo",
+            forge.main.id,
+            menuOn,
+          ),
+          ...repoRows(repo),
+        ]);
+      return [
+        ...head,
+        ...tree.repos.map((repo) => {
+          const [first] = repo.checkouts;
+          // A repository with nothing open opens on its main checkout; one that is open shows it.
+          const show = () =>
+            first === undefined
+              ? run("space.new", { folder: repo.path })
+              : run("space.select", { id: first.space.id });
+          return v_flex()
+            .pl(TREE_STEP)
+            .child(
+              repoRow(
+                repo.name,
+                newWorktree(repo.path, () =>
+                  openNewWorktree({ dir: repo.path, forge: repo.name }),
+                ),
+              )
+                .id(`forge-repo-${repo.path}`)
+                .cursor_pointer()
+                .on_mouse_down("right", (_event, cx) => {
+                  cx.stop_propagation();
+                  if (first !== undefined) menuOn(first.space.id);
+                })
+                .on_click(show),
+            )
+            .children(repoRows(repo));
+        }),
+      ];
+    };
+
     return root
       .child(
         gnomeHeader({
-          action: control(startButton(), "start-work", startWork),
+          action: h_flex()
+            .gap(6)
+            .child(control(settingsButton(), "forge-settings", editForge))
+            .child(control(startButton().flex_1(), "start-work", startWork)),
           forge: forge.main.name,
           look,
           mood: forgeMood(golems),
@@ -588,58 +780,7 @@ export const sidebar = (cx) => {
           .min_h(0)
           .py(8)
           .overflow_y_scrollbar()
-          .child(
-            spaceRow(
-              repoRow(
-                forge.main.name,
-                git[forge.main.id] === null || git[forge.main.id] === undefined
-                  ? undefined
-                  : control(
-                      div().p(2).child(icon(ICON.add, k.muted)),
-                      "forge-new-worktree",
-                      () => newWorktreeOn(forge.main, forge.main.name),
-                    ),
-              ),
-              "forge-repo",
-              forge.main.id,
-              menuOn,
-            ),
-          )
-          .children(
-            forge.spaces.flatMap((space) => {
-              const placeGitOf = git[space.id];
-              const branch = placeGitOf?.branch ?? space.branch;
-              // A space outside git has no checkout: its golems hang from the forge's own row.
-              const checkout =
-                branch === null || branch === undefined
-                  ? []
-                  : [
-                      spaceRow(
-                        worktreeRow({
-                          branch,
-                          item: itemOf(branch),
-                          selected: space.active,
-                          sync: placeGitOf ? syncOf(placeGitOf) : undefined,
-                        }),
-                        `space-${space.id}`,
-                        space.id,
-                        menuOn,
-                      ),
-                    ];
-              return [
-                ...checkout,
-                ...golemsOf(
-                  space,
-                  everyone,
-                  parents,
-                  looking,
-                  toneOfAgent,
-                  byAddress,
-                  pullRequests,
-                ),
-              ];
-            }),
-          )
+          .children(treeRows())
           .when(pullRequests.length > 0, (el) =>
             el
               .child(pullRequestsRow())
@@ -651,9 +792,13 @@ export const sidebar = (cx) => {
           forgeMode(
             forge.main.machine !== null
               ? { detail: "on another machine", name: "Unknown" }
-              : modes.has(forge.key)
+              : modes.has(modeKey(forge, shown))
                 ? shortLabel(
-                    modeLabel(modes.get(forge.key)?.info ?? { mode: "chat" }),
+                    modeLabel(
+                      modes.get(modeKey(forge, shown))?.info ?? {
+                        mode: "chat",
+                      },
+                    ),
                   )
                 : { detail: "reading the forge…", name: "…" },
           ),

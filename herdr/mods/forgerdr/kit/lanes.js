@@ -28,9 +28,13 @@ export const lanesHead = ({ count, open }) => {
     .child(text(`· ${count}`, "display", 9, count > 0 ? k.fg : k.muted));
 };
 
+// The room a lane's place takes, before its name; a longer one is cut short.
+const PLACE_WIDTH = 96;
+
 /**
  * @typedef {object} LaneRowProps
  * @property {string} name
+ * @property {string} [place] where its session works, when the lanes gather several places: a repository's name
  * @property {string} activity what it is doing now
  * @property {Tone} tone
  * @property {string} time how long it has been at it
@@ -44,6 +48,7 @@ export const lanesHead = ({ count, open }) => {
 /** @param {LaneRowProps} props */
 export const laneRow = ({
   name,
+  place,
   activity,
   tone,
   time,
@@ -61,6 +66,14 @@ export const laneRow = ({
     .h(34)
     .when(ruled, (el) => el.border_t(1).border_color(k.line))
     .child(golem(role, tone, 2, context))
+    .when(place !== undefined, (el) =>
+      el.child(
+        div()
+          .flex_none()
+          .w(PLACE_WIDTH)
+          .child(fill((place ?? "").toUpperCase(), "display", 9, k.muted)),
+      ),
+    )
     .child(
       div()
         .flex_none()

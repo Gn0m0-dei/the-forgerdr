@@ -83,10 +83,12 @@ forge_die() {
 
 # Workspace root of a directory: the parent of the repository when that parent carries its own
 # .claude, CLAUDE.md or AGENTS.md (a workspace of several repositories), the repository otherwise.
-# A linked worktree belongs to its main checkout. Outside git, the directory itself.
+# A linked worktree belongs to its main checkout, a submodule to the repository that holds it. Outside git, the
+# directory itself.
 forge_workspace_root() {
-  local dir top common parent
+  local dir top common parent holder
   dir="$(cd "$1" 2>/dev/null && pwd -P)" || dir="$1"
+  while holder="$(git -C "$dir" rev-parse --show-superproject-working-tree 2>/dev/null)" && [ -n "$holder" ]; do dir="$holder"; done
   top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || top="$dir"
   common="$(git -C "$dir" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" && [ -n "$common" ] && top="$(dirname "$common")"
   parent="$(dirname "$top")"
@@ -115,13 +117,26 @@ forge_skills_in() {
 }
 
 # Skills under <workspace>/.claude/skills that Claude Code will not load by itself because the
-# workspace root sits outside the git tree of the directory: "name<TAB>path<TAB>description" per line.
+# workspace root sits outside the repository of the directory: "name<TAB>path<TAB>description" per line.
 forge_workspace_skills() {
-  local dir="$1" root top
+  local dir="$1" root main
   root="$(forge_workspace_root "$dir")"
-  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
-  [ "$root" != "$top" ] || return 0
+  main="$(forge_main_checkout "$dir" 2>/dev/null)" || return 0
+  [ "$root" != "$main" ] || return 0
   forge_skills_in "$root/.claude/skills"
+}
+
+# Skills the main checkout of a linked worktree's repository has and the worktree does not (kept out of git, so no
+# worktree gets them): "name<TAB>path<TAB>description" per line. Nothing in a main checkout.
+forge_main_checkout_skills() {
+  local dir="$1" top main line path
+  top="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  main="$(forge_main_checkout "$dir" 2>/dev/null)" || return 0
+  [ "$main" != "$top" ] || return 0
+  forge_skills_in "$main/.claude/skills" | while IFS= read -r line; do
+    path="$(printf '%s' "$line" | cut -f2)"
+    [ -f "$top/${path#"$main/"}" ] || printf '%s\n' "$line"
+  done
 }
 
 # Skills of the git repositories directly under a directory that is not itself a repository (a session
@@ -133,6 +148,61 @@ forge_child_repo_skills() {
     [ -d "$child/.git" ] || [ -f "$child/.git" ] || continue
     forge_skills_in "${child%/}/.claude/skills" | sed "s#^#$(basename "$child")\t#"
   done
+}
+
+# What a session is told, where it starts, of the skills and instructions Claude Code does not load there, each named
+# with its path so the agent reads it when it applies; nothing is copied. At a workspace root: the skills inside each
+# repository below. In a repository of a workspace: the workspace's skills and its CLAUDE.md, kept above the git tree.
+# In a linked worktree, wherever it lives: those too, and what only its main checkout has. Inside a submodule: the skills
+# of the checkout that holds it, and what that checkout is told.
+forge_skills_context() {
+  local cwd="$1" children root top main skills holder
+  children="$(forge_child_repo_skills "$cwd")"
+  if [ -n "$children" ]; then
+    printf '# Repository skills\n\nThis session starts at a workspace root; the skills inside each repository below it are not in the skill list. When work touches a repository, Read the SKILL.md of its skills that apply and follow them as loaded skills.\n\n'
+    printf '%s\n' "$children" | awk -F'\t' '$1 != repo { repo = $1; printf "\n**%s**\n", repo } { printf "- **%s** (`%s`): %s\n", $2, $3, $4 }'
+    printf '\n'
+  fi
+  top="$(git -C "$cwd" rev-parse --show-toplevel 2>/dev/null)" || return 0
+  # Inside a submodule: the skills of the checkout that holds it, then whatever that checkout is told.
+  holder="$(git -C "$cwd" rev-parse --show-superproject-working-tree 2>/dev/null || true)"
+  if [ -n "$holder" ] && [ -d "$holder" ]; then
+    skills="$(forge_skills_in "$holder/.claude/skills")"
+    if [ -n "$skills" ]; then
+      printf '# Superproject skills\n\nThis session starts inside a git submodule of %s, whose skills are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$holder"
+      printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'
+      printf '\n'
+    fi
+    forge_skills_context "$holder"
+    return 0
+  fi
+  root="$(forge_workspace_root "$cwd")"
+  main="$(forge_main_checkout "$cwd" 2>/dev/null)" || main="$top"
+  if [ "$root" != "$main" ]; then
+    skills="$(forge_workspace_skills "$cwd")"
+    if [ -n "$skills" ]; then
+      printf '# Workspace skills\n\nShared by the repositories of %s and outside this repository, so they are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$root"
+      printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'
+      printf '\n'
+    fi
+    if [ -f "$root/CLAUDE.md" ]; then
+      printf '# Workspace instructions (%s/CLAUDE.md)\n\n' "$root"
+      cat "$root/CLAUDE.md"
+      printf '\n'
+    fi
+  fi
+  [ "$main" != "$top" ] || return 0
+  skills="$(forge_main_checkout_skills "$cwd")"
+  if [ -n "$skills" ]; then
+    printf '# Main checkout skills\n\nKept out of git in the main checkout of this repository (%s), so this worktree does not have them and they are not in the skill list: when one applies, Read its SKILL.md at the path and follow it as a loaded skill.\n\n' "$main"
+    printf '%s\n' "$skills" | awk -F'\t' '{ printf "- **%s** (`%s`): %s\n", $1, $2, $3 }'
+    printf '\n'
+  fi
+  if [ -f "$main/CLAUDE.md" ] && [ ! -f "$top/CLAUDE.md" ]; then
+    printf '# Main checkout instructions (%s/CLAUDE.md)\n\n' "$main"
+    cat "$main/CLAUDE.md"
+    printf '\n'
+  fi
 }
 
 # Spec mode of a memory project key: chat | openspec | openspec:<store> | azure.
@@ -327,7 +397,8 @@ forge_find_clone() {
   printf '%s\n' "$base"
 }
 
-# Git repositories to work on: the directory itself when it is one, else its first-level children.
+# Git repositories to work on: the directory itself when it is one, else its first-level children, each by its path
+# with symlinks resolved, as git names it.
 forge_detect_repos() {
   local base="$1" child
   if git -C "$base" rev-parse --show-toplevel >/dev/null 2>&1; then
@@ -335,7 +406,7 @@ forge_detect_repos() {
     return
   fi
   for child in "$base"/*/; do
-    [ -d "$child/.git" ] && printf '%s\n' "${child%/}"
+    [ ! -d "$child/.git" ] || (cd "$child" && pwd -P)
   done
 }
 
@@ -421,6 +492,103 @@ forge_main_checkout() {
       worktree="$(git --git-dir="$common" config core.worktree)" || return 1
       (cd "$common" && cd "$worktree" && pwd -P) ;;
   esac
+}
+
+# Fills a new worktree's submodules, which git leaves empty: every one, at any depth, each cloned anew for this worktree.
+# Fails when one does not come.
+forge_init_submodules() {
+  # No terminal answers a prompt where this runs (a hook, a herdr app mod): a remote that asks fails instead of waiting.
+  GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes}" \
+    git -C "$1" submodule update --init --recursive --quiet >&2
+}
+
+# The commits of a submodule's clone no remote has, one at most: whatever keeps them (a branch, a tag, a stash, or only
+# the reflog, as a commit its HEAD left behind). A tag the remote has on no branch comes with every clone and is not
+# such a commit, so the remotes are asked for their tags, only once something shows; a remote that does not answer
+# leaves it showing. Fails when git cannot read the clone.
+forge_module_unpushed() {
+  local module="$1" found remote listed tags=""
+  # The clone names a folder to stand in (core.worktree), which is gone once its submodule is no longer checked out:
+  # it is read standing in itself.
+  local -a git=(git --git-dir="$module" --work-tree="$module")
+  found="$("${git[@]}" log -1 --format=%H --all --reflog --not --remotes)" || return 1
+  [ -n "$found" ] || return 0
+  for remote in $("${git[@]}" remote); do
+    # No terminal answers a prompt here, and a remote that hangs must not hold a removal for ever.
+    listed="$(GIT_TERMINAL_PROMPT=0 GIT_SSH_COMMAND="${GIT_SSH_COMMAND:-ssh -o BatchMode=yes -o ConnectTimeout=10}" \
+      "${git[@]}" -c http.lowSpeedLimit=1000 -c http.lowSpeedTime=10 ls-remote --tags "$remote" 2>/dev/null)" \
+      || { printf '%s\n' "$found"; return 0; }
+    # The remote's tags this clone has, however many: asked in one go, and given to the log on its input.
+    tags="$tags$(printf '%s\n' "$listed" | cut -f1 | "${git[@]}" cat-file --batch-check 2>/dev/null | awk 'NF == 3 { print "^" $1 }')
+"
+  done
+  printf '%s' "$tags" | "${git[@]}" log -1 --format=%H --all --reflog --not --remotes --stdin
+}
+
+# The submodules of a worktree, at any depth, that hold work nothing else has, one per line: by its path from the
+# worktree's top when it is checked out, by its clone's place under the git folder's modules when it no longer is.
+# Each worktree has a clone of its own of every submodule, under its git folder (or inside the submodule's own, for one
+# added from a clone already there), which goes with it: so their
+# uncommitted files count, and every commit of those clones no remote has, in the submodules checked out and in the
+# ones that no longer are. The superproject's status shows none of the commits once it records them. Fails when git
+# cannot read a submodule or its clone: what cannot be read is never taken for clean.
+forge_submodule_work() {
+  local gitdir listed module unpushed path left stands folder
+  gitdir="$(git -C "$1" rev-parse --absolute-git-dir)" || return 1
+  # Each one checked out: its clone, its path, and whether it has uncommitted files.
+  # shellcheck disable=SC2016 # expanded by the shell git runs in each submodule
+  listed="$(git -C "$1" submodule foreach --quiet --recursive \
+    'case "$displaypath" in *[[:cntrl:]]*) exit 1 ;; esac
+     changed="$(git status --porcelain)" || exit 1
+     printf "%s\t%s\t%s\n" "$(git rev-parse --absolute-git-dir)" "$displaypath" "$(printf "%s\n" "$changed" | head -n 1)"')" || return 1
+  # A line each, three fields, the path never empty: a path with a tab or a newline in it does not fit in one, so the
+  # submodule itself refuses it above, and a line that still comes misshapen is not read as clean.
+  printf '%s\n' "$listed" | awk -F'\t' '$0 != "" && (NF != 3 || $2 == "") { exit 1 }' || return 1
+  printf '%s\n' "$listed" | awk -F'\t' '$3 != "" { print $2 }'
+  # One that keeps its git folder inside its own (added from a clone already there) has no clone under modules: its
+  # commits are read where it is.
+  while IFS="$(printf '\t')" read -r module path left; do
+    [ -n "$module" ] && [ -z "$left" ] || continue
+    case "$module" in "$gitdir/modules/"*) continue ;; esac
+    unpushed="$(forge_module_unpushed "$module")" || return 1
+    [ -z "$unpushed" ] || printf '%s\n' "$path"
+  done <<EOT
+$listed
+EOT
+  [ -d "$gitdir/modules" ] || return 0
+  while IFS= read -r module; do
+    [ -n "$module" ] || continue
+    module="$(dirname "$module")"
+    [ -f "$module/HEAD" ] || continue
+    path="$(printf '%s\n' "$listed" | awk -F'\t' -v module="$module" '$1 == module { print $2; exit }')"
+    # One the branch no longer has is not listed above, yet git leaves its folder as it was, and the superproject's
+    # status says nothing of it once the folder is ignored: its uncommitted files are read where the clone says it
+    # stands, when that folder is still this clone's.
+    left=""
+    if [ -z "$path" ] && stands="$(git --git-dir="$module" config core.worktree 2>/dev/null)" \
+      && folder="$(cd "$module" 2>/dev/null && cd "$stands" 2>/dev/null && pwd -P)" \
+      && [ "$(git -C "$folder" rev-parse --absolute-git-dir 2>/dev/null)" = "$module" ]; then
+      left="$(git -C "$folder" status --porcelain)" || return 1
+    fi
+    unpushed=""
+    [ -n "$left" ] || unpushed="$(forge_module_unpushed "$module")" || return 1
+    [ -n "$unpushed$left" ] || continue
+    # One whose files are uncommitted too is named already.
+    [ -z "$path" ] || [ -n "$(printf '%s\n' "$listed" | awk -F'\t' -v module="$module" '$1 == module { print $3 }')" ] \
+      || printf '%s\n' "$path"
+    [ -n "$path" ] || printf '%s\n' "${module#"$gitdir/modules/"}"
+  done <<EOT
+$(find "$gitdir/modules" -type d -name objects)
+EOT
+}
+
+# Whether a worktree has submodules git refuses to remove it with, clean or not, unless forced: one checked out, or the
+# clone of one its branch no longer has.
+forge_has_submodules() {
+  local gitdir
+  gitdir="$(git -C "$1" rev-parse --absolute-git-dir 2>/dev/null)" || return 1
+  [ -n "$(find "$gitdir/modules" -type d -name objects 2>/dev/null | head -n 1)" ] \
+    || [ -n "$(git -C "$1" submodule foreach --quiet --recursive 'echo initialised' 2>/dev/null)" ]
 }
 
 # Adds a pattern to a repository's local exclude file (never committed), once.

@@ -6,7 +6,7 @@
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { closeOverlay, openOverlay, props, run, spaces } from "herdr";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { placeOf } from "../bridges/places.js";
 import { groupForges } from "../forges.js";
@@ -105,7 +105,7 @@ const itemsOf = (target) => {
     {
       act: () => {
         const all = spaces();
-        const forge = groupForges(all, readSpacesGit()).find(
+        const forge = groupForges(all, readSpacesGit(), readFolders()).find(
           (one) => one.main.id === target.main,
         );
         const shown = all.find((space) => space.id === target.space);

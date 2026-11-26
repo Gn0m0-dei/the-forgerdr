@@ -173,13 +173,15 @@ export const golemsAtWork = (spaceIds, terminals, inside = []) => {
 };
 
 /**
- * Whether a worktree is still as the human last looked at it, to remove it: its plan answered again and lists no file
- * the one shown did not. A plan that cannot be read removes nothing.
+ * Whether a worktree is still as the human last looked at it, to remove it: its plan answered again, lists no file
+ * the one shown did not, and does not go by force unless the one shown said so. A plan that cannot be read removes
+ * nothing.
  * @param {import("./bridges/forge.js").Loaded<RemovalPlan>} fresh
  * @param {RemovalPlan} known
  */
 export const stillRemovable = (fresh, known) =>
   fresh.state === "ready" &&
+  (!fresh.value.forced || known.forced) &&
   fresh.value.changes.every((file) => known.changes.includes(file));
 
 // What a forge's backlog tells of the item field only names the line it reads; a way of working does not matter here.
