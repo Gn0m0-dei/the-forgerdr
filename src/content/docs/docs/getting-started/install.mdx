@@ -12,6 +12,18 @@ The forgerdr lives in tools you install yourself, and never installs or removes 
 - git;
 - [Homebrew](https://brew.sh), on macOS.
 
+### Start from a clean Claude Code
+
+The forgerdr brings its own rules, hooks, skills, status line and MCP servers (engram, codebase-memory, context7, chrome-devtools). Another plugin, or a setting of your own, that does the same job runs beside it, and the two step on each other: rules that contradict, two hooks answering the same event, one MCP server registered twice, a second memory.
+
+Before installing, remove or turn off:
+
+- other plugins that set a way of working or keep a memory;
+- the user-scope registrations of those MCP servers (`claude mcp remove -s user <name>`);
+- the hooks and the user skills of your own that set rules for every session.
+
+[`/forgerdr:setup`](../setup/) lists the leftovers it knows and removes one only when you say so.
+
 ## Install
 
 On macOS or openSUSE Tumbleweed:

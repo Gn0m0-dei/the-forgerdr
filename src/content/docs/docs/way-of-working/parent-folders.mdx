@@ -1,0 +1,82 @@
+---
+title: Several repositories in one folder
+description: A parent folder of repositories opened as one forge, why it must be indexed, and how a session there works across its repositories and their git submodules.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+Work often spans several repositories: an API and the app that calls it, a set of micro frontends, the services of one system. Keep them in one folder, open **that folder** as the forge, and launch everything from it: the session sees every repository at once, and the agent that ends up in one of them works there with that repository's own skills.
+
+<img src={withBase("screens/17-parent-folder.png")} width="1440" height="900" alt="A parent folder opened as one forge: the folder with its own session, each repository under it with its worktrees, a session inside a git submodule, and the golem lanes of the whole forge." />
+
+## What a parent folder is
+
+A folder that is not a git repository and holds repositories directly under it: its first-level children with a `.git` directory. A child whose `.git` is a file (a linked worktree, a submodule checkout) is not one of them, and neither is a child that is a link to a repository elsewhere.
+
+Open it in the herdr app and it is **one forge**: one tab, one gnome. The spaces of its repositories, their main checkouts and their worktrees wherever those live, hang from it. Without the folder open, each repository is a forge of its own, as always.
+
+## Index the forge first
+
+**A parent folder works as one only once it is indexed.** Until then each repository keeps its own memory, its own mode and its own backlog, and a session started inside one knows nothing of the folder above it.
+
+Under the gnome's name the sidebar says how the forge stands:
+
+| It reads | What it means |
+|---|---|
+| `NOT INDEXED · CLICK`, beside a blinking warning | nothing is indexed yet: a click indexes it |
+| `INDEXING…` | the indexing runs, on its own; a large folder takes minutes |
+| `INDEXED` | done |
+| `INDEX FAILED · CLICK` | the code index refused it; a notice says why, and a click tries again |
+
+Indexing does two things:
+
+1. **It joins each repository to the folder.** The folder is recorded in the repository's own git config (`forgerdr.workspace`), which is never committed and is shared by every worktree of that clone. From then on every session in that repository, however it was opened, takes the folder's memory, mode, backlog, skills and `CLAUDE.md`.
+2. **It indexes the code of the whole forge as one project**, from the folder, in the [code graph](../memory/) the agents search. A session is told that project when it starts.
+
+A repository added to the folder later makes the forge not indexed again, until the next click. Outside the app the same is done with `bin/forge-start.sh index <folder>`, and undone with `unindex` ([scripts](../../reference/scripts/)).
+
+Three things to know before you click:
+
+- **Memory is shared from then on.** What a repository saved before, under its own name, stays where it was and is not moved; it is just no longer the memory its sessions open on.
+- **The key is the folder's name.** Two parent folders with the same name on one machine would share memory, mode and backlog: name them apart.
+- **A folder with its own `.claude`, `CLAUDE.md` or `AGENTS.md`** is already a workspace for its repositories' skills and memory; indexing still adds the code index and the record in each repository.
+
+## The sidebar of a parent folder
+
+- **The folder's row** on top, with the sessions started in it.
+- **Every repository** under it, open or not, each with its own `+` that makes a [worktree](../../herdr-app/start-work/#make-and-remove-a-worktree-by-hand) in that repository. A repository with nothing open opens its main checkout on a click.
+- **Its checkouts and worktrees**, each with its golems.
+- **A git submodule** shows as a folder under the checkout that holds it, while a session is open inside it.
+- **The golem lanes** gather the golems of the whole forge, whichever space you look at, each row with its repository's name.
+
+## Start work from the folder
+
+`START WORK` on the folder's space starts the forge's work as its [mode](../../herdr-app/start-work/#the-forges-mode) takes it, set once for the folder:
+
+| Mode | From a parent folder |
+|---|---|
+| Chat | what you want to work on; its session starts in the folder, with every repository in reach |
+| GitHub, GitLab | the issues of any of its repositories by URL; a number alone, once a backlog is named in the forge's mode |
+| Azure DevOps | work items by URL or id, an id completed with the forge's backlog, which may be in another organization than the code |
+| OpenSpec | the changes of its store, or of each repository that keeps OpenSpec, told by its repository |
+
+Reviews start in the clone of the pull request's repository, whichever space they are asked from.
+
+## How a session in the folder works
+
+The folder has no git of its own, so the session works repository by repository:
+
+- **It decides which repositories the item touches**, from what the item names and where the code lives, and says so in its brief.
+- **It loads each repository's skills** before touching it. The session start lists them by repository, because Claude Code only loads the folder's own.
+- **In each repository it works in the main checkout** when that is clean and on its base branch, **or opens a worktree** when it is busy. To give a repository an agent of its own instead, pick `In worktrees` in Start work: one worktree and one agent per item and repository.
+- **The branch has the same name in every repository**, so they are found together.
+- **Each repository gets its own commit, push and pull request**, each at its own [gate](../flow-and-gates/); the pull requests name each other and say the order they merge in.
+- **An external backlog is decided per repository**: a work item of another Azure DevOps organization than a repository's remote is [`EXT-<id>`](../items-and-branches/#an-item-of-an-external-backlog) there, and may be the repository's own item in another.
+
+## Git submodules
+
+A repository that holds git submodules works without extra steps:
+
+- **A new worktree comes with its submodules filled.** git leaves them empty; forgerdr fills them, each cloned anew for that worktree (`--no-submodules` skips it).
+- **A worktree with submodules can be removed.** git refuses one even when clean. forgerdr looks inside every submodule first and refuses only when one holds work nothing else has: uncommitted files, or commits no remote has, whatever keeps them (a branch, a tag, a stash). The Remove worktree dialog says the removal is by force.
+- **Work inside a submodule ships first, in its own repository**: a branch there with the same name, its own commit, push and pull request, each at its gate; then the repository that holds it records the new commit, and its pull request names the submodule's.

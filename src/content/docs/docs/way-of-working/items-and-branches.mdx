@@ -46,7 +46,9 @@ An Azure DevOps item whose organization is not the remote's is external. Whateve
 | Commit footer | `Closes: #<id>` | `Refs: EXT-<id>` |
 | Pull request | title `#<id> <slug>`, the item linked | title `EXT-<id> <slug>`, no link |
 
-The item itself is read, commented and updated in its own organization. When no item URL is at hand, the backlog is read from the clone's git config:
+The item itself is read, commented and updated in its own organization. In a [parent folder](../parent-folders/) it is decided per repository: one item can be external for one repository and its own for another. An id alone is an item of the forge's backlog and is completed with it before that is decided.
+
+When no item URL is at hand, the backlog is read from the clone's git config, and else from the one the forge's mode names:
 
 ```bash
 git config --local azdospec.organization <org>

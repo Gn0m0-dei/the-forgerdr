@@ -18,7 +18,18 @@ The engram and codebase-memory binaries are the only pieces outside the plugin; 
 
 ## The memory project key
 
-Every session starts with a **memory project key**: the workspace root when the repository sits in a workspace (a parent with its own `.claude`, `CLAUDE.md` or `AGENTS.md`), the repository otherwise. The engram server is started with that key, so a workspace of four repositories is one memory, not four. The session start also folds the per-directory projects engram used to create into that key, and after a compaction brings the project's memory context back.
+Every session starts with a **memory project key**: the workspace root when the repository sits in a workspace, the repository otherwise; a session started in a folder outside git has that folder's. The engram server is started with that key, so a workspace of four repositories is one memory, not four.
+
+A parent folder is the workspace of a repository in two cases:
+
+- **The folder says so itself**, with its own `.claude`, `CLAUDE.md` or `AGENTS.md` (never the home folder, for the `.claude` Claude Code keeps there). The session start then folds the per-directory projects engram used to create into that key.
+- **The folder's forge was indexed**, which records the folder in each repository ([parent folders](../parent-folders/#index-the-forge-first)). The repository shares the folder's memory from then on, and nothing is moved: what it saved before stays under its own name, and is read with `project` when the work needs it.
+
+After a compaction the session start brings the project's memory context back.
+
+## The code index
+
+Indexing a forge also builds its code graph: one codebase-memory project for the whole forge, every repository of a parent folder in it. The session start names that project, so an agent in any of its repositories searches all of them.
 
 ## When the memory is used
 

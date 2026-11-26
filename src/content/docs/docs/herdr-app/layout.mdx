@@ -11,7 +11,7 @@ The forgerdr brings its own look for the herdr app: the `forgerdr` layout, the `
 
 ## The forge bar
 
-Across the top runs a **forge tab per repository**, its main checkout and its worktrees together (a space outside git is a forge of its own). Each tab carries its gnome and a badge of what its golems do: `!` when one waits on you, how many work, `✓` when one is done. Then the `+` that opens a space, `FLOOR`, which opens the [forge floor](../floor/), `INBOX` with how many things wait on you (it opens the [inbox](../inbox/)), and the command palette with its key.
+Across the top runs a **forge tab per repository**, its main checkout and its worktrees together. A [parent folder of repositories](../../way-of-working/parent-folders/) is one forge too, with every repository under it; any other space outside git is a forge of its own. Each tab carries its gnome and a badge of what its golems do: `!` when one waits on you, how many work, `✓` when one is done. Then the `+` that opens a space, `FLOOR`, which opens the [forge floor](../floor/), `INBOX` with how many things wait on you (it opens the [inbox](../inbox/)), and the command palette with its key.
 
 A forge tab does what the app's space list does, on the space it shows: a click shows it, a right click opens its menu (Start work, its mode, its gnome, then rename, new, open and remove worktree, close), its ✕ or a middle click closes it. A double click renames the forge, and dragging it onto another moves its spaces there. When the tabs do not fit, the strip scrolls and arrows on its sides bring in the next hidden tab.
 
@@ -19,11 +19,12 @@ A forge tab does what the app's space list does, on the space it shows: a click 
 
 Down the left runs the forge's sidebar:
 
-- **The gnome**, whole and rolled from the forge's repository (its hat and the hat's colour, its eyes, its beard and what it wears), and its brother's name, with what its golems do. A double click, or `Edit gnome…` in the tab's menu, opens the gnome's dialog, so each project keeps a face you tell apart at a glance.
-- **The tree** of the forge on show: the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, and the agents at work in each with their sub-agents and status. A space's row shows it on a click; an agent's row goes to its pane.
+- **The gnome**, whole and rolled from the forge's repository (its hat and the hat's colour, its eyes, its beard and what it wears), and its brother's name, with what its golems do. The settings button beside `START WORK`, a double click, or `Edit gnome…` in the tab's menu opens the gnome's dialog, so each project keeps a face you tell apart at a glance.
+- **How the forge's indexing stands**, under the gnome's name: `NOT INDEXED · CLICK` beside a blinking warning, `INDEXING…`, `INDEXED`, or `INDEX FAILED · CLICK`. A click indexes it. A forge has to be indexed to work as it should: see [index the forge first](../../way-of-working/parent-folders/#index-the-forge-first).
+- **The tree** of the forge on show: the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, and the agents at work in each with their sub-agents and status. A space's row shows it on a click; an agent's row goes to its pane. For a parent folder: the folder with its own sessions, every repository under it with its own `+`, and a git submodule under the checkout that holds it while a session is open inside it.
 - **Pull requests:** a row for each review session parked behind its view, `#42 review · @author` with `TRIAGE` or `#40 mine · 4 threads` with `THREADS`.
 - **The forge's heat** at its foot ("2 forging · 1 waiting").
-- **`START WORK`** under the gnome, and the forge's **mode** at the foot: see [Start work](../start-work/).
+- **`START WORK`** under the gnome, with the settings button beside it, and the forge's **mode** at the foot: see [Start work](../start-work/).
 
 The chevron folds the sidebar to a rail of the gnome and its golems.
 
@@ -35,7 +36,7 @@ Each golem shows how full its session's context is: the percentage before it, an
 
 ## The golem lanes
 
-Under the panes runs the golem lanes: the golems every session of the active space spawned, the most urgent first (broken or waiting on you, then at work, then done), each with what it is doing now, its context, how long its current task has taken and its status. Folded, it is one line with the most urgent one; a lane goes to its terminal on a click.
+Under the panes runs the golem lanes: the golems every session of the active space spawned (of every space of the forge, each with its repository's name, when the forge is a parent folder), the most urgent first (broken or waiting on you, then at work, then done), each with what it is doing now, its context, how long its current task has taken and its status. Folded, it is one line with the most urgent one; a lane goes to its terminal on a click.
 
 ## The session bar and the panes
 
