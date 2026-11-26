@@ -34,6 +34,12 @@ SETTINGS                                      ~/.config/forgerdr/config.toml
   /forgerdr:mode spec chat|openspec|openspec:<store>|azure [--project]
   /forgerdr:setup                               check and complete the environment
 
+SEVERAL REPOSITORIES (a folder of repositories opened as one forge)
+  index the forge first: NOT INDEXED · CLICK under its gnome's name, or bin/forge-start.sh index <folder>
+  indexed, its repositories share the folder's memory, mode, backlog and skills, however a session is opened
+  start work from the folder: the session picks the repositories an item touches, a branch and a PR in each
+  git submodules: filled in a new worktree; work inside one ships first, in its own repository
+
 HERDR APP KEYS                                after bin/forge-setup-keys.sh (Ctrl+Alt on Linux)
   cmd+alt+p        review pull requests       cmd+alt+t        items in worktrees
   in the forgerdr layout:
@@ -42,5 +48,6 @@ HERDR APP KEYS                                after bin/forge-setup-keys.sh (Ctr
   cmd+alt+m        forge mode                 cmd+alt+/        smith's manual
   START WORK under the forge's gnome (forgerdr.start): what the forge's mode takes, then cmd+enter
   MODE at the sidebar's foot (forgerdr.mode): chat, openspec, azure, github, gitlab
+  the cog beside START WORK: the forge's settings (its gnome)
   + beside the repository, or a forge's menu: new worktree (forgerdr.worktree-new)
   a forge's menu on a worktree: remove it (forgerdr.worktree-remove), its branch kept
