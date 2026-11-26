@@ -28,6 +28,8 @@ A Claude Code plugin for the [herdr](https://herdr.dev) desktop app that carries
 
 First, [Claude Code](https://claude.com/claude-code), the [herdr app](https://herdr.dev/download/), which brings herdr-core (`hc`), and git, plus [Homebrew](https://brew.sh) on macOS. forgerdr lives in them: it never installs or removes them.
 
+> **Start from a clean Claude Code.** forgerdr brings its own rules, hooks, skills, status line and MCP servers (engram, codebase-memory, context7, chrome-devtools). Another plugin or a setting of your own that does the same job runs beside it, and the two step on each other: rules that contradict, two hooks answering the same event, one MCP server registered twice, a second memory. Before installing, remove or turn off other workflow and memory plugins, the user-scope registrations of those MCP servers, and the hooks or user skills that set a way of working. `/forgerdr:setup` lists the leftovers it knows and removes one only when you say so.
+
 Then, on macOS or openSUSE Tumbleweed:
 
 ```bash
