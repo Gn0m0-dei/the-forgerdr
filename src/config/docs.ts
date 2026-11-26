@@ -12,6 +12,7 @@ export const SIDEBAR: StarlightUserConfig["sidebar"] = [
       "docs/way-of-working/manual-and-auto",
       "docs/way-of-working/spec-modes",
       "docs/way-of-working/items-and-branches",
+      "docs/way-of-working/parent-folders",
       "docs/way-of-working/memory",
     ],
     label: "The way of working",

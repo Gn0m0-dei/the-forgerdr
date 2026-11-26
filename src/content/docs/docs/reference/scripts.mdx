@@ -8,7 +8,8 @@ The forgerdr talks to the herdr app through its two command-line tools: `herdr-a
 The scripts are plain bash over `herdr-app`, `hc` and `jq`:
 
 ```bash
-bin/forge-worktree.sh  [--plan] [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--no-dev] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT | --kind KIND --title TEXT] <item>...
+bin/forge-worktree.sh  [--plan] [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--no-dev] [--port-base N] [--auto] [--no-agent] [--no-submodules] [--branch NAME --title TEXT | --kind KIND --title TEXT] <item>...
+bin/forge-start.sh     indexed|index|unindex <dir>
 bin/forge-review.sh    [--cwd PATH] [--mod NAME] [--no-agent] <pr-url>...
 bin/forge-security.sh  launch [--cwd PATH] [--mod NAME] [--title TITLE] [--item ID] [--scope TEXT] [--report-to ADDRESS] [--no-agent]
 bin/forge-session.sh   [--cwd PATH] [--no-agent] [--no-focus] --title TITLE <prompt>
@@ -27,12 +28,18 @@ They print one JSON line per worktree, tab or pull request.
 `forge-worktree.sh` makes each worktree where the app keeps its own (`worktrees.directory` in the app's `settings.json`, `~/.herdr/worktrees` by default), so the app's Open and Remove worktree see them. `forge-worktree-remove.sh` removes one the way the app does: its spaces closed first, its branch kept.
 
 - It refuses uncommitted work and a space where an agent is at work. `--discard` throws the uncommitted work away and still refuses an agent at work; `--force` does both.
+- A new worktree gets its git submodules filled, each cloned anew for it; `--no-submodules` skips it. git refuses to remove a worktree with submodules, so the script looks inside each one (its uncommitted files, and its commits no remote has, on a branch, under a tag or in a stash) and forces git only when there is none; `--plan` answers `forced` and names the submodules that hold work.
+- An id alone is completed with the forge's backlog before the item is told external.
 - The ignored env files are copied into a new worktree only where no symlink its branch carries stands in their way, so a branch cannot send them outside the worktree.
 - What the scripts cannot guess (which repositories an item touches in a multi-repo workspace, which `dev:<app>` script of a monorepo) the skills decide and pass as flags.
 - `--kind` and `--title` before an item name its branch without asking the provider, from the kind, the item's id (a URL, `#12`, `AB#12`, `12`, `EXT-12` or `""` for none) and the title. The kinds are `feature`, `fix`, `chore` and `release` from the base, and `hotfix` from the production branch.
 - A name git would refuse is refused in the plan, and an item of an external backlog never reuses the branch of the repository's own item with the same number.
 - Each dev server gets the first port from `--port-base` (3000) that nothing listens on.
 - `--plan` says what a run would make, and makes nothing.
+
+## Indexing a forge
+
+`forge-start.sh index <dir>` indexes the forge a directory is of: the [parent folder of repositories](../../way-of-working/parent-folders/#index-the-forge-first) it is or works with, else its repository. Each repository of a parent folder records the folder in its own git config (`forgerdr.workspace`), and the code of the whole forge is indexed as one codebase-memory project, when that program is installed. `indexed` answers how it stands (`state`: `none`, `indexing` or `ready`, how many `repos` and how many `joined`, the code index's `project`, and what `failed` in its last run); `unindex` leaves the repositories on their own again and keeps the code index's project.
 
 ## The app's look
 

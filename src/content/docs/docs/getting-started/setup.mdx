@@ -23,6 +23,10 @@ description: What /forgerdr:setup checks, and the pieces of the app's look it of
 
 Each of them asks first, keeps what you changed by hand, and has a `--remove` (or `remove`) that takes it away.
 
+## Index each forge
+
+A forge has to be indexed to work as it should. Open it in the app and click `NOT INDEXED · CLICK` under its gnome's name: its code is indexed for the agents and, when it is a [parent folder of several repositories](../../way-of-working/parent-folders/#index-the-forge-first), each repository is joined to it, so every session in them shares the folder's memory, mode, backlog and skills. It is done once per forge, and again when a repository is added to the folder.
+
 ## Memory and MCP servers come with the plugin
 
 `mcp-servers.json` declares the four MCP servers the way of working depends on, so nothing is registered by hand: **engram** (memory), **codebase-memory** (the code graph), **context7** (official library docs; export `CONTEXT7_API_KEY` for a higher rate limit) and **chrome-devtools** (browser verification). See [memory and MCP servers](../../way-of-working/memory/).

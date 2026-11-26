@@ -29,6 +29,8 @@ Then:
 
 A preview says what each line starts and skips what it cannot, saying why; `Cmd+Enter` starts it all.
 
+From a [parent folder of repositories](../../way-of-working/parent-folders/#start-work-from-the-folder) it takes the work of any of them: the issues of every repository on GitHub and GitLab, the OpenSpec changes of each one, and work items of a backlog that may be in another Azure DevOps organization than the code. Index the forge first, so the sessions it starts in a repository take the folder's mode and backlog.
+
 ## The forge's mode
 
 The mode shows at the foot of the sidebar, where a click (or `Forge mode…` in a forge's menu, or `forgerdr.mode`) opens its dialog:
@@ -40,14 +42,14 @@ The mode shows at the foot of the sidebar, where a click (or `Forge mode…` in 
 | Azure DevOps | work items |
 | GitHub, GitLab | issues |
 
-Each takes its backlog from the origin's project or repository when the origin is on that provider, or from the one you name with `Work with another backlog` (issues on GitLab for code on GitHub, work items of another organization). The mode is kept per project in `~/.config/forgerdr/config.toml` and sets the [spec mode](../../way-of-working/spec-modes/) the skills read.
+Each takes its backlog from the origin's project or repository when the origin is on that provider, or from the one you name with `Work with another backlog` (issues on GitLab for code on GitHub, work items of another organization). The mode is kept per project in `~/.config/forgerdr/config.toml` and sets the [spec mode](../../way-of-working/spec-modes/) the skills read. A parent folder has one mode for all its repositories, once it is [indexed](../../way-of-working/parent-folders/#index-the-forge-first).
 
 ## Make and remove a worktree by hand
 
-The `+` beside the repository, `New worktree…` in a forge's menu or `forgerdr.worktree-new` opens the dialog that makes a worktree: an issue or work item (or none), a title the branch is named from and its kind (feature, fix, chore, hotfix from the production branch, or release named by its version), the branch and its folder previewed as you type, the base it starts from, and the dev server on a free port when the forge has one. Create opens it as a space with a shell.
+The `+` beside the repository (each repository of a parent folder has its own), `New worktree…` in a forge's menu or `forgerdr.worktree-new` opens the dialog that makes a worktree: an issue or work item (or none), a title the branch is named from and its kind (feature, fix, chore, hotfix from the production branch, or release named by its version), the branch and its folder previewed as you type, the base it starts from, and the dev server on a free port when the forge has one. Create opens it as a space with a shell, its git submodules filled.
 
 <img src={withBase("screens/16-create-worktree.png")} width="1440" height="900" alt="The Create worktree dialog: the item, the title its branch is named from, its kind and the branch it makes." />
 
-`Remove worktree…` in a worktree's menu, or `forgerdr.worktree-remove`, opens the dialog that removes it: the panes that close and the branch that stays; with uncommitted files, which ones, and `Discard changes and remove`; with a golem at work or waiting on you in its spaces, nothing until it is done, which the dialog follows live.
+`Remove worktree…` in a worktree's menu, or `forgerdr.worktree-remove`, opens the dialog that removes it: the panes that close and the branch that stays; with uncommitted files, which ones, and `Discard changes and remove`; with a golem at work or waiting on you in its spaces, nothing until it is done, which the dialog follows live. A worktree with git submodules is removed by force, since git refuses it otherwise: the dialog says so, and it is refused while a submodule holds uncommitted files or commits no remote has.
 
 Nothing throws work away: a worktree with uncommitted changes is never removed without your say, and a branch goes only while it still points where it started or is merged. See [scripts](../../reference/scripts/) for what runs underneath.

@@ -20,6 +20,17 @@ The session start also resolves the [memory project key](../../way-of-working/me
 
 Two layouts work without configuration. One repository with its own `.claude/skills` and `CLAUDE.md`: Claude Code loads them. A workspace of several repositories with shared `.claude/skills` and `CLAUDE.md` at the workspace root, above the git tree where Claude Code does not look: the session start lists those skills with their paths and prints that `CLAUDE.md`, from the main checkout and from any worktree of it. The other way round, a session started at the workspace root gets the skills inside each repository listed by repository.
 
+Nothing is copied: each skill is named with its path, and the standards make the agent read the ones that apply before it touches code.
+
+| Where the session starts | What Claude Code loads | What the session start adds |
+|---|---|---|
+| A parent folder of repositories | the folder's skills | the skills of each repository below |
+| A repository | its skills | the folder's skills and `CLAUDE.md` |
+| A worktree of it, wherever it lives | the skills its branch carries | the folder's, and the skills only the main checkout has (kept out of git) |
+| A git submodule | the submodule's | the skills of the checkout that holds it, and what that checkout gets |
+
+A parent folder gives its skills to its repositories when it carries its own `.claude`, `CLAUDE.md` or `AGENTS.md`, or once its forge is [indexed](../../way-of-working/parent-folders/#index-the-forge-first). An indexed forge is also told its code index's project.
+
 ## Sessions carry their number
 
 `review` and `worktree` start every agent with `FORGE_SESSION_TITLE` in its environment (`PR <id>: <title>`, `#<id> <title>`, the change name, or the branch slug for free text), and the session start sets it as the session title, the same as `/rename`: `claude --resume` lists it, the herdr app shows it on the terminal, and memory saved in that session mentions the number. Outside the app, a session that gains a number is asked once to `/rename` itself.
@@ -38,6 +49,6 @@ Two layouts work without configuration. One repository with its own `.claude/ski
 
 ## Claude Code's own worktrees
 
-Each one is a git worktree under `.claude/worktrees/<name>` on branch `worktree-<name>`, from the base `worktree.baseRef` asks for, with the ignored `.env*` files and the `.worktreeinclude` files copied. Inside the herdr app it also opens as a space of its own that does not take the focus. When the session ends, the ones it created with no change, no commit and no agent at work in them are removed, their spaces closed and their branches deleted; the rest stay.
+Each one is a git worktree under `.claude/worktrees/<name>` on branch `worktree-<name>`, from the base `worktree.baseRef` asks for, with the ignored `.env*` files and the `.worktreeinclude` files copied and its git submodules filled. Inside the herdr app it also opens as a space of its own that does not take the focus. When the session ends, the ones it created with no change, no commit and no agent at work in them are removed, their spaces closed and their branches deleted; the rest stay.
 
-Nothing it does throws work away: a worktree with uncommitted changes is never removed, not even when Claude Code asks, and a branch goes only while it still points where it started or is merged. Claude Code runs a plugin's `WorktreeCreate` hook for `claude --worktree` from 2.1.300 on, never with `--worktree --tmux`, and reads `worktree.baseRef` from the settings files, not from managed settings or `--settings`.
+Nothing it does throws work away: a worktree with uncommitted changes is never removed, not even when Claude Code asks, nor one whose submodule holds uncommitted files or commits no remote has, and a branch goes only while it still points where it started or is merged. Claude Code runs a plugin's `WorktreeCreate` hook for `claude --worktree` from 2.1.300 on, never with `--worktree --tmux`, and reads `worktree.baseRef` from the settings files, not from managed settings or `--settings`.
