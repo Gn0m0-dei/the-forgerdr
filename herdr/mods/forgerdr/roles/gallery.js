@@ -18,6 +18,8 @@ import {
   keyButton,
   paletteHint,
   quietButton,
+  settingsButton,
+  startButton,
   updateChip,
 } from "../kit/buttons.js";
 import { agentChip, profileSwitch, statusChip } from "../kit/chips.js";
@@ -86,6 +88,7 @@ import {
   pullRequestsRow,
   repoRow,
   subagentRow,
+  submoduleRow,
   warningRow,
   worktreeRow,
 } from "../kit/tree.js";
@@ -249,8 +252,16 @@ const navigation = () =>
     v_flex()
       .w(300)
       .bg(tokens().bg1)
+      .child(
+        h_flex()
+          .gap(6)
+          .p(8)
+          .child(settingsButton())
+          .child(startButton().flex_1()),
+      )
       .child(repoRow("forgerdr"))
       .child(worktreeRow({ branch: "main", selected: true }))
+      .child(submoduleRow("src/core"))
       .child(
         agentRow({
           context: 61,

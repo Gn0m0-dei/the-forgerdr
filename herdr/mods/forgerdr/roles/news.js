@@ -5,7 +5,7 @@
 // manual's Check for updates when it finds the release.
 import { h_flex, TextView, v_flex } from "gpui-base";
 import { checking, closeOverlay, openOverlay, props, spaces } from "herdr";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { readNames } from "../bridges/names.js";
 import { applyUpdate, followUpdate } from "../bridges/update.js";
@@ -98,8 +98,8 @@ export const news = (cx) => {
 
   // The gnome of the forge on show, and its brother's name.
   const teller = () => {
-    const forge = groupForges(spaces(), readSpacesGit()).find((one) =>
-      one.spaces.some((space) => space.active),
+    const forge = groupForges(spaces(), readSpacesGit(), readFolders()).find(
+      (one) => one.spaces.some((space) => space.active),
     );
     const key = forge === undefined ? "" : lookKeyOf(forge);
     return {

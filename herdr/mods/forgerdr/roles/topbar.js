@@ -13,7 +13,7 @@ import { h_flex, ScrollHandle } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, keys, nextCommand, panes, run, spaces } from "herdr";
 import { followFlows } from "../bridges/flows.js";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { followInbox, inboxOpen, toggleInbox } from "../bridges/inbox.js";
 import { toggleLanes } from "../bridges/lanes.js";
@@ -193,7 +193,7 @@ export const topbar = (cx) => {
 
   // The forge shown, if any.
   const forgeShown = () =>
-    groupForges(spaces(), readSpacesGit()).find((one) =>
+    groupForges(spaces(), readSpacesGit(), readFolders()).find((one) =>
       one.spaces.some((space) => space.active),
     );
 
@@ -328,7 +328,7 @@ export const topbar = (cx) => {
   const render = (_cx) => {
     const k = tokens();
     const all = spaces();
-    const forges = groupForges(all, readSpacesGit());
+    const forges = groupForges(all, readSpacesGit(), readFolders());
     const everyone = readAgents();
     // A golem marked cracked (hooks/golem-state.sh) breaks its forge's mood.
     const cracked = crackedOf(readTerminals());

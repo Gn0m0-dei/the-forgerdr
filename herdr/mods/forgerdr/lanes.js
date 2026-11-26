@@ -125,6 +125,7 @@ export const withParkedAgents = (listed, terminals, spaces) => {
         app: null,
         focused: false,
         pane: "",
+        pane_name: null,
         pinned: false,
         program: terminal.program,
         seq: 0,
@@ -241,7 +242,9 @@ const URGENCY = { blocked: 1, cracked: 0, done: 3, idle: 4, working: 2 };
 
 /**
  * The lanes most urgent first and, at the same urgency, the latest started first.
- * @param {Lane[]} lanes
+ * @template {Pick<Lane, "status" | "since">} L
+ * @param {L[]} lanes
+ * @returns {L[]}
  */
 export const byUrgency = (lanes) =>
   lanes.toSorted(
@@ -266,26 +269,41 @@ export const rootOf = (terminal, byAddress) => {
 };
 
 /**
- * Every lane of a space, most urgent first: the golems of each of its sessions, wherever their panes are.
- * @param {string} spaceId
+ * Every lane of some spaces, most urgent first: the golems of each of their sessions, wherever their panes are. A
+ * parent folder's forge shows the lanes of all its spaces together (forges.js lanesSpacesOf).
+ * @param {string[]} spaceIds
  * @param {LaneTerminal[]} terminals
  * @param {Record<string, { used: number }>} contexts by terminal
  * @param {Record<string, number>} seen when each in-session subagent was first seen, in ms, by lane id
  * @param {Pick<SpaceInfo, "id" | "tabs">[]} [spaces] for the review sessions parked behind their views
+ * @returns {(Lane & { space: string })[]} each with the space its session is in
  */
-export const spaceLanes = (spaceId, terminals, contexts, seen, spaces = []) => {
+export const forgeLanes = (
+  spaceIds,
+  terminals,
+  contexts,
+  seen,
+  spaces = [],
+) => {
+  const ids = new Set(spaceIds);
   const byAddress = new Map(
     terminals.map((terminal) => [terminal.address, terminal]),
   );
+  /** @param {LaneTerminal} terminal the space its session is in */
+  const spaceOf = (terminal) =>
+    spaceOfTerminal(rootOf(terminal, byAddress), spaces) ?? "";
   const sessions = terminals.filter(
-    (terminal) =>
-      terminal.state !== "finished" &&
-      spaceOfTerminal(rootOf(terminal, byAddress), spaces) === spaceId,
+    (terminal) => terminal.state !== "finished" && ids.has(spaceOf(terminal)),
   );
   const seenLanes = new Set();
   return byUrgency(
     sessions
-      .flatMap((session) => lanesOf(session, terminals, contexts, seen))
+      .flatMap((session) =>
+        lanesOf(session, terminals, contexts, seen).map((lane) => ({
+          ...lane,
+          space: spaceOf(session),
+        })),
+      )
       .filter((lane) => !seenLanes.has(lane.id) && seenLanes.add(lane.id)),
   );
 };

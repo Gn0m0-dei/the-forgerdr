@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 # One git worktree per item and repository, opened as a herdr app space that does not take the focus: the main clone's
 # env files copied in, a titled claude agent in its first tab, the dev server in a second tab on the first free PORT.
-# Usage: forge-worktree.sh [--plan] [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--no-dev] [--port-base N] [--auto] [--no-agent] [--branch NAME --title TEXT | --kind KIND --title TEXT] <item> [...]
+# Usage: forge-worktree.sh [--plan] [--repo PATH]... [--base BRANCH] [--dev COMMAND] [--no-dev] [--port-base N] [--auto] [--no-agent] [--no-submodules] [--branch NAME --title TEXT | --kind KIND --title TEXT] <item> [...]
 # An item is a work item URL, or with --branch and --title before it anything /forgerdr:workitem takes. With --kind and
 # --title before it, the branch is named from them and the item's id (a URL, #12, AB#12, EXT-12, 12, or "" for none)
 # without asking the provider; KIND is feature, fix, chore, release (from the base) or hotfix (from the production
-# branch), and a release's title is its version, dots kept. --plan prints what a run would make, one JSON line per
-# worktree, and makes nothing.
+# branch), and a release's title is its version, dots kept. A worktree's submodules are filled, each cloned anew for
+# it, unless --no-submodules. --plan prints what a run would make, one JSON line per worktree, and makes nothing.
 set -euo pipefail
 
 # shellcheck source-path=SCRIPTDIR
@@ -26,6 +26,7 @@ dev_override=""
 port=3000
 start_agent=1
 start_dev=1
+init_submodules=1
 flow_flag=""
 plan=""
 
@@ -38,6 +39,7 @@ while [ $# -gt 0 ]; do
     --port-base) port="$2"; shift 2 ;;
     --no-agent) start_agent=0; shift ;;
     --no-dev) start_dev=0; shift ;;
+    --no-submodules) init_submodules=0; shift ;;
     --auto) flow_flag="--auto "; shift ;;
     --branch) next_branch="$2"; shift 2 ;;
     --title) next_title="$2"; shift 2 ;;
@@ -159,6 +161,11 @@ for step in "${!plan_items[@]}"; do
   base="${base_override:-$(forge_base_for_kind "$repo" "${item_kinds[$index]}")}"
   path="$(forge_worktree_path "$repo" "$branch")"
   forge_add_worktree "$repo" "$branch" "$(forge_start_ref "$repo" "$branch" "$base")" "$path"
+  submodules=false
+  if [ "$init_submodules" = 1 ] && [ -f "$path/.gitmodules" ]; then
+    if forge_init_submodules "$path"; then submodules=true
+    else printf 'forgerdr: the submodules of %s did not come; run git submodule update --init --recursive there\n' "$path" >&2; fi
+  fi
   env_count="$(forge_copy_env "$repo" "$path")"
   change_copied=false
   [ "$(forge_spec_mode "$(forge_project_key "$repo")")" != openspec ] || change_copied="$(forge_copy_change "$repo" "$path" "$item")"
@@ -185,6 +192,6 @@ for step in "${!plan_items[@]}"; do
   fi
   jq -cn --arg item "${id:-$item}" --arg repo "$repo" --arg branch "$branch" --arg path "$path" --arg space "$space" \
     --arg port "$dev_port" --arg dev "$dev_command" --argjson env "$env_count" --argjson change_copied "$change_copied" \
-    --arg terminal "$terminal" --arg title "$title" --argjson started "$started" \
-    '{item:$item,title:$title,repo:$repo,branch:$branch,path:$path,space:$space,port:$port,dev:$dev,env_files:$env,change_copied:$change_copied,terminal:$terminal,agent_started:$started}'
+    --arg terminal "$terminal" --arg title "$title" --argjson started "$started" --argjson submodules "$submodules" \
+    '{item:$item,title:$title,repo:$repo,branch:$branch,path:$path,space:$space,port:$port,dev:$dev,env_files:$env,change_copied:$change_copied,submodules:$submodules,terminal:$terminal,agent_started:$started}'
 done

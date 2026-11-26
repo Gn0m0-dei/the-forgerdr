@@ -119,20 +119,38 @@ export const paletteHint = (shortcut = "⌘K") => {
     .child(text(shortcut, "display", 11, k.muted));
 };
 
+// How tall Start work is, and the settings button beside it, a square of that side: their edges line up.
+const START_HEIGHT = 32;
+
 /** The way into a forge's Start work, under its gnome, in forge gold. */
 export const startButton = () => {
   const k = tokens();
   return h_flex()
+    .h(START_HEIGHT)
     .items_center()
     .justify_center()
     .gap(8)
     .px(10)
-    .py(6)
     .bg(k.bg2)
     .border(2)
     .border_color(BRAND.forgeGold)
     .child(icon(ICON.hammer, BRAND.forgeGold))
     .child(text("START WORK", "display", 11, BRAND.forgeGold));
+};
+
+/** The way into a forge's settings, beside Start work: a square as tall as it, with the cog alone. */
+export const settingsButton = () => {
+  const k = tokens();
+  return h_flex()
+    .flex_none()
+    .w(START_HEIGHT)
+    .h(START_HEIGHT)
+    .items_center()
+    .justify_center()
+    .bg(k.bg2)
+    .border(2)
+    .border_color(k.line)
+    .child(icon(ICON.settings, k.muted));
 };
 
 // The line under the top bar, which the open inbox's button covers.

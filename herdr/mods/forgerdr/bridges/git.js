@@ -1,13 +1,18 @@
 // What git says of each space's place, which the app does not tell: its repository (so a worktree sits under its
-// forge), its branch and how far it is from its upstream. Ref-only reads, as the app's own space list makes them, so
+// forge), its checkout's folder, its branch and how far it is from its upstream; and, for a space outside git, the
+// repositories its folder holds (so they sit under it), which bin/forge-start.sh tells (bridges/forge.js). Ref-only reads, as the app's own space list makes them, so
 // no worktree is scanned. The sidebar's copy reads it and publishes it to every copy through shared state; the top bar
 // reads it there. This module is the only writer of the key.
 import { exec, setShared, shared } from "herdr";
 
+/** @typedef {import("../forges.js").Folder} Folder */
 /** @typedef {import("../forges.js").PlaceGit} PlaceGit */
+/** @typedef {Record<string, Folder>} SpacesFolders by space id: the parent folders of repositories, on this machine */
 /** @typedef {Record<string, PlaceGit | null>} SpacesGit by space id; null outside git */
 
 const GIT_KEY = "forgerdr.git";
+
+const FOLDERS_KEY = "forgerdr.folders";
 
 const GIT = Object.freeze({ program: "git", timeout: 10_000 });
 
@@ -20,6 +25,17 @@ export const readSpacesGit = () =>
 export const publishSpacesGit = (value) => {
   if (JSON.stringify(value) !== JSON.stringify(readSpacesGit()))
     setShared(GIT_KEY, value);
+};
+
+/** @returns {SpacesFolders} */
+export const readFolders = () =>
+  // Only publishFolders writes the key, always as a SpacesFolders.
+  /** @type {SpacesFolders | null} */ (shared(FOLDERS_KEY)) ?? {};
+
+/** @param {SpacesFolders} value */
+export const publishFolders = (value) => {
+  if (JSON.stringify(value) !== JSON.stringify(readFolders()))
+    setShared(FOLDERS_KEY, value);
 };
 
 /** @param {import("herdr").ExecResult} result */
@@ -57,5 +73,6 @@ export const placeGit = async (cwd, on) => {
     linked: repo !== `${output(top)}/.git`,
     // Two machines can hold the same path.
     repo: on === null ? repo : `${on}:${repo}`,
+    top: output(top),
   };
 };

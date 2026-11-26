@@ -13,6 +13,8 @@ trap 'rm -rf "$sandbox"' EXIT
 . "$root/test/fakes.sh"
 fakes_install "$sandbox/fakes"
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" FORGERDR_CONFIG="$sandbox/forgerdr.toml"
+# git config --global below must land in the sandbox whatever XDG_CONFIG_HOME holds.
+export GIT_CONFIG_GLOBAL="$HOME/.gitconfig"
 mkdir -p "$HOME"
 git config --global user.name forgerdr-test
 git config --global user.email forgerdr-test@example.invalid
@@ -355,6 +357,7 @@ expect "the main checkout has no plan" 1 "$(status_of bash "$bin/forge-worktree-
 rm "$made_path/new file.txt"
 rmdir "$made_path/src"
 expect "a clean worktree has none" '[]' "$(bash "$bin/forge-worktree-remove.sh" --plan "$made_path" | jq -c .changes)"
+expect "nor is it removed by force, with no submodule in it" false "$(bash "$bin/forge-worktree-remove.sh" --plan "$made_path" | jq -c .forced)"
 expect "a plan is told from inside the worktree too, as the dialog asks it" '[]' \
   "$(cd "$made_path" && bash "$bin/forge-worktree-remove.sh" --plan . | jq -c .changes)"
 printf '{"spaces":[{"id":"sp-made","folder":"%s","tabs":[{"id":"tb-made","terminals":[{"terminal":"t21","status":"idle","sub_agents":[]}]}]}]}\n' "$made_path" > "$FAKE_DIR/ls.json"
@@ -395,6 +398,130 @@ expect "its space is closed" yes "$(called herdr-app "do" space.close --id sp-ne
 expect "the worktree is gone" no "$(exists "$path")"
 expect "its branch stays" "  feature/login" "$(git -C "$repo" branch --list feature/login)"
 expect "and its space is forgotten" "" "$(cat "$XDG_STATE_HOME/forgerdr/spaces.tsv")"
+
+# A worktree with submodules: git refuses to remove it even when clean, so the script looks inside each submodule, where
+# the superproject's status does not reach (a commit no remote has, once the superproject records it), and forces git.
+git config --global protocol.file.allow always
+git init -q --bare "$sandbox/core.git"
+git clone -q "$sandbox/core.git" "$sandbox/core" 2>/dev/null
+echo core > "$sandbox/core/core.txt"
+git -C "$sandbox/core" add core.txt && git -C "$sandbox/core" commit -qm init && git -C "$sandbox/core" push -q origin main
+git init -q --bare "$sandbox/shell.git"
+git clone -q "$sandbox/shell.git" "$sandbox/shell" 2>/dev/null
+shell="$sandbox/shell"
+git -C "$shell" submodule --quiet add "$sandbox/core.git" src/core
+git -C "$shell" commit -qm init && git -C "$shell" push -q origin main
+printf '{"spaces":[]}\n' > "$FAKE_DIR/ls.json"
+with_submodule() {
+  git -C "$shell" worktree add -q "$sandbox/wt/$1" -b "$1"
+  git -C "$sandbox/wt/$1" submodule --quiet update --init --recursive
+}
+with_submodule sub-clean
+expect "a clean worktree with a submodule is removed" 0 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-clean")"
+expect "and is gone" no "$(exists "$sandbox/wt/sub-clean")"
+with_submodule sub-dirty
+# git removes a worktree with submodules only by force, without looking inside: the plan says so, for the dialog to warn.
+expect "the plan of a worktree with submodules says it goes by force" true "$(bash "$bin/forge-worktree-remove.sh" --plan "$sandbox/wt/sub-dirty" | jq -c .forced)"
+echo change > "$sandbox/wt/sub-dirty/src/core/new.txt"
+expect "uncommitted work inside a submodule is refused" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-dirty")"
+rm "$sandbox/wt/sub-dirty/src/core/new.txt"
+echo more >> "$sandbox/wt/sub-dirty/src/core/core.txt"
+git -C "$sandbox/wt/sub-dirty/src/core" commit -qam local
+git -C "$sandbox/wt/sub-dirty" commit -qam "bump core"
+expect "the superproject sees nothing of a submodule's commit no remote has" "" "$(git -C "$sandbox/wt/sub-dirty" status --porcelain)"
+expect "which is refused all the same" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-dirty")"
+expect "and its plan names the submodule" '["src/core"]' "$(bash "$bin/forge-worktree-remove.sh" --plan "$sandbox/wt/sub-dirty" | jq -c .changes)"
+expect "--discard throws it away" 0 "$(status_of bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-dirty")"
+expect "with its worktree" no "$(exists "$sandbox/wt/sub-dirty")"
+# What only a submodule's own clone holds, each worktree having its own: a stash, a commit under a local tag, a commit
+# its HEAD left behind, and the branches of a submodule that is no longer checked out.
+held() { bash "$bin/forge-worktree-remove.sh" --plan "$sandbox/wt/$1" | jq -c .changes; }
+with_submodule sub-stash
+echo more >> "$sandbox/wt/sub-stash/src/core/core.txt"
+git -C "$sandbox/wt/sub-stash/src/core" stash -q
+expect "a stash inside a submodule is refused" '1 ["src/core"]' "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-stash") $(held sub-stash)"
+with_submodule sub-tag
+git -C "$sandbox/wt/sub-tag/src/core" commit -q --allow-empty -m tagged
+git -C "$sandbox/wt/sub-tag/src/core" tag keep
+git -C "$sandbox/wt/sub-tag/src/core" checkout -q origin/main
+expect "so is a commit only a local tag keeps" '1 ["src/core"]' "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-tag") $(held sub-tag)"
+with_submodule sub-left
+git -C "$sandbox/wt/sub-left/src/core" commit -q --allow-empty -m "on no branch"
+git -C "$sandbox/wt/sub-left/src/core" checkout -q origin/main
+expect "and one its HEAD left behind" '1 ["src/core"]' "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-left") $(held sub-left)"
+with_submodule sub-away
+git -C "$sandbox/wt/sub-away/src/core" switch -q -c keep
+git -C "$sandbox/wt/sub-away/src/core" commit -q --allow-empty -m "kept on a branch"
+git -C "$sandbox/wt/sub-away" submodule --quiet deinit -f src/core
+expect "the superproject sees nothing of a submodule that is no longer checked out" "" "$(git -C "$sandbox/wt/sub-away" status --porcelain)"
+expect "whose branches are refused all the same" '1 ["src/core"]' "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-away") $(held sub-away)"
+# A tag the submodule's remote has on no branch (a release cut from a branch since deleted) comes with every clone: it
+# is not work of this worktree. One the remote cannot be asked about counts as work.
+git -C "$sandbox/core" checkout -q --detach
+git -C "$sandbox/core" commit -q --allow-empty -m "released"
+git -C "$sandbox/core" tag v1 && git -C "$sandbox/core" push -q origin v1
+git -C "$sandbox/core" checkout -q main
+with_submodule sub-released
+expect "a clone holds the remote's tag on no branch" v1 "$(git -C "$sandbox/wt/sub-released/src/core" tag --list v1)"
+expect "which keeps no clean worktree" 0 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-released")"
+with_submodule sub-offline
+mv "$sandbox/core.git" "$sandbox/core-away.git"
+expect "unless its remote does not answer" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-offline")"
+mv "$sandbox/core-away.git" "$sandbox/core.git"
+expect "and goes once it does" 0 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-offline")"
+# A branch that drops a submodule leaves its clone with no folder to stand in: it is still read.
+with_submodule sub-dropped
+git -C "$sandbox/wt/sub-dropped" rm -q src/core
+git -C "$sandbox/wt/sub-dropped" commit -qm "drop core"
+expect "a worktree whose branch dropped a submodule is removed" 0 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-dropped")"
+with_submodule sub-dropped-kept
+git -C "$sandbox/wt/sub-dropped-kept/src/core" switch -q -c keep
+git -C "$sandbox/wt/sub-dropped-kept/src/core" commit -q --allow-empty -m "kept on a branch"
+git -C "$sandbox/wt/sub-dropped-kept" rm -qf src/core
+git -C "$sandbox/wt/sub-dropped-kept" commit -qm "drop core"
+expect "unless the dropped one's clone holds a commit no remote has" '1 ["src/core"]' \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-dropped-kept") $(held sub-dropped-kept)"
+bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-dropped-kept" >/dev/null
+# A submodule that keeps its git folder inside its own (added from a clone already there) has no clone under modules:
+# its commits no remote has count all the same.
+with_submodule sub-embedded
+git clone -q "$sandbox/core.git" "$sandbox/wt/sub-embedded/vendor"
+git -C "$sandbox/wt/sub-embedded" submodule --quiet add "$sandbox/core.git" vendor 2>/dev/null
+git -C "$sandbox/wt/sub-embedded" commit -qm "add vendor"
+git -C "$sandbox/wt/sub-embedded/vendor" commit -q --allow-empty -m "kept in vendor"
+git -C "$sandbox/wt/sub-embedded" commit -qam "bump vendor"
+expect "a submodule with its git folder inside is read too" '1 ["vendor"]' \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-embedded") $(held sub-embedded)"
+bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-embedded" >/dev/null
+# A submodule whose state git cannot tell is not a clean one either.
+with_submodule sub-unreadable
+printf 'not an index' > "$(git -C "$sandbox/wt/sub-unreadable/src/core" rev-parse --absolute-git-dir)/index"
+expect "a submodule whose status fails is refused" 1 "$(status_of forge_submodule_work "$sandbox/wt/sub-unreadable")"
+bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-unreadable" >/dev/null 2>&1 || true
+# A submodule git cannot read is not a clean one.
+with_submodule sub-broken
+echo "not a git file" > "$sandbox/wt/sub-broken/src/core/.git"
+expect "a submodule git cannot read is refused" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" "$sandbox/wt/sub-broken")"
+expect "and stays" yes "$(exists "$sandbox/wt/sub-broken/src/core/core.txt")"
+expect "nor does its plan call it clean" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" --plan "$sandbox/wt/sub-broken")"
+bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/sub-broken" >/dev/null 2>&1 || true
+for name in sub-stash sub-tag sub-left sub-away; do bash "$bin/forge-worktree-remove.sh" --discard "$sandbox/wt/$name" >/dev/null; done
+expect "--discard takes them all" "" "$(find "$sandbox/wt" -maxdepth 1 -name "sub-*")"
+
+# forge-worktree.sh: a new worktree comes with its submodules, which git leaves empty.
+fakes_reset
+out="$(bash "$bin/forge-worktree.sh" --repo "$shell" --no-agent --no-dev --kind feature --title "With core" "")"
+expect "a new worktree has its submodules" yes "$(exists "$(jq -r .path <<<"$out")/src/core/core.txt")"
+expect "and says so" true "$(jq -r .submodules <<<"$out")"
+out="$(bash "$bin/forge-worktree.sh" --repo "$shell" --no-agent --no-dev --no-submodules --kind feature --title "Without core" "")"
+expect "but not when told" "no false" "$(exists "$(jq -r .path <<<"$out")/src/core/core.txt") $(jq -r .submodules <<<"$out")"
+mv "$sandbox/core.git" "$sandbox/core-away.git"
+out="$(bash "$bin/forge-worktree.sh" --repo "$shell" --no-agent --no-dev --kind feature --title "Core gone" "" 2>"$sandbox/stderr")"
+mv "$sandbox/core-away.git" "$sandbox/core.git"
+expect "submodules that do not come leave the worktree, and a word" "yes false yes" \
+  "$(exists "$(jq -r .path <<<"$out")/.gitmodules") $(jq -r .submodules <<<"$out") $(grep -q 'git submodule update --init --recursive' "$sandbox/stderr" && echo yes)"
+expect "a repository with none says nothing of them" false \
+  "$(bash "$bin/forge-worktree.sh" --repo "$repo" --no-agent --no-dev --kind feature --title "Plain" "" | jq -r .submodules)"
 
 # forge-prompt.sh: given nothing, it closes its tab.
 fakes_reset

@@ -3,7 +3,7 @@
 // (the forge of the agent its action goes to, else the forge on show), in the level's colour and mood. It comes in
 // three 90 ms steps; a click runs its action and it steps out the same way. It never takes the keyboard.
 import { agents, checking, closeOverlay, props, run, spaces } from "herdr";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { readNames } from "../bridges/names.js";
 import { groupForges, lookKeyOf } from "../forges.js";
@@ -50,7 +50,7 @@ const forgeOf = (note) => {
   const all = spaces();
   const target = note.action?.args?.terminal;
   const agent = agents().find((one) => one.address === target);
-  const forges = groupForges(all, readSpacesGit());
+  const forges = groupForges(all, readSpacesGit(), readFolders());
   return (
     forges.find((forge) =>
       forge.spaces.some((space) => space.id === agent?.space),

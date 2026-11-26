@@ -71,6 +71,88 @@ mkdir -p "$sandbox/workspace/back/.claude/skills/back-rules"
 printf -- '---\nname: back-rules\ndescription: Backend conventions\n---\n' > "$sandbox/workspace/back/.claude/skills/back-rules/SKILL.md"
 expect "child repo skills from the workspace root" "back	back-rules" "$(forge_child_repo_skills "$sandbox/workspace" | cut -f1,2)"
 expect "child repo skills none inside a repo" "" "$(forge_child_repo_skills "$sandbox/workspace/back")"
+# What a session is told of the skills Claude Code does not load for it, in each place it can start: at the workspace
+# root, in a repository and in a worktree outside the workspace. Nothing is copied: each is named with its path.
+skill() { mkdir -p "$1/.claude/skills/$2" && printf -- '---\nname: %s\ndescription: d\n---\n' "$2" > "$1/.claude/skills/$2/SKILL.md"; }
+# shellcheck disable=SC2016 # a sed pattern with backticks
+told() { forge_skills_context "$1" | sed -n 's/^- \*\*\([^*]*\)\*\* (`\([^`]*\)`).*/\1/p' | paste -sd, -; }
+headed() { forge_skills_context "$1" | sed -n 's/^# //p' | paste -sd, -; }
+front="$sandbox/workspace/front"
+skill "$front" front-rules
+git -C "$front" add .claude && git -C "$front" -c user.email=t@t -c user.name=t commit -qm skills
+skill "$front" front-local
+printf '.claude/skills/front-local/\n' >> "$front/.git/info/exclude"
+git -C "$front" worktree add -q "$sandbox/elsewhere/front-next" -b next 2>/dev/null
+expect "at the workspace root, the skills inside each repository" "back-rules,front-local,front-rules" "$(told "$sandbox/workspace")"
+expect "under their own heading" "Repository skills" "$(headed "$sandbox/workspace")"
+expect "in a repository, the workspace's" "shared-rules" "$(told "$front")"
+expect "in a worktree, the workspace's and the ones only its main checkout has" "shared-rules,front-local" "$(told "$sandbox/elsewhere/front-next")"
+expect "each under its heading" "Workspace skills,Main checkout skills" "$(headed "$sandbox/elsewhere/front-next")"
+expect "the main checkout's, by its path there" yes \
+  "$(forge_skills_context "$sandbox/elsewhere/front-next" | grep -cF "($(printf '\140')$front/.claude/skills/front-local/SKILL.md$(printf '\140'))" | sed 's/^1$/yes/')"
+skill "$sandbox/lonely" lonely-local
+git -C "$sandbox/lonely" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$sandbox/lonely" worktree add -q "$sandbox/elsewhere/lonely-next" -b next 2>/dev/null
+expect "a worktree of a repository with no workspace gets its main checkout's alone" "Main checkout skills|lonely-local" \
+  "$(headed "$sandbox/elsewhere/lonely-next")|$(told "$sandbox/elsewhere/lonely-next")"
+expect "a repository with no workspace is told nothing" "" "$(forge_skills_context "$sandbox/lonely")"
+printf 'Shared rules of the workspace.\n' > "$sandbox/workspace/CLAUDE.md"
+expect "the workspace's instructions reach a worktree outside it" yes \
+  "$(forge_skills_context "$sandbox/elsewhere/front-next" | grep -c 'Shared rules of the workspace.' | sed 's/^1$/yes/')"
+rm "$sandbox/workspace/CLAUDE.md"
+# The hook that tells it builds its text inside one command substitution, where the system bash of macOS (3.2) reads
+# an apostrophe in a comment as an open quote.
+expect "the session-start hook parses under the system bash" 0 \
+  "$(/bin/bash -n "$(dirname "$0")/../hooks/session-start.sh" >/dev/null 2>&1; echo $?)"
+
+# A space inside a submodule belongs to the repository that holds it: its key, and the skills it is told of.
+git -C "$sandbox/lonely" -c protocol.file.allow=always submodule --quiet add "$front" inner 2>/dev/null
+expect "project key of a submodule is its superproject's" "lonely" "$(forge_project_key "$sandbox/lonely/inner")"
+expect "a session inside a submodule is told its superproject's skills, as such" "Superproject skills|lonely-local" \
+  "$(headed "$sandbox/lonely/inner")|$(told "$sandbox/lonely/inner")"
+
+# A submodule's work is listed a line each: a path that does not fit in one (a newline in it), in a submodule the
+# superproject's status is told to ignore, must never read as a worktree with no work.
+odd=$'odd\npath'
+git -C "$sandbox/lonely" -c protocol.file.allow=always submodule --quiet add --name odd "$front" "$odd" 2>/dev/null
+git -C "$sandbox/lonely" config -f .gitmodules submodule.odd.ignore all
+echo work > "$sandbox/lonely/$odd/untracked.txt"
+expect "a submodule whose path holds a newline is never taken for clean" refused \
+  "$(listed="$(forge_submodule_work "$sandbox/lonely" 2>/dev/null)" && [ -z "$listed" ] && echo clean || echo refused)"
+rm -f "$sandbox/lonely/$odd/untracked.txt"
+expect "nor when it holds no work: what cannot be listed is not read" 1 \
+  "$(forge_submodule_work "$sandbox/lonely" >/dev/null 2>&1; echo $?)"
+
+# Nor a path made so that its line breaks into rows that each look whole: a tab, a newline, a name, a tab.
+git init -q "$sandbox/rows"
+git -C "$sandbox/rows" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+rows=$'x\t\nA\t'
+git -C "$sandbox/rows" -c protocol.file.allow=always submodule --quiet add --name rows "$front" "$rows" 2>/dev/null
+git -C "$sandbox/rows" config -f .gitmodules submodule.rows.ignore all
+echo work > "$sandbox/rows/$rows/untracked.txt"
+expect "the submodule is there, with work the superproject does not show" "yes|" \
+  "$([ -f "$sandbox/rows/$rows/.git" ] && echo yes)|$(git -C "$sandbox/rows" status --porcelain --untracked-files=no | grep -v gitmodules | grep -c untracked | grep -v '^0$')"
+expect "a submodule path of control characters is refused, however its line breaks" 1 \
+  "$(forge_submodule_work "$sandbox/rows" >/dev/null 2>&1; echo $?)"
+
+# A submodule the branch no longer has, its folder ignored from then on: git leaves the folder as it was, and neither
+# the superproject's status nor its submodules show the files left uncommitted in it.
+git init -q "$sandbox/dropped"
+git -C "$sandbox/dropped" -c user.email=t@t -c user.name=t commit -q --allow-empty -m init
+git -C "$sandbox/dropped" -c protocol.file.allow=always submodule --quiet add "$front" lib 2>/dev/null
+git -C "$sandbox/dropped" -c user.email=t@t -c user.name=t commit -q -m "add lib"
+expect "a submodule with no work is not named" "" "$(forge_submodule_work "$sandbox/dropped" 2>&1)"
+echo work > "$sandbox/dropped/lib/untracked.txt"
+git -C "$sandbox/dropped" rm -q --cached lib
+git -C "$sandbox/dropped" config -f .gitmodules --remove-section submodule.lib
+echo "lib/" > "$sandbox/dropped/.gitignore"
+git -C "$sandbox/dropped" add .gitmodules .gitignore
+git -C "$sandbox/dropped" -c user.email=t@t -c user.name=t commit -q -m "lib is generated now"
+expect "the superproject shows nothing of it" "" "$(git -C "$sandbox/dropped" status --porcelain)"
+expect "the files left in a submodule the branch dropped are still its work" "lib" "$(forge_submodule_work "$sandbox/dropped" 2>&1)"
+rm -f "$sandbox/dropped/lib/untracked.txt"
+expect "and with none left it holds no work" "" "$(forge_submodule_work "$sandbox/dropped" 2>&1)"
+
 expect "find clone by name" "$sandbox/workspace/front" "$(forge_find_clone "$sandbox/workspace" front)"
 expect "find clone by remote" "$sandbox/workspace/back" "$(forge_find_clone "$sandbox/workspace" MY.Repo)"
 expect "find clone fallback" "$sandbox/workspace" "$(forge_find_clone "$sandbox/workspace" nothing)"

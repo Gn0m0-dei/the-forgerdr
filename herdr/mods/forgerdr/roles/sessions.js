@@ -18,9 +18,11 @@ import {
   run,
   spaces,
 } from "herdr";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { lanesOpen } from "../bridges/lanes.js";
 import { enabledPanels, layoutNode } from "../bridges/layout.js";
 import { readAgents, readTerminals } from "../bridges/terminals.js";
+import { lanesSpacesOf } from "../forges.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
 import {
@@ -32,7 +34,7 @@ import {
   TAB_HEIGHT,
 } from "../kit/tabs.js";
 import { tokens, toneOf } from "../kit/tokens.js";
-import { lanesHeight, spaceLanes } from "../lanes.js";
+import { forgeLanes, lanesHeight } from "../lanes.js";
 import { programKind, specialTabLook, tabLabel } from "../sessions.js";
 import { arrowsOf, scrollTarget, stripState, wheeled } from "../strip.js";
 
@@ -189,11 +191,12 @@ export const sessions = (cx) => {
   const syncLanes = () => {
     const block = layoutNode(NODE.lanes);
     if (block === undefined) return;
-    const space = spaces().find((one) => one.active);
-    const count =
-      space === undefined
-        ? 0
-        : spaceLanes(space.id, readTerminals(), {}, {}).length;
+    const count = forgeLanes(
+      lanesSpacesOf(spaces(), readSpacesGit(), readFolders()),
+      readTerminals(),
+      {},
+      {},
+    ).length;
     const height = lanesHeight(count, lanesOpen());
     if (block.size?.px !== height)
       run("layout.resize", { id: NODE.lanes, px: height });

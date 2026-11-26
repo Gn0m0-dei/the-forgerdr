@@ -24,10 +24,14 @@ import {
   forgeMood,
   forgeMoves,
   forgeState,
+  forgeTree,
   groupForges,
   knownGit,
+  lanesSpacesOf,
   lookKeyOf,
+  mainCheckoutOf,
   newlyCracked,
+  placeNamesOf,
 } from "../herdr/mods/forgerdr/forges.js";
 import { keyCaps, keyLabel } from "../herdr/mods/forgerdr/format.js";
 import {
@@ -77,11 +81,11 @@ import {
 import {
   byUrgency,
   elapsed,
+  forgeLanes,
   golemStatus,
   lanesHeight,
   lanesOf,
   orphanedReviews,
-  spaceLanes,
   spaceOfTerminal,
   withParkedAgents,
 } from "../herdr/mods/forgerdr/lanes.js";
@@ -297,6 +301,199 @@ test("spaces of one repository make one forge, its main checkout first", () => {
   );
 });
 
+// A parent folder with two repositories: its own space, api's main checkout and one of its worktrees (which lives
+// outside the folder), a space inside that worktree's submodule, and web with nothing open.
+const manyRepos = () => {
+  const space = (id) => ({ id, name: id });
+  const place = (top, repo, branch, linked) => ({
+    ahead: 0,
+    behind: 0,
+    branch,
+    linked,
+    repo,
+    top,
+  });
+  return {
+    folders: {
+      shop: { repos: ["/w/shop/api", "/w/shop/web"], root: "/w/shop" },
+    },
+    git: {
+      api: place("/w/shop/api", "/w/shop/api/.git", "main", false),
+      core: place(
+        "/trees/api/login/src/core",
+        "/w/shop/api/.git/worktrees/login/modules/src/core",
+        "(detached)",
+        true,
+      ),
+      login: place("/trees/api/login", "/w/shop/api/.git", "login", true),
+      notes: null,
+      shop: null,
+    },
+    spaces: ["login", "core", "notes", "api", "shop"].map(space),
+  };
+};
+
+test("a parent folder and the spaces of its repositories make one forge, the folder first", () => {
+  const { folders, git, spaces } = manyRepos();
+  deepStrictEqual(
+    groupForges(spaces, git, folders).map((forge) => [
+      forge.key,
+      forge.main.id,
+      forge.spaces.map((s) => s.id),
+    ]),
+    [
+      ["/w/shop", "shop", ["shop", "api", "login", "core"]],
+      ["space:notes", "notes", ["notes"]],
+    ],
+  );
+  // Until the folder is open, its repository is a forge of its own, its submodule's space with it.
+  deepStrictEqual(
+    groupForges(
+      spaces.filter((s) => s.id !== "shop"),
+      git,
+      folders,
+    ).map((forge) => [forge.key, forge.spaces.map((s) => s.id)]),
+    [
+      ["/w/shop/api/.git", ["api", "login", "core"]],
+      ["space:notes", ["notes"]],
+    ],
+  );
+});
+
+test("a forge's tree: the folder, each repository with its checkouts, a submodule under its checkout", () => {
+  const { folders, git, spaces } = manyRepos();
+  const [forge] = groupForges(spaces, git, folders);
+  const tree = forgeTree(forge, git, folders);
+  deepStrictEqual(
+    tree.roots.map((s) => s.id),
+    ["shop"],
+  );
+  deepStrictEqual(
+    tree.repos.map((repo) => [
+      repo.path,
+      repo.name,
+      repo.checkouts.map((checkout) => [
+        checkout.space.id,
+        checkout.submodules.map((sub) => [sub.space.id, sub.name]),
+      ]),
+      repo.orphans.map((sub) => [sub.space.id, sub.name]),
+    ]),
+    [
+      [
+        "/w/shop/api",
+        "api",
+        [
+          ["api", []],
+          ["login", [["core", "src/core"]]],
+        ],
+        [],
+      ],
+      ["/w/shop/web", "web", [], []],
+    ],
+  );
+  // A forge of one repository is that repository alone, a submodule whose checkout is not open hanging from it.
+  const [alone] = groupForges(
+    spaces.filter((s) => ["api", "core"].includes(s.id)),
+    git,
+    {},
+  );
+  const lone = forgeTree(alone, git);
+  deepStrictEqual(lone.roots, []);
+  deepStrictEqual(
+    lone.repos.map((repo) => [
+      repo.path,
+      repo.checkouts.map((checkout) => checkout.space.id),
+      repo.orphans.map((sub) => [sub.space.id, sub.name]),
+    ]),
+    [["/w/shop/api", ["api"], [["core", "core"]]]],
+  );
+  // A space outside git is its own root, with no repository.
+  const [, notes] = groupForges(spaces, git, folders);
+  deepStrictEqual(
+    [
+      forgeTree(notes, git, folders).roots.map((s) => s.id),
+      forgeTree(notes, git, folders).repos,
+    ],
+    [["notes"], []],
+  );
+});
+
+test("where a repository's own sessions start: its main checkout, of the repository the shown space is of", () => {
+  const { folders, git, spaces } = manyRepos();
+  const [forge] = groupForges(spaces, git, folders);
+  // In a parent folder, the repository of the checkout shown, in its main checkout's space; a submodule's, its holder's.
+  deepStrictEqual(mainCheckoutOf(forge, "login", git), {
+    folder: "/w/shop/api",
+    space: "api",
+  });
+  deepStrictEqual(mainCheckoutOf(forge, "core", git), {
+    folder: "/w/shop/api",
+    space: "api",
+  });
+  // The folder itself is in no repository: where it is, in its own space.
+  deepStrictEqual(mainCheckoutOf(forge, "shop", git), {
+    folder: "",
+    space: "shop",
+  });
+  // A main checkout that is not open: its folder, in the space shown.
+  const [closed] = groupForges(
+    spaces.filter((s) => s.id !== "api"),
+    git,
+    folders,
+  );
+  deepStrictEqual(mainCheckoutOf(closed, "login", git), {
+    folder: "/w/shop/api",
+    space: "login",
+  });
+  // A forge of one repository, as before.
+  const [alone] = groupForges(
+    spaces.filter((s) => ["api", "login"].includes(s.id)),
+    git,
+    {},
+  );
+  deepStrictEqual(mainCheckoutOf(alone, "login", git), {
+    folder: "/w/shop/api",
+    space: "api",
+  });
+});
+
+test("whose golems the lanes show: a parent folder's forge whole, any other forge the space shown alone", () => {
+  const { folders, git, spaces } = manyRepos();
+  const shown = (id) => spaces.map((s) => ({ ...s, active: s.id === id }));
+  // Anywhere in a parent folder's forge: the folder, its repositories' checkouts, their worktrees and submodules.
+  deepStrictEqual(lanesSpacesOf(shown("login"), git, folders), [
+    "shop",
+    "api",
+    "login",
+    "core",
+  ]);
+  deepStrictEqual(lanesSpacesOf(shown("shop"), git, folders), [
+    "shop",
+    "api",
+    "login",
+    "core",
+  ]);
+  // Each lane is told by where its session is: its repository's name, the folder's for a session of the folder.
+  deepStrictEqual(placeNamesOf(spaces, git), {
+    api: "api",
+    core: "api",
+    login: "api",
+    notes: "notes",
+    shop: "shop",
+  });
+  // A forge of one repository, or a space outside git: the space shown.
+  deepStrictEqual(
+    lanesSpacesOf(
+      shown("login").filter((s) => s.id !== "shop"),
+      git,
+      folders,
+    ),
+    ["login"],
+  );
+  deepStrictEqual(lanesSpacesOf(shown("notes"), git, folders), ["notes"]);
+  deepStrictEqual(lanesSpacesOf(shown("none"), git, folders), []);
+});
+
 test("a forge's gnome's mood, with its golems", () => {
   const agents = [
     { status: "working" },
@@ -340,10 +537,16 @@ test("a forge dragged onto another moves as one block, each move counting the on
 
 test("a forge looks the same whichever of its spaces is open", () => {
   // Its repository, whichever checkout is open.
-  strictEqual(lookKeyOf({ key: "/w/api/.git" }), "/w/api");
-  strictEqual(lookKeyOf({ key: "dev-box:/w/api/.git" }), "dev-box:/w/api");
+  const main = { id: "sp7" };
+  strictEqual(lookKeyOf({ key: "/w/api/.git", main }), "/w/api");
+  strictEqual(
+    lookKeyOf({ key: "dev-box:/w/api/.git", main }),
+    "dev-box:/w/api",
+  );
   // Outside git, its space: the folder the app gives a space is where its new terminals start, not where it is.
-  strictEqual(lookKeyOf({ key: "space:sp7" }), "space:sp7");
+  strictEqual(lookKeyOf({ key: "space:sp7", main }), "space:sp7");
+  // A parent folder of repositories keeps the gnome its space had before it held them: its space's, not its path's.
+  strictEqual(lookKeyOf({ key: "/w/shop", main }), "space:sp7");
 });
 
 test("what git said of each space lasts until git is asked again", () => {
@@ -705,12 +908,25 @@ test("a space's lanes gather every session's golems, wherever their panes are, t
     },
   ];
   deepStrictEqual(
-    spaceLanes("sp1", terminals, {}, { "t5/a1": 50 }).map(
+    forgeLanes(["sp1"], terminals, {}, { "t5/a1": 50 }).map(
       (lane) => `${lane.name}:${lane.status}`,
     ),
     ["asks:blocked", "nested:working", "explore:working", "review:done"],
   );
-  deepStrictEqual(spaceLanes("sp3", terminals, {}, {}), []);
+  deepStrictEqual(forgeLanes(["sp3"], terminals, {}, {}), []);
+  // The lanes of several spaces (a parent folder's forge): every one's golems together, the most urgent first.
+  deepStrictEqual(
+    forgeLanes(["sp1", "sp2"], terminals, {}, { "t5/a1": 50 }).map(
+      (lane) => `${lane.name}:${lane.status}@${lane.space}`,
+    ),
+    [
+      "asks:blocked@sp1",
+      "nested:working@sp1",
+      "explore:working@sp1",
+      "not here:working@sp2",
+      "review:done@sp1",
+    ],
+  );
   deepStrictEqual(
     byUrgency([
       { id: "a", since: 1, status: "done" },
@@ -1712,6 +1928,14 @@ test("a worktree is removed only as last looked at: no new file, and a plan that
   );
   strictEqual(folderOf(TREE), "/h/.herdr/worktrees/front");
   strictEqual(folderOf("/top"), "/");
+});
+
+test("a worktree that turned out to go by force is not removed before the dialog says so", () => {
+  const known = { branch: "b", changes: [], forced: false, path: TREE };
+  const forced = { ...known, forced: true };
+  strictEqual(stillRemovable({ state: "ready", value: forced }, known), false);
+  strictEqual(stillRemovable({ state: "ready", value: forced }, forced), true);
+  strictEqual(stillRemovable({ state: "ready", value: known }, forced), true);
 });
 
 test("the item a worktree is for: an id or a URL of the forge's backlog, or none", () => {
@@ -3417,8 +3641,8 @@ test("the golems a parked review session spawns have their lanes in its view's s
       title: "PR 42",
     },
   ];
-  strictEqual(spaceLanes("sp1", terminals, {}, {}, REVIEW_SPACES).length, 1);
-  strictEqual(spaceLanes("sp2", terminals, {}, {}, REVIEW_SPACES).length, 0);
+  strictEqual(forgeLanes(["sp1"], terminals, {}, {}, REVIEW_SPACES).length, 1);
+  strictEqual(forgeLanes(["sp2"], terminals, {}, {}, REVIEW_SPACES).length, 0);
 });
 
 test("a parked review session goes once its view's tab, seen alive before, is gone; never at a start that has not seen it", () => {

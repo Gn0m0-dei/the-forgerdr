@@ -4,13 +4,15 @@
 #   info <dir>              the checkout, its origin (provider, host, project or Azure organization, project and
 #                           repository), its memory project key, its mode and spec mode, the backlog forgerdr keeps for
 #                           it and the one /azdo:init keeps in the clone's git config (azdospec.organization, .project)
+#   repos <dir>             the repositories of a parent folder, as the sidebar shows them under it: {root, repos}, its
+#                           path and theirs with symlinks resolved, as git names them; none for a folder inside git
 #   changes <dir>           the OpenSpec changes of its spec mode (this repository's, or its store's), with tasks done
 #   register <folder>       the OpenSpec store in a folder, registered when it is not yet: {id}
 #   setup <folder>          a new OpenSpec store made in a folder: {id}
 #   azdospec <dir> <url>    the backlog /azdo:init keeps in a clone's git config, set to an Azure DevOps project
 #                           (https://dev.azure.com/<org>/<project>); only in a clone /azdo:init set up already
 # What cannot be read or done answers {"error": "...", "fix": "..."} and exits 0, so the dialog says why.
-# Usage: forge-start.sh info|changes <dir>
+# Usage: forge-start.sh info|repos|changes <dir>
 #        forge-start.sh register|setup <folder>
 #        forge-start.sh azdospec <dir> <url>
 set -euo pipefail
@@ -21,7 +23,7 @@ set -euo pipefail
 
 command="${1:-}"
 dir="${2:-}"
-case "$command" in info|changes|register|setup|azdospec) ;; *) forge_die "usage: forge-start.sh info|changes|register|setup|azdospec <dir> [url]" ;; esac
+case "$command" in info|repos|changes|register|setup|azdospec) ;; *) forge_die "usage: forge-start.sh info|repos|changes|register|setup|azdospec <dir> [url]" ;; esac
 [ -d "$dir" ] || forge_die "$dir is not a directory"
 
 fail() { jq -cn --arg error "$1" --arg fix "${2:-}" '{error: $error} + (if $fix == "" then {} else {fix: $fix} end)'; exit 0; }
@@ -73,6 +75,12 @@ origin_parts() {
 real_dir() { (cd "$1" 2>/dev/null && pwd -P) || printf '%s' "$1"; }
 
 case "$command" in
+  repos)
+    folder="$(real_dir "$dir")"
+    repos=""
+    git -C "$folder" rev-parse --show-toplevel >/dev/null 2>&1 || repos="$(forge_detect_repos "$folder")"
+    jq -cn --arg root "$folder" --arg repos "$repos" '{root: $root, repos: ($repos | split("\n") | map(select(. != "")))}'
+    exit 0 ;;
   azdospec)
     url="${3:-}"
     root="$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null)" || fail "this forge is not in git"

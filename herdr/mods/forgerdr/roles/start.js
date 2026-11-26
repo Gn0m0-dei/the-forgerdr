@@ -21,6 +21,7 @@ import { checking, closeOverlay, openOverlay, props, run } from "herdr";
 import { PROMPT, readChanges, readForge } from "../bridges/forge.js";
 import { readSpacesGit } from "../bridges/git.js";
 import { placeOf } from "../bridges/places.js";
+import { mainCheckoutOf } from "../forges.js";
 import { counted } from "../format.js";
 import { KEY_BUTTON, keyButton } from "../kit/buttons.js";
 import { tag } from "../kit/chips.js";
@@ -134,6 +135,10 @@ const WORK = Object.freeze({
  */
 export const openStart = (forge, shown) => {
   const local = forge.main.machine === null;
+  // A spec session starts in the main checkout of the repository shown: in a parent folder, each repository has its own.
+  const home = local
+    ? mainCheckoutOf(forge, shown.id, readSpacesGit())
+    : { folder: "", space: forge.main.id };
   /** @type {StartTarget} */
   const target = {
     // An audit's session runs forgerdr's scripts, which are on this computer.
@@ -141,12 +146,8 @@ export const openStart = (forge, shown) => {
     dir: placeOf(shown),
     forge: forge.main.name,
     machine: forge.main.machine,
-    main: forge.main.id,
-    // A forge in git is keyed by its repository's common folder, whose parent is its main checkout.
-    mainFolder:
-      local && forge.key.endsWith("/.git")
-        ? forge.key.slice(0, -"/.git".length)
-        : "",
+    main: home.space,
+    mainFolder: home.folder,
     space: shown.id,
   };
   openOverlay({ ...DIALOG, mod: MOD, props: { ...target, role: "start" } });

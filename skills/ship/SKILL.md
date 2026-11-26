@@ -29,6 +29,8 @@ Dispatch the `forgerdr:reviewer` agent on `origin/<base>...HEAD` with the spec a
 
 ## 5. Commit
 
+Work inside a git submodule ships first, in its own repository, with its own commit, push and PR gates; the superproject then records its commit and its pull request names the submodule's (`${CLAUDE_PLUGIN_ROOT}/references/submodules.md`). Check before the first commit whenever the working tree has a `.gitmodules`.
+
 Uncommitted work: ask permission for the commit with a commit gate (standards, Gates), Conventional Commits in English, `Closes: #<id>` when the work has a work item (the branch's id, or the one the OpenSpec change references), `Refs: EXT-<id>` when that item is of an external backlog (`${CLAUDE_PLUGIN_ROOT}/references/items.md`). Permission covers that commit only.
 
 ## 6. Archive the OpenSpec change
@@ -45,4 +47,4 @@ Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azd
 
 ## 8. Worktree
 
-A worktree stays, with its herdr space, until the pull request merges unless the user asks: then `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`, which closes its space and keeps the branch. `mem_save` the pull request, the branch and what is pending.
+A worktree stays, with its herdr space, until the pull request merges unless the user asks: then `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`, which closes its space and keeps the branch, and refuses while a submodule holds uncommitted files or commits no remote has. `mem_save` the pull request, the branch and what is pending.

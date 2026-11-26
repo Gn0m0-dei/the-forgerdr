@@ -1,9 +1,10 @@
 // The Remove worktree dialog (design 16b): which panes close with the worktree, that its branch stays, and what keeps it
 // from going, in one of three ways. With nothing in the way it asks to confirm; with uncommitted files it lists them and
-// offers to throw them away with it; with a golem at work or waiting on the human in one of its spaces it removes
+// offers to throw them away with it; one with submodules goes only by force, which git does without looking inside, so
+// it says what that takes and asks for it outright; with a golem at work or waiting on the human in one of its spaces it removes
 // nothing until the golem is done, and it follows the golem live. The removal is bin/forge-worktree-remove.sh's, which
 // checks again. Opened from a forge's menu on a worktree's space and from forgerdr.worktree-remove; Enter removes it,
-// Shift+Enter throws the changes away with it.
+// Shift+Enter throws the changes away with it, or removes by force.
 import { h_flex, v_flex } from "gpui-base";
 import {
   checking,
@@ -48,7 +49,12 @@ import {
 /** @type {() => (Partial<RemoveWorktreeTarget> & { overlay?: string }) | null} */
 const readProps = props;
 
-const DIALOG = Object.freeze({ height: 440, kind: "dialog", width: 600 });
+const DIALOG = Object.freeze({ height: 500, kind: "dialog", width: 600 });
+
+// What the human is told before a worktree with submodules goes: the script looks for their work first, but what it
+// cannot know of is theirs to weigh.
+const FORCED =
+  "It has submodules: git removes it only by force, without looking inside. Everything in it goes, files git ignores and folders a submodule left behind too.";
 
 // How many uncommitted files the warning names, and panes the list shows, before they count the rest: the dialog does
 // not grow, and what keeps the worktree must stay in view.
@@ -154,6 +160,7 @@ export const worktreeRemoval = (cx) => {
       readTerminals().map((terminal) => [terminal.address, terminal]),
     );
     const dirty = ready !== null && ready.changes.length > 0;
+    const forced = ready?.forced === true;
     const closing =
       ready === null
         ? []
@@ -176,9 +183,12 @@ export const worktreeRemoval = (cx) => {
               : { colour: k.muted, words: "" };
     const blocked = ready === null || golems.length > 0;
 
+    // What it lists can outgrow the dialog (many panes, many files, the warning of a forced removal): it scrolls.
     const body = v_flex()
+      .id("worktree-remove-body")
       .flex_1()
       .min_h(0)
+      .overflow_y_scrollbar()
       .gap(12)
       .px(20)
       .py(16)
@@ -226,6 +236,24 @@ export const worktreeRemoval = (cx) => {
               .child(icon(ICON.branch, k.muted))
               .child(text("The branch is kept.", "ui", 13, k.fg)),
           ),
+      )
+      // Before the files, whose list is as long as their paths: this one must stay in view.
+      .when(forced && golems.length === 0, (el) =>
+        el.child(
+          v_flex()
+            .gap(6)
+            .p(12)
+            .border(2)
+            .border_color(k.needs)
+            .child(
+              h_flex()
+                .items_center()
+                .gap(8)
+                .child(icon(ICON.warn, k.needs))
+                .child(text("Removed by force", "ui", 13, k.needs)),
+            )
+            .child(wrapped(FORCED, "ui", 12, k.muted)),
+        ),
       )
       .when(dirty && golems.length === 0, (el) =>
         el.child(
@@ -307,7 +335,11 @@ export const worktreeRemoval = (cx) => {
       .border(2)
       .border_color(k.line)
       .on_key_down((event, cx) => {
-        if (event.key !== "enter" || event.modifiers.shift !== dirty) return;
+        if (
+          event.key !== "enter" ||
+          event.modifiers.shift !== (dirty || forced)
+        )
+          return;
         cx.stop_propagation();
         remove(cx);
       })
@@ -364,10 +396,14 @@ export const worktreeRemoval = (cx) => {
                     ? keyButton(KEY_BUTTON.warn, "Discard changes and remove", {
                         key: "⇧↵",
                       })
-                    : keyButton(KEY_BUTTON.primary, "Remove", {
-                        icon: ICON.trash,
-                        key: "↵",
-                      }),
+                    : forced
+                      ? keyButton(KEY_BUTTON.warn, "Remove by force", {
+                          key: "⇧↵",
+                        })
+                      : keyButton(KEY_BUTTON.primary, "Remove", {
+                          icon: ICON.trash,
+                          key: "↵",
+                        }),
                   "worktree-remove",
                   remove,
                 ),

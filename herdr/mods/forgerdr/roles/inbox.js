@@ -15,7 +15,7 @@
 import { h_flex, Input, InputState, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { checking, panes, run, settings, spaces } from "herdr";
-import { readSpacesGit } from "../bridges/git.js";
+import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import {
   answerInbox,
@@ -677,7 +677,7 @@ export const inbox = (cx) => {
     const armedNow = (/** @type {InboxCard} */ each) =>
       armed(opened, each.id, now, shownAt);
     const terminals = readTerminals();
-    const forges = groupForges(spaces(), readSpacesGit());
+    const forges = groupForges(spaces(), readSpacesGit(), readFolders());
     const gnomes = readGnomes();
     const shownPanes = panes();
 
