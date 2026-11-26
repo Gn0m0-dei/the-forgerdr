@@ -19,6 +19,8 @@ Say the classification before the first question so the user can override it:
 
 In doubt, take the heavier path. Complexity discovered mid-task upgrades the path: stop, say so, step up. Nothing downgrades mid-task.
 
+A design asked from a parent folder of repositories says which repositories it touches and what crosses between them (a contract, an endpoint and its caller), and keeps one design for all of them (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`).
+
 ## Understand
 
 1. Intent: the outcome, who it is for, what success looks like. Missing: one focused question about purpose before proposing anything. Knowing the kind of app does not tell you why the user wants it.

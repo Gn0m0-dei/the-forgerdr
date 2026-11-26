@@ -17,6 +17,10 @@ Input: the approved plan, wherever the spec mode keeps it (conversation and todo
 - Ledger: the record that survives compaction, `mem_save` per task (started, rulings, result), in every spec mode. In `openspec`, when the work has a change (the change of the current work, `${CLAUDE_PLUGIN_ROOT}/references/items.md`), its tasks are the plan: tick the task's checkbox in its `tasks.md` when it is done, and never add anything else to that file. In `azure`, a task done is marked in the ledger and the todos: its work item's state changes only on the yes of a `Gate state`, or when the merge of azdospec's pull request closes it. The milestones (the rulings that changed the plan, the blockers, what shipped) may go on the requirement's work item as a progress comment, in the reply language, offered at a blocker, which stops the build anyway, and once at Finish, and published only on the yes of a `Gate comment` with the comment in its preview (standards, Gates), through `az boards work-item update --discussion`, in `/azdo:apply`'s progress format when azdospec is installed; `Not yet` leaves them in the ledger alone. Harness todos are a live view, never the record.
 - Read the plan and the spec. Pre-flight: files the plan names exist where it says, the test command runs.
 
+## A parent folder of repositories
+
+A plan run from a parent folder of repositories names the repository of each task; its tests, its branch and its commit are that repository's (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`).
+
 ## Project skills
 
 Load the project skills for the code the plan touches (standards, "Project skills") before the first task. Implementers and reviewers dispatched in agent mode get their paths in the prompt.

@@ -16,7 +16,7 @@ The script works on the repositories you pass with `--repo`. Decide them:
 - The current directory is a git repository: that one.
 - The current directory holds several git repositories (a multi-repo workspace): read each item (items reference) and pick the repositories it touches, by what the text names (front, back, scripts, a module) and by the workspace's architecture notes. An OpenSpec change in `openspec` mode lives in one repository: the one whose `openspec/changes/<name>` exists. Doubt: ask once with `AskUserQuestion`, one option per repository, multiSelect.
 
-One item touching two repositories gets two worktrees and two agents, one per repository; say so.
+One item touching two repositories gets two worktrees and two agents, one per repository; say so. A session that keeps the work itself instead of handing it to agents follows `${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`.
 
 ## 2. Branches
 

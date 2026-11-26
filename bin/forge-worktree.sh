@@ -44,7 +44,7 @@ while [ $# -gt 0 ]; do
     --branch) next_branch="$2"; shift 2 ;;
     --title) next_title="$2"; shift 2 ;;
     --kind) next_kind="$2"; shift 2 ;;
-    -h|--help) sed -n '2,9p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,10p' "$0"; exit 0 ;;
     *)
       [ -n "$next_branch$next_kind" ] || [ -z "$next_title" ] || forge_die "--title $next_title needs --branch or --kind"
       [ -z "$next_branch" ] || [ -n "$next_title" ] || forge_die "--branch $next_branch needs --title"
@@ -109,7 +109,17 @@ for index in "${!items[@]}"; do
     branch="${item_branches[$index]}"
     if [ -z "$branch" ]; then
       backlog=own
-      ! forge_item_external "${items[$index]}" "$repo" || backlog=external
+      # An id alone is an item of the backlog the forge names (the mode dialog keeps it): as its URL would be there.
+      named="${items[$index]}"
+      # The one /azdo:init keeps in the clone first, as the herdr app takes it (modes.js backlogOf) and the azdospec
+      # skills work on it; else the one the forge's mode names.
+      kept=""
+      azdo_org="$(git -C "$repo" config --local --get azdospec.organization 2>/dev/null || true)"
+      azdo_project="$(git -C "$repo" config --local --get azdospec.project 2>/dev/null || true)"
+      [ -z "$azdo_org" ] || [ -z "$azdo_project" ] || kept="https://dev.azure.com/$azdo_org/$(jq -rn --arg p "$azdo_project" '$p | @uri')"
+      [ -n "$kept" ] || kept="$("$(dirname "$0")/forge-config.sh" get backlog "$(forge_project_key "$repo")" 2>/dev/null || true)"
+      [[ ! "$named" =~ ^([Aa][Bb])?#?[0-9]+$ ]] || [ -z "$kept" ] || [ -z "$id" ] || named="$kept/_workitems/edit/$id"
+      ! forge_item_external "$named" "$repo" || backlog=external
       [ -z "$id" ] || branch="$(forge_branch_for_id "$repo" "$id" "$backlog")"
       if [ -z "$branch" ] && [ -n "$id" ]; then
         branch="$(forge_branch_name "$kind" "$id" "$slug" "$(forge_project_key "$repo")" "$backlog")"

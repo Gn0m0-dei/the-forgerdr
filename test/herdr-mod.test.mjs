@@ -494,6 +494,71 @@ test("whose golems the lanes show: a parent folder's forge whole, any other forg
   deepStrictEqual(lanesSpacesOf(shown("none"), git, folders), []);
 });
 
+test("Start work on a parent folder takes the issues of any of its repositories", () => {
+  const way = { dev: true, flow: "auto", where: "worktrees" };
+  // A parent folder has no origin; forge-start.sh info names the origin of each repository it holds.
+  const folder = {
+    backlog: "",
+    mode: "github",
+    provider: "none",
+    repos: [
+      { project: "acme/shop-api", provider: "github", repo: "shop-api" },
+      { project: "acme/shop-web", provider: "github", repo: "shop-web" },
+      { project: "acme/tools", provider: "gitlab", repo: "tools" },
+    ],
+  };
+  deepStrictEqual(
+    workRows(
+      [
+        "https://github.com/acme/shop-api/issues/12",
+        "https://github.com/acme/shop-web/issues/7",
+        "https://github.com/other/thing/issues/1",
+        "#3",
+      ].join("\n"),
+      folder,
+      way,
+    ).map(
+      (row) =>
+        `${row.kind}:${row.label}:${row.kind === "skip" ? row.action : ""}`,
+    ),
+    [
+      "item:shop-api#12:",
+      "item:shop-web#7:",
+      "skip:thing#1:another repository: start it from its forge",
+      "skip:#3:a number needs the forge's backlog: name it in Forge mode, or paste the URL",
+    ],
+  );
+  // On Azure DevOps the repositories of the folder change nothing: any work item, an id completed with the backlog.
+  deepStrictEqual(
+    workRows(
+      "1234\nhttps://dev.azure.com/boardhost/Planning/_workitems/edit/99",
+      {
+        ...folder,
+        backlog: "https://dev.azure.com/boardhost/Planning",
+        mode: "azure",
+        repos: [
+          {
+            org: "https://dev.azure.com/codehost",
+            provider: "azure",
+            repo: "back",
+          },
+        ],
+      },
+      way,
+    ).map((row) => `${row.kind}:${row.label}`),
+    ["item:AB#1234", "item:AB#99"],
+  );
+  // With a backlog named, a number is an issue of it, and the repositories' own issues still start.
+  deepStrictEqual(
+    workRows(
+      "#3\nhttps://github.com/acme/shop-web/issues/7",
+      { ...folder, backlog: "https://github.com/acme/shop-api" },
+      way,
+    ).map((row) => `${row.kind}:${row.label}`),
+    ["item:shop-api#3", "item:shop-web#7"],
+  );
+});
+
 test("a forge's gnome's mood, with its golems", () => {
   const agents = [
     { status: "working" },

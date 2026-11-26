@@ -37,6 +37,7 @@ import { SIGN, sign } from "../kit/motion.js";
 import {
   emptyState,
   gnomeHeader,
+  indexLine,
   paneHeader,
   splitControls,
   toast,
@@ -258,6 +259,15 @@ const navigation = () =>
           .p(8)
           .child(settingsButton())
           .child(startButton().flex_1()),
+      )
+      .child(
+        v_flex()
+          .gap(6)
+          .p(8)
+          .child(indexLine("none"))
+          .child(indexLine("failed"))
+          .child(indexLine("indexing"))
+          .child(indexLine("ready")),
       )
       .child(repoRow("forgerdr"))
       .child(worktreeRow({ branch: "main", selected: true }))

@@ -4,7 +4,7 @@ Persistent memory is engram (`mem_save`, `mem_search`, `mem_context`, `mem_sessi
 
 ## Project key
 
-The plugin starts the engram server scoped to the **memory project key** printed at session start: the workspace root when the repository sits in a workspace (a parent with its own `.claude`, `CLAUDE.md` or `AGENTS.md`), the repository otherwise. Every `mem_*` call already lands in that project; do not pass `project` unless you deliberately read another project's memory.
+The plugin starts the engram server scoped to the **memory project key** printed at session start: the workspace root when the repository sits in a workspace (a parent folder with its own `.claude`, `CLAUDE.md` or `AGENTS.md`, or one whose forge was indexed, which joins its repositories to it), the repository otherwise; a session started in a parent folder of repositories has the folder's. A repository that joined its folder by an indexing shares the folder's memory from then on; what was saved before under the repository's own name stays there and is not moved: read it with `project` when the work needs it. Every `mem_*` call already lands in that project; do not pass `project` unless you deliberately read another project's memory.
 
 ## Search
 

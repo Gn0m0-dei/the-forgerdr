@@ -4,7 +4,7 @@ import { agentChip, tag } from "./chips.js";
 import { SIGN, sign } from "./motion.js";
 import { gnome, ICON, icon, MOOD } from "./sprites.js";
 import { fill, text } from "./text.js";
-import { BRAND, motionOn, tokens, toneColour } from "./tokens.js";
+import { BRAND, motionOn, TONE, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
 /** @typedef {import("./motion.js").SignName} SignName */
@@ -68,7 +68,77 @@ export const splitControls = () => {
  * @property {GnomeLook} [look]
  * @property {SignName} [sign] what its golems do, moving beside the gnome: the flame, the "!", the spark, the zZ
  * @property {NativeElement} [action] what the forge offers to do, under its gnome
+ * @property {NativeElement} [index] how its indexing stands (indexLine), between its name and its mood
  */
+
+// How a forge's indexing reads under its gnome's name, by how it stands: its icon, its words, its colour and what
+// moves. Not indexed, and an indexing that failed, say what a click does beside a warning that fades out and back;
+// indexing counts its dots; indexed is quiet.
+const INDEX_LOOK = Object.freeze(
+  /** @satisfies {Record<string, { blink: boolean, glyph: import("./sprites.js").IconName, tone: Tone, words: string[] }>} */ ({
+    failed: {
+      blink: true,
+      glyph: ICON.warn,
+      tone: TONE.needs,
+      words: ["INDEX FAILED · CLICK"],
+    },
+    indexing: {
+      blink: false,
+      glyph: ICON.search,
+      tone: TONE.working,
+      words: ["INDEXING", "INDEXING.", "INDEXING..", "INDEXING..."],
+    },
+    none: {
+      blink: true,
+      glyph: ICON.warn,
+      tone: TONE.needs,
+      words: ["NOT INDEXED · CLICK"],
+    },
+    ready: {
+      blink: false,
+      glyph: ICON.ok,
+      tone: TONE.quiet,
+      words: ["INDEXED"],
+    },
+  }),
+);
+
+/** @typedef {keyof typeof INDEX_LOOK} IndexLook */
+
+// The line's height, how fast its dots count and how its warning pulses, on the app's own clock.
+const INDEX_LINE = Object.freeze({
+  blink: { from: 0, period: 900, to: 1 },
+  dotsMs: 450,
+  height: 12,
+});
+
+/**
+ * A forge's indexing, a line between its gnome's name and its mood.
+ * @param {IndexLook} look
+ */
+export const indexLine = (look) => {
+  const { blink, glyph, tone, words } = INDEX_LOOK[look];
+  const colour = toneColour(tone);
+  const mark = div().flex_none().child(icon(glyph, colour));
+  const moving = motionOn();
+  // Words that change by frames are given the room left: an empty text has no width of its own to show them in.
+  const said = fill(
+    moving && words.length > 1 ? "" : (words.at(-1) ?? ""),
+    "display",
+    9,
+    colour,
+  );
+  return h_flex()
+    .items_center()
+    .gap(5)
+    .h(INDEX_LINE.height)
+    .child(moving && blink ? mark.loop("opacity", INDEX_LINE.blink) : mark)
+    .child(
+      moving && words.length > 1
+        ? said.frames([...words], INDEX_LINE.dotsMs)
+        : said,
+    );
+};
 
 /** @param {GnomeHeaderProps} props */
 export const gnomeHeader = ({
@@ -79,6 +149,7 @@ export const gnomeHeader = ({
   look = {},
   sign: mark,
   action,
+  index,
 }) => {
   const k = tokens();
   const colour = toneColour(tone);
@@ -102,6 +173,7 @@ export const gnomeHeader = ({
         .gap(4)
         .child(text(`FORGE · ${forge.toUpperCase()}`, "display", 10, k.muted))
         .child(fill(name, "ui", 16, k.fg))
+        .children(index === undefined ? [] : [index])
         .child(
           h_flex()
             .items_center()

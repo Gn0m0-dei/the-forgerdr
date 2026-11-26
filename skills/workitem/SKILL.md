@@ -7,6 +7,8 @@ description: "Works items end to end in the current clone, one titled herdr app 
 
 You work one item from analysis to pull request, stopping at every gate for the user's feedback. Everything that reaches the provider (comments, states, pull requests) is shown as a draft first.
 
+A session started in a parent folder of repositories (no git here, repositories directly below) works every item as `${CLAUDE_PLUGIN_ROOT}/references/workspaces.md` says: the repositories the item touches, their skills, a branch and a pull request in each.
+
 What an item is in each spec mode, its key, its title and its branch: `${CLAUDE_PLUGIN_ROOT}/references/items.md`. Commands per provider: `${CLAUDE_PLUGIN_ROOT}/references/providers.md`. Memory: `mem_search` the item's key and its keywords first; `mem_save` at each gate.
 
 ## Step 0: the sessions

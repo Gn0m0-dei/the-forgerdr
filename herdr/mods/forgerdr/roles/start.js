@@ -629,6 +629,9 @@ export const start = (cx) => {
                 .border_color(k.line)
                 .hover((style) => style.bg(k.bg2))
                 .child(checkBox(picked.has(change.name)))
+                .when(change.repo !== undefined, (el) =>
+                  el.child(tag(change.repo ?? "")),
+                )
                 .child(
                   fill(
                     change.name,
@@ -646,7 +649,7 @@ export const start = (cx) => {
                   ),
                 )
                 .child(tag(change.status || "change")),
-              `start-change-${change.name}`,
+              `start-change-${change.repo ?? ""}-${change.name}`,
               (cx) => {
                 if (picked.has(change.name)) picked.delete(change.name);
                 else picked.add(change.name);

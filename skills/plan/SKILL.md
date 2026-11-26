@@ -15,6 +15,8 @@ Input: the approved design, wherever the spec mode keeps it: the conversation (`
 
 A spec covering several independent subsystems becomes one plan per subsystem, each producing working software on its own. Say so and plan the first.
 
+A plan written in a parent folder of repositories names the repository of every file and of every task, and orders the tasks so a repository that others depend on comes first (`${CLAUDE_PLUGIN_ROOT}/references/workspaces.md`).
+
 ## File structure first
 
 Load the project skills for the area first (standards, "Project skills"); the plan names, per task, which of them apply, so the implementer and the reviewer get their paths.
