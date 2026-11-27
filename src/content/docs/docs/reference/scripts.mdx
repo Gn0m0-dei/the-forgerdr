@@ -16,6 +16,7 @@ bin/forge-session.sh   [--cwd PATH] [--no-agent] [--no-focus] --title TITLE <pro
 bin/forge-session.sh   [--cwd PATH] [--no-agent] --group NAME --title TITLE <prompt> [--title TITLE <prompt>...]
 bin/forge-worktree-remove.sh [--discard | --force] <path>
 bin/forge-worktree-remove.sh --plan <folder>
+bin/forge-changes.sh    tree <repo>... | diff <folder> | own <folder>
 bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
 bin/forge-update.sh     check|apply
 bin/forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
@@ -40,6 +41,16 @@ They print one JSON line per worktree, tab or pull request.
 ## Indexing a forge
 
 `forge-start.sh index <dir>` indexes the forge a directory is of: the [parent folder of repositories](../../way-of-working/parent-folders/#index-the-forge-first) it is or works with, else its repository. Each repository of a parent folder records the folder in its own git config (`forgerdr.workspace`), and the code of the whole forge is indexed as one codebase-memory project, when that program is installed. `indexed` answers how it stands (`state`: `none`, `indexing` or `ready`, how many `repos` and how many `joined`, the code index's `project`, and what `failed` in its last run); `unindex` leaves the repositories on their own again and keeps the code index's project.
+
+## What the Changes panel reads
+
+`forge-changes.sh` is what the [Changes panel](../../herdr-app/changes/) reads, and it only reads: your index, HEAD and stash are never touched, and nothing is written under `.git`.
+
+- `tree <repo>...` answers each repository's checkouts as JSON, the main one first, with the files each changed; a git submodule is listed only while it holds changes.
+- `diff <folder>` prints the diff of the checkout a folder is in, from its HEAD to what it holds, then its new files, each shown whole.
+- A long diff is cut at `FORGE_CHANGES_DIFF_MAX` lines (20000) or `FORGE_CHANGES_DIFF_BYTES` (4 MiB), a line past 4000 characters is cut too, and past `FORGE_CHANGES_NEW_MAX` new files (400) the rest are left out: each cut says so in the diff's last line.
+- A file git cannot read (no permission, a pipe, a folder with a repository of its own or one that cannot be entered) is left out with a line `\ forgerdr: not shown: <path>`, and hides no other.
+- `own <folder>` makes the folder the panel keeps its comments in yours alone.
 
 ## The app's look
 

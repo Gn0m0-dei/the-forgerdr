@@ -34,6 +34,14 @@ export const STEPS: readonly Step[] = Object.freeze([
     title: "Build, red then green",
   },
   {
+    body: "The Changes panel shows everything the forge holds uncommitted, in every repository and worktree. Comment on any line, as on a pull request; the comments stay until you send them.",
+    card: { scale: 0.25, x: 0.5, y: 0.45 },
+    decide: "What to change, and which session does it.",
+    screen: ScreenId.Changes,
+    stage: { scale: 0.5, x: 0.5, y: 0.14 },
+    title: "Every change, in one panel",
+  },
+  {
     body: "A review round snapshots what the agent changed. Comment on any line; each comment follows its line from round to round.",
     card: { scale: 0.25, x: 0.24, y: 0.5 },
     decide: "Request changes, or stamp the round.",

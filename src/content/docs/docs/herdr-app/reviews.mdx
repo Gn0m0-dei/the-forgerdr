@@ -37,3 +37,5 @@ The review icon on an agent's pane header opens a **review round** of what that 
 - `Request changes` sends the open comments to the agent as one prompt; `Ask the golem to fix` sends one; `Stamp gnomemark` approves the round and makes its head the new base.
 
 The rounds are snapshots of the agent's worktree, pinned as commits under `refs/forgerdr/rounds/`, never touching your index, HEAD or stash. The commit itself still waits at its own gate.
+
+A round is one agent's work. For everything the forge holds uncommitted, across its repositories and worktrees, with your comments sent to the session you pick, open the [Changes panel](../changes/).
