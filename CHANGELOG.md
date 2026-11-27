@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.40.0] - 2026-11-27
+
 ### Added
 
 - A Changes panel of the forgerdr's own, in the place of the herdr app's. It shows everything the shown forge holds uncommitted at once, new files included, folding by repository, by checkout (the main one, each worktree, a submodule with changes) and by file, every file open; in a parent folder of repositories, all of them. The checkout of the space shown starts unfolded, and the panel follows the files as they change. Only the rows on screen are drawn, so a long diff scrolls as a short one.
