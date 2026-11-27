@@ -3,6 +3,7 @@
 // know draws nothing, so a layout from a newer forgerdr never breaks an older mod.
 import { div, View } from "gpui-kit";
 import { props } from "herdr";
+import { changes } from "./roles/changes.js";
 import { empty } from "./roles/empty.js";
 import { floor } from "./roles/floor.js";
 import { forgeMenu } from "./roles/forge-menu.js";
@@ -37,6 +38,7 @@ const readProps = props;
 
 /** @type {Record<string, (cx: AsyncContext) => Role>} */
 const ROLES = {
+  changes,
   empty,
   floor,
   "forge-menu": forgeMenu,

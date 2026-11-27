@@ -6,6 +6,20 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- A Changes panel of the forgerdr's own, in the place of the herdr app's. It shows everything the shown forge holds uncommitted at once, new files included, folding by repository, by checkout (the main one, each worktree, a submodule with changes) and by file, every file open; in a parent folder of repositories, all of them. The checkout of the space shown starts unfolded, and the panel follows the files as they change. Only the rows on screen are drawn, so a long diff scrolls as a short one.
+- While the list is scrolled, the heads of what shows at its top stay pinned over it: the repository, the checkout and the file. A click on one folds it without scrolling back, and the list stays where it was. A checkout's head has a `+` and a `−` that unfold and fold all its files.
+- Comments on the changes, as on a pull request: the pointer over a line shows a `+`, a click opens a field of several lines under it, and the comment stays under its line. A click on a comment opens its words again; its ✕ discards it. Comments are kept on disk, each in the forge it was written in, until they are sent or discarded, through the panel closing and the app restarting. Their folder is the user's alone, since they hold lines of code.
+- A list to search names the AI sessions open in the forge that can take a prompt, each with its repository, its branch and what it is doing; a session parked behind a view (a review, a security triage) is not among them. `Send comments` types all the forge's comments into the session picked, as one prompt that quotes each file by its whole path, its line and its code (a long line or path by its start, as the panel shows it, and neither with characters that hide or reorder text), and only then are they gone. A session that waits on a question cannot be picked, and the panel says why when the comments cannot go.
+- The Changes switch on the session bar tells how many files the forge changed with the panel shut, in another colour while comments wait to be sent.
+- The Changes panel can take the panes' place, between the sidebar and the inbox, with the button in its head: the choice is kept, so the panel opens that way until it is pressed again. The side panel can now be dragged as wide as the window allows.
+- `bin/forge-changes.sh`, which the panel reads: `tree <repo>...` lists each repository's checkouts with the files each changed, `diff <folder>` prints a checkout's diff from its HEAD and its new files, writing nothing under `.git`, and `own <folder>` makes the comments' folder the user's alone. A file git cannot read (no permission, a pipe, a folder with a repository of its own or one that cannot be entered) is told in the diff and at the top of its checkout in the panel, and hides no other.
+
+### Changed
+
+- The forgerdr layout no longer shows the herdr app's own Changes panel, and with it its commit box: commits stay with the session that made the changes, behind its commit gate.
+
 ## [0.39.0] - 2026-11-26
 
 ### Added

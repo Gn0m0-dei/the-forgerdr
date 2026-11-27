@@ -120,21 +120,40 @@ export const sessionTab = ({
 };
 
 /**
+ * What a side panel's switch tells with the panel shut: how many it holds, and whether something there waits on the
+ * human (Changes: the files changed, and comments written and not sent).
+ * @typedef {{ count: number, waiting: boolean }} PanelMark
+ */
+
+/**
  * The switch of a side panel on the session bar (Files, Changes): lit while it shows.
  * @param {string} label
  * @param {boolean} on
+ * @param {PanelMark} [mark] nothing told at zero
  */
-export const panelToggle = (label, on) => {
+export const panelToggle = (label, on, mark) => {
   const k = tokens();
+  const count = mark?.count ?? 0;
   return h_flex()
     .flex_none()
     .items_center()
+    .gap(6)
     .h(26)
     .px(8)
     .bg(on ? k.bg2 : NONE)
     .border(2)
     .border_color(on ? k.line : NONE)
-    .child(text(label.toUpperCase(), "display", 10, on ? k.fg : k.muted));
+    .child(text(label.toUpperCase(), "display", 10, on ? k.fg : k.muted))
+    .when(count > 0 || mark?.waiting === true, (el) =>
+      el.child(
+        text(
+          String(count),
+          "mono",
+          11,
+          mark?.waiting === true ? k.needs : k.accent,
+        ),
+      ),
+    );
 };
 
 /**

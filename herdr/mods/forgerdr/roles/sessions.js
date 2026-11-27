@@ -18,10 +18,21 @@ import {
   run,
   spaces,
 } from "herdr";
+import {
+  followChanges,
+  readChanges,
+  readComments,
+} from "../bridges/changes.js";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { lanesOpen } from "../bridges/lanes.js";
-import { enabledPanels, layoutNode } from "../bridges/layout.js";
+import {
+  changesMaximized,
+  enabledPanels,
+  layoutNode,
+  maximizePanel,
+} from "../bridges/layout.js";
 import { readAgents, readTerminals } from "../bridges/terminals.js";
+import { commentsIn, shownForge, summaryOf } from "../changes.js";
 import { lanesSpacesOf } from "../forges.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
@@ -80,6 +91,9 @@ const NEW_MENU = Object.freeze({
 });
 
 const PANELS_KEY = "panels";
+
+// The side panel that can take the panes' place (its own switch: roles/changes.js).
+const MAXIMIZED = "changes";
 
 const ADD_TAB = "session-add";
 
@@ -151,6 +165,9 @@ export const sessions = (cx) => {
     const now = panel.hidden
       ? null
       : (layoutNode(NODE.panelBody)?.active ?? null);
+    // Only the Changes panel takes the panes' place, when the human keeps it so: once it is shut or another shows, the
+    // panes come back, and it takes their place again the next time it shows.
+    maximizePanel(now === MAXIMIZED && changesMaximized());
     if (space.id !== syncedSpace) {
       const first = syncedSpace === undefined;
       syncedSpace = space.id;
@@ -180,6 +197,7 @@ export const sessions = (cx) => {
   const syncEmpty = () => {
     const here = machines().find((machine) => machine.name === null);
     if (here !== undefined && here.layout === "loading") return;
+    if (spaces().length === 0) maximizePanel(false);
     const want = spaces().length === 0 ? NODE.empty : NODE.panes;
     const work = layoutNode(NODE.work);
     if (work !== undefined && work.active !== want) {
@@ -203,12 +221,27 @@ export const sessions = (cx) => {
     if (block.hidden) run("layout.show", { id: NODE.lanes });
   };
 
+  // The shown forge's changes, read here because this bar always shows: the Changes switch tells of them with the
+  // panel shut, and the panel draws what this publishes (bridges/changes.js).
+  const forgeNow = () => shownForge(spaces(), readSpacesGit(), readFolders());
+  const following = checking() ? null : followChanges(cx, forgeNow);
+  let followed = "";
+  // Another forge shown, or its repositories known at last: read now, not at the next poll.
+  const syncChanges = () => {
+    const forge = forgeNow();
+    const now = forge === null ? "" : `${forge.key}\n${forge.repos.join("\n")}`;
+    if (now === followed) return;
+    followed = now;
+    following?.wake();
+  };
+
   const timer = checking()
     ? null
     : cx.timer.every(SYNC_EVERY, () => {
         syncPanel();
         syncEmpty();
         syncLanes();
+        syncChanges();
       });
 
   /**
@@ -362,6 +395,17 @@ export const sessions = (cx) => {
         ? null
         : (layoutNode(NODE.panelBody)?.active ?? null);
     const kept = enabledPanels();
+    const read = readChanges();
+    const forge = forgeNow();
+    // The shown forge's alone: another forge's comments wait in their own.
+    const summary = summaryOf(
+      read !== null && read.forge === forge?.key ? read.tree : [],
+      forge === null ? [] : commentsIn(readComments(), forge.key),
+    );
+    /** @type {Record<string, import("../kit/tabs.js").PanelMark | undefined>} what each switch tells, by panel id */
+    const marks = {
+      changes: { count: summary.files, waiting: summary.comments > 0 },
+    };
     /**
      * @param {string} id
      * @param {IconName} glyph
@@ -437,8 +481,10 @@ export const sessions = (cx) => {
           .gap(6)
           .children(
             PANELS.filter(({ id }) => kept.includes(id)).map(({ id, label }) =>
-              control(panelToggle(label, showing === id), `panel-${id}`, () =>
-                showPanel(showing === id ? null : id),
+              control(
+                panelToggle(label, showing === id, marks[id]),
+                `panel-${id}`,
+                () => showPanel(showing === id ? null : id),
               ),
             ),
           )
@@ -464,6 +510,7 @@ export const sessions = (cx) => {
   return {
     close: () => {
       timer?.cancel();
+      following?.task.cancel();
       strip.release();
     },
     render,
