@@ -1,7 +1,7 @@
 // The shown layout as the roles read it, and the sidebar's fold as the app's own chrome does it: the rail goes by the
 // sidebar's width, not a flag, so dragging its edge narrows it too, and folding keeps the width it had in the same shared
 // keys the app's mods read.
-import { layout, run, setShared, shared } from "herdr";
+import { layout, run, setShared, settings, shared } from "herdr";
 
 /**
  * @typedef {{ id?: string, active?: string, hidden?: boolean, size?: { px?: number }, children?: LayoutNode[] }} LayoutNode
@@ -40,6 +40,63 @@ export const enabledPanels = () =>
     "files",
     "changes",
   ];
+
+/**
+ * Window px per layout px: the app's zoom, which settings() carries. A press's place and a measured size come in
+ * window px; what a script writes (`h`, `w`, a scroll offset) is in layout ones.
+ * @returns {number}
+ */
+export const zoomOf = () => {
+  const { zoom } = settings();
+  return typeof zoom === "number" ? zoom : 1;
+};
+
+// The side panel (Files, Changes) and the panes beside it; the width the panel had before it took the panes' place.
+const PANEL = Object.freeze({
+  body: "panel-body",
+  changes: "changes",
+  id: "panel",
+  key: "forgerdr.panel.width",
+  maximized: "forgerdr.changes.maximized",
+  panes: "work-view",
+  width: 368,
+});
+
+/** Whether the Changes panel is the side panel on show. */
+export const changesShowing = () =>
+  layoutNode(PANEL.id)?.hidden !== true &&
+  layoutNode(PANEL.body)?.active === PANEL.changes;
+
+/**
+ * Whether the human wants the Changes panel in the panes' place whenever it shows: kept through the panel shutting and
+ * the app restarting, until they say otherwise.
+ */
+export const changesMaximized = () => shared(PANEL.maximized) === true;
+
+/** Keeps how the human wants the Changes panel, and shows it so. @param {boolean} on */
+export const keepChangesMaximized = (on) => {
+  setShared(PANEL.maximized, on);
+  maximizePanel(on);
+};
+
+/** Whether the side panel takes the panes' place too. */
+export const panelMaximized = () => layoutNode(PANEL.panes)?.hidden === true;
+
+/**
+ * Gives the side panel the panes' place, between the sidebar and the inbox, or back the width it had beside them.
+ * @param {boolean} on
+ */
+export const maximizePanel = (on) => {
+  if (on === panelMaximized()) return;
+  if (on) {
+    setShared(PANEL.key, layoutNode(PANEL.id)?.size?.px ?? PANEL.width);
+    run("layout.hide", { id: PANEL.panes });
+    run("layout.resize", { id: PANEL.id, weight: 1 });
+    return;
+  }
+  run("layout.show", { id: PANEL.panes });
+  run("layout.resize", { id: PANEL.id, px: shared(PANEL.key) ?? PANEL.width });
+};
 
 /** To the rail, or back to the width it had. */
 export const foldSidebar = () => {

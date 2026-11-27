@@ -14,7 +14,7 @@
 // could write an answer too, as it could type in a pane: the foot says so.
 import { h_flex, Input, InputState, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
-import { checking, panes, run, settings, spaces } from "herdr";
+import { checking, panes, run, spaces } from "herdr";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import {
@@ -25,6 +25,7 @@ import {
   inboxShownAt,
   toggleInbox,
 } from "../bridges/inbox.js";
+import { zoomOf } from "../bridges/layout.js";
 import { playStamp } from "../bridges/sounds.js";
 import { readTerminals } from "../bridges/terminals.js";
 import { groupForges, lookKeyOf } from "../forges.js";
@@ -219,16 +220,6 @@ const FOOT =
 // The foot's top line meets the folded golem lanes' (36 px over the 33 px status bar, herdr/layouts/forgerdr.json), as
 // the sidebar's footer does on the other side; a failure to tell makes it taller.
 const FOOT_HEIGHT = 69;
-
-/**
- * Window px per layout px: the app's zoom, which settings() carries; a press gives window px, a stamp is placed in
- * layout ones.
- * @returns {number}
- */
-const zoomOf = () => {
-  const { zoom } = settings();
-  return typeof zoom === "number" ? zoom : 1;
-};
 
 /**
  * Where a press's element was drawn, in the window: its size, and its corner where the press is in the window less

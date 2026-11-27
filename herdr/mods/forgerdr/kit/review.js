@@ -736,14 +736,19 @@ const SIGN = { add: "+", ctx: " ", del: "-" };
  * @property {number | null} old
  * @property {number | null} new
  * @property {string} text
+ * @property {string} [plus] an id for the line, which then shows a + before its numbers under the pointer: a comment
+ *   can be written on it. The app follows the pointer only over an element with an id
  */
+
+// The room the + takes before a line's numbers.
+const PLUS_WIDTH = 18;
 
 /**
  * One line of a diff: its old and new numbers, its sign and its code, lit green when added, red when removed.
  * forge: long lines are cut at the view's edge; a sideways scroll if they ever matter.
  * @param {DiffLineProps} props
  */
-export const diffLine = ({ kind, old, new: now, text: code }) => {
+export const diffLine = ({ kind, old, new: now, text: code, plus }) => {
   const k = tokens();
   const tint = {
     add: withAlpha(k.ok, 0.16),
@@ -758,7 +763,7 @@ export const diffLine = ({ kind, old, new: now, text: code }) => {
       .flex()
       .justify_end()
       .child(text(value === null ? "" : String(value), "mono", 12, k.muted));
-  return h_flex()
+  const line = h_flex()
     .size_full()
     .items_center()
     .bg(tint)
@@ -778,6 +783,34 @@ export const diffLine = ({ kind, old, new: now, text: code }) => {
         ),
     )
     .child(fill(code, "mono", 12, k.fg));
+  if (plus === undefined) return line;
+  // A hover styles the element it is on and nothing inside it, a text's colour included. So the + is drawn in a sheet
+  // over the whole line, see-through until the pointer is over it: the sheet's own opacity is what the hover changes,
+  // and what is drawn in it shows with it.
+  return h_flex()
+    .relative()
+    .size_full()
+    .pl(PLUS_WIDTH)
+    .child(line)
+    .child(
+      h_flex()
+        .id(plus)
+        .absolute()
+        .inset_0()
+        .bg(withAlpha(k.accent, 0.1))
+        .opacity(0)
+        .hover((style) => style.opacity(1))
+        .child(
+          h_flex()
+            .flex_none()
+            .w(PLUS_WIDTH)
+            .h_full()
+            .items_center()
+            .justify_center()
+            .bg(k.accent)
+            .child(text("+", "mono", 14, k.onAccent)),
+        ),
+    );
 };
 
 /**

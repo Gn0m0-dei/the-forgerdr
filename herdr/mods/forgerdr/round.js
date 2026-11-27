@@ -53,7 +53,12 @@ export const ROUND_STATUS = Object.freeze({
  * @property {boolean} binary
  */
 
-/** @typedef {{ files: DiffFile[], cut: boolean }} ParsedDiff */
+/**
+ * @typedef {object} ParsedDiff
+ * @property {DiffFile[]} files
+ * @property {boolean} cut
+ * @property {string[]} missing what the diff says it could not show (bin/forge-changes.sh), by path
+ */
 
 /**
  * A round, as bin/forge-round.sh keeps it.
@@ -92,13 +97,15 @@ export const ROUND_STATUS = Object.freeze({
 
 const HUNK = /^@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)? @@/;
 const CUT = "\\ forgerdr: cut at ";
+const NOT_SHOWN = "\\ forgerdr: not shown: ";
 
 /** A path on a ---/+++ or rename line, without its a/ or b/ and any quotes git put round it. @param {string} given */
 const pathOf = (given) =>
   given
+    // git ends a name that holds a space with a tab, after the quotes of one it quoted.
+    .replace(/\t.*$/, "")
     .replace(/^"(.*)"$/, "$1")
-    .replace(/^[ab]\//, "")
-    .replace(/\t.*$/, "");
+    .replace(/^[ab]\//, "");
 
 /** @returns {DiffFile} */
 const newFile = () => ({
@@ -167,12 +174,16 @@ export const parseDiff = (text) => {
   let old = 0;
   let now = 0;
   let cut = false;
+  /** @type {string[]} */
+  const missing = [];
   const close = () => {
     if (file !== null) files.push(settled(file));
   };
   for (const line of text.split("\n")) {
     if (line.startsWith(CUT)) {
       cut = true;
+    } else if (line.startsWith(NOT_SHOWN)) {
+      missing.push(line.slice(NOT_SHOWN.length));
     } else if (line.startsWith("diff --git ")) {
       close();
       const names = /^diff --git (?:"?a\/)(.*?)"? (?:"?b\/)(.*?)"?$/.exec(line);
@@ -224,7 +235,7 @@ export const parseDiff = (text) => {
     }
   }
   close();
-  return { cut, files };
+  return { cut, files, missing };
 };
 
 /**
@@ -243,25 +254,33 @@ export const placeKey = (path, side, line) => `${path}:${side}:${line}`;
 const numberOn = (line, side) => (side === SIDE.new ? line.new : line.old);
 
 /**
+ * What puts a comment on a line of a diff: its file, its side, its line and that line's text. A round's comment, and
+ * one of the Changes panel (changes.js).
+ * @typedef {Pick<RoundComment, "path" | "side" | "line" | "text">} LineComment
+ */
+
+/**
+ * @template {LineComment} [T=RoundComment]
  * @typedef {object} Anchored
- * @property {Map<string, RoundComment[]>} placed by placeKey, in the order they were made
- * @property {RoundComment[]} outdated on a line this diff removes
- * @property {RoundComment[]} elsewhere on a file or a line this diff does not show
+ * @property {Map<string, T[]>} placed by placeKey, in the order they were made
+ * @property {T[]} outdated on a line this diff removes
+ * @property {T[]} elsewhere on a file or a line this diff does not show
  */
 
 /**
  * The comments put on the lines of a diff: on the line of the same side with the same text, the nearest to where it
  * was made; outdated when the diff removes that line; elsewhere when the diff does not show its file or its line.
+ * @template {LineComment} T
  * @param {DiffFile[]} files
- * @param {RoundComment[]} comments
- * @returns {Anchored}
+ * @param {T[]} comments
+ * @returns {Anchored<T>}
  */
 export const anchorComments = (files, comments) => {
-  /** @type {Map<string, RoundComment[]>} */
+  /** @type {Map<string, T[]>} */
   const placed = new Map();
-  /** @type {RoundComment[]} */
+  /** @type {T[]} */
   const outdated = [];
-  /** @type {RoundComment[]} */
+  /** @type {T[]} */
   const elsewhere = [];
   for (const comment of comments) {
     const file = files.find(
@@ -314,9 +333,20 @@ export const isControl = (char) => {
   );
 };
 
-/** @param {string} text */
-const printable = (text) =>
+/** A text with nothing that could act as a key once typed into a terminal. @param {string} text */
+export const printable = (text) =>
   [...text].filter((char) => !isControl(char)).join("");
+
+// Characters that show as nothing, or change the order the ones around them show in (zero width, bidi), and the line
+// separators that are no line break of ours.
+const UNSEEN = /[\p{Cf}\u2028\u2029]/gu;
+
+/**
+ * A text that is not the human's own (a file's path, a line of code), as it goes into a prompt: printable, and with
+ * nothing that would make it read otherwise there than it showed here.
+ * @param {string} text
+ */
+export const plain = (text) => printable(text).replace(UNSEEN, "");
 
 /**
  * Whether feedback may be typed into a terminal: an agent runs in front there and does not wait in a dialog, where a
@@ -343,8 +373,8 @@ export const feedbackOf = (round, comments) => {
   }`;
   const items = comments.map((comment, index) =>
     [
-      `${index + 1}. ${printable(comment.path)}:${comment.line}${comment.side === SIDE.old ? " (a removed line)" : ""}`,
-      `   > ${printable(comment.text).trim()}`,
+      `${index + 1}. ${plain(comment.path)}:${comment.line}${comment.side === SIDE.old ? " (a removed line)" : ""}`,
+      `   > ${plain(comment.text).trim()}`,
       ...printable(comment.body)
         .trim()
         .split("\n")
@@ -355,18 +385,20 @@ export const feedbackOf = (round, comments) => {
 };
 
 /**
+ * @template {LineComment} [T=RoundComment]
  * @typedef {object} RowsView
  * @property {Set<string>} collapsed the files folded, by path
- * @property {Map<string, RoundComment[]>} placed
- * @property {RoundComment[]} outdated
+ * @property {Map<string, T[]>} placed
+ * @property {T[]} outdated
  * @property {{ path: string, side: Side, line: number } | null} composing the line a comment is being written on
  */
 
 /**
+ * @template {LineComment} [T=RoundComment]
  * @typedef {{ key: string, file: DiffFile } & (
  *   { kind: "file" } | { kind: "hunk", header: string } | { kind: "line", line: DiffLine }
- *   | { kind: "comments", side: Side, number: number, comments: RoundComment[] }
- *   | { kind: "compose", side: Side, number: number } | { kind: "outdated", comments: RoundComment[] })} DiffRow
+ *   | { kind: "comments", side: Side, number: number, comments: T[] }
+ *   | { kind: "compose", side: Side, number: number } | { kind: "outdated", comments: T[] })} DiffRow
  */
 
 /**
@@ -383,13 +415,14 @@ export const lineSpot = (line) =>
  * The rows the round's view draws, one after the other: a header per file, then, unless the file is folded, its
  * outdated comments, and each hunk's header and lines, with the comments placed on a line, and the field to write one,
  * right under it.
+ * @template {LineComment} T
  * @param {DiffFile[]} files
- * @param {RowsView} view
- * @returns {DiffRow[]}
+ * @param {RowsView<T>} view
+ * @returns {DiffRow<T>[]}
  */
 export const diffRows = (files, view) =>
   files.flatMap((file) => {
-    /** @type {DiffRow[]} */
+    /** @type {DiffRow<T>[]} */
     const rows = [{ file, key: `file:${file.path}`, kind: "file" }];
     if (view.collapsed.has(file.path) || file.binary) return rows;
     const outdated = view.outdated.filter(
