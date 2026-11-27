@@ -3,6 +3,7 @@ import type { CropRect, Size } from "#model/zoom.ts";
 /** The screens of the demo forge, shot from the herdr app itself. */
 export enum ScreenId {
   Agents = "agents",
+  Changes = "changes",
   Floor = "floor",
   InboxDesign = "inboxDesign",
   InboxPlan = "inboxPlan",

@@ -1,0 +1,48 @@
+---
+title: The Changes panel
+description: Everything the forge holds uncommitted, repository by repository, with your comments on its lines sent to the session you pick.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+`CHANGES` on the [session bar](../layout/#the-session-bar-and-the-panes) opens the forgerdr's own Changes panel beside the panes, in the place of the herdr app's. It shows **everything the forge on show holds uncommitted**, new files included: where you read what the agents wrote, and tell one of them what to change.
+
+<img src={withBase("screens/18-changes-panel.png")} width="1440" height="900" alt="The Changes panel beside a session: the forge's checkouts with what each changed, a file's diff with a comment under one of its lines, and the session the comments will go to." />
+
+## It tells before you open it
+
+The switch carries **how many files the forge changed**, with the panel shut, and takes the colour of what waits on you while comments wait to be sent. A forge with nothing uncommitted shows no number.
+
+## One list, folding three ways
+
+- **A head per repository.** A [parent folder of repositories](../../way-of-working/parent-folders/) shows every one of them; any other forge, its own.
+- **A head per checkout** under it: the main checkout, each worktree wherever it lives, and a git submodule that holds changes, under the checkout that holds it. The checkout of the space on show starts unfolded; the others wait folded, and are not read until you open them. Its `+` and `−` unfold and fold all its files at once.
+- **A head per file**, with what it adds and removes and how many comments it carries. Every file starts open, its lines numbered on both sides, so a whole change reads in one scroll.
+
+While you scroll, the heads of what shows at the top **stay pinned** over the list: the repository, the checkout and the file you are reading. A click on a pinned head folds it without scrolling back, and the list stays where it was.
+
+The panel follows the files as they change, so an agent's edit shows by itself. A file git cannot read (no permission, a pipe, a folder with a repository of its own) is named at the top of its checkout, and hides no other.
+
+## Comments, as on a pull request
+
+- The pointer over a line shows a `+`; a click opens a field of several lines under it, and `Save` keeps the comment under its line.
+- A click on a comment opens its words again; its ✕ discards it.
+- A comment is yours as written, and nothing reads meaning into it: "this loop reads badly, do it another way" is a comment.
+- Comments are **kept on disk**, each in the forge it was written in, through the panel shutting, another space on show and the app restarting. They go only when you send them or discard them. Their folder, `~/.local/state/forgerdr/changes`, is yours alone, since they quote lines of code.
+- A comment whose line is gone from the diff shows as outdated, and is still sent.
+
+## Send them to a session
+
+The list in the panel's head names **the AI sessions open in the forge** that can take a prompt, each with its title, its repository and branch, and a dot in the colour of what it does; type to search it. A session that waits on your answer cannot be picked, since what is typed there would answer its question, and a session parked behind a view (a review, a security triage) is not listed.
+
+`Send N comments` types **all of the forge's comments, as one prompt**, into the session picked: each with its file by its whole path, its line, the code it is on and your words, numbered. A comment that depends on another arrives with it, and the session decides how to go about them.
+
+Only once the prompt is in are the comments gone from the panel. When it cannot go (the session ended, or waits on you now), they stay and the panel says why. What comes of them, a question back or a disagreement, is talked over in that session, and the commit still waits at its own [gate](../../way-of-working/flow-and-gates/).
+
+## Room to read
+
+The button at the right of the panel's head gives the panel **the panes' place**, between the sidebar and the inbox; pressed again, it goes back beside them. The choice is kept: the panel opens that way until you press it again. Its edge also drags as wide as the window allows.
+
+## Changes and review rounds
+
+A [review round](../reviews/#review-rounds) is one agent's work in snapshots: what it changed since you last looked, committed or not, approved with a stamp. The Changes panel is the forge's working trees as they stand now: every repository and worktree, and only what is uncommitted.

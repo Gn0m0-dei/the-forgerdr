@@ -8,6 +8,11 @@ export const SCREENS: Readonly<Record<ScreenId, Screen>> = Object.freeze({
     file: "04d-main-window-agents.png",
     size: APP,
   },
+  [ScreenId.Changes]: {
+    alt: "The Changes panel beside a session: the forge's checkouts with what each changed, a file's diff with your comment under a line, and the session the comments will go to.",
+    file: "18-changes-panel.png",
+    size: APP,
+  },
   [ScreenId.Floor]: {
     alt: "The forge floor: each item's cells, its build tasks red and green, and what it waits on.",
     file: "13-forge-floor.png",
