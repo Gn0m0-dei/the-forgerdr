@@ -5,6 +5,7 @@ export enum ScreenId {
   Agents = "agents",
   Changes = "changes",
   Floor = "floor",
+  Ide = "ide",
   InboxDesign = "inboxDesign",
   InboxPlan = "inboxPlan",
   InboxShip = "inboxShip",

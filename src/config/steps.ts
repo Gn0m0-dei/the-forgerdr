@@ -42,6 +42,14 @@ export const STEPS: readonly Step[] = Object.freeze([
     title: "Every change, in one panel",
   },
   {
+    body: "The IDE panel runs ttt in the checkout on show: go to definition, references and types, one per checkout, its tabs kept while you look elsewhere.",
+    card: { scale: 0.25, x: 0.38, y: 0.36 },
+    decide: "What to read, and what to change by hand.",
+    screen: ScreenId.Ide,
+    stage: { scale: 0.5, x: 0.19, y: 0.1 },
+    title: "Into the code, in an IDE",
+  },
+  {
     body: "A review round snapshots what the agent changed. Comment on any line; each comment follows its line from round to round.",
     card: { scale: 0.25, x: 0.24, y: 0.5 },
     decide: "Request changes, or stamp the round.",

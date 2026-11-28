@@ -1,6 +1,6 @@
 ---
 title: Heat, updates and the manual
-description: The subscription's forge heat, how the forgerdr updates itself only when you say, and the smith's manual of keys.
+description: The subscription's forge heat, how the forgerdr updates itself and what it needs only when you say, and the smith's manual of keys.
 ---
 
 import { withBase } from "#helpers/url.ts";
@@ -17,7 +17,20 @@ The forgerdr looks for a new release when the status bar starts and its last loo
 
 <img src={withBase("screens/10b-update-notice.png")} width="720" height="600" alt="The gnome's update notice: a new version is forged, with its release notes." />
 
-The first time it finds one, the gnome's notice opens: forgerdr x.y.z is forged, with the release notes below. `FORGERDR x.y.z` on the status bar opens it again, and `Check for updates`, at the foot of the manual, looks at once. **Nothing updates by itself:** `Update now` runs `bin/forge-update.sh apply` (the marketplace update, the plugin update and the new version's look), and the notice says when it is in or which step stopped it, with `Try again`. Open new sessions to load the new rules and hooks; the open ones keep the old ones.
+The first time it finds one, the gnome's notice opens: forgerdr x.y.z is forged, with the release notes below. `FORGERDR x.y.z` on the status bar opens it again, and `Check for updates`, at the foot of the manual, looks at once. **Nothing updates by itself:** `Update now` runs `bin/forge-update.sh apply`: the marketplace update, the plugin update, then the new version's `install.sh --update`. It runs on its own, so closing the notice does not stop it. Open new sessions to load the new rules and hooks; the open ones keep the old ones.
+
+### Update now completes what forgerdr needs
+
+`install.sh --update` asks nothing. It leaves what is fine, installs what is missing, updates ttt when it is older than the [IDE panel](../ide/) needs, and refreshes the look (the ttt profile among it) and the status line. Installing or refreshing the look there writes no alert sounds and switches no layout under you: the sounds stay as you have them.
+
+- **What you removed on purpose** with `uninstall.sh` does not come back by itself: it is kept in `~/.local/state/forgerdr/removed.json`, and `install.sh` run by hand offers it again.
+- **What needs your password** (openSUSE's packages and font, a global npm prefix you cannot write to) is left for `Finish in a tab`, which opens `install.sh` in a tab where you type it.
+
+The notice shows each piece as it is checked, then a summary: what was updated, installed and refreshed, what is missing or failed and why, and what was removed on purpose. A piece that fails does not stop the rest; a step that stops the update (the marketplace's, the plugin's, or `install.sh` when it cannot run) is named, with `Try again`.
+
+<img src={withBase("screens/10c-update-pieces.png")} width="720" height="600" alt="The gnome's notice after Update now: ttt updated, the font installed, the look and the status line refreshed, the OpenSpec CLI waiting for a password, glab removed on purpose, and Finish in a tab." />
+
+The first `Update now` from 0.40.0 is run by 0.40.0's own updater, which only refreshes the look: that hop does not install ttt. The IDE panel offers to install it when it opens.
 
 ## The smith's manual
 

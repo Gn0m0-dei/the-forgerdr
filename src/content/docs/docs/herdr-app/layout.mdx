@@ -21,7 +21,7 @@ Down the left runs the forge's sidebar:
 
 - **The gnome**, whole and rolled from the forge's repository (its hat and the hat's colour, its eyes, its beard and what it wears), and its brother's name, with what its golems do. The settings button beside `START WORK`, a double click, or `Edit gnome…` in the tab's menu opens the gnome's dialog, so each project keeps a face you tell apart at a glance.
 - **How the forge's indexing stands**, under the gnome's name: `NOT INDEXED · CLICK` beside a blinking warning, `INDEXING…`, `INDEXED`, or `INDEX FAILED · CLICK`. A click indexes it. A forge has to be indexed to work as it should: see [index the forge first](../../way-of-working/parent-folders/#index-the-forge-first).
-- **The tree** of the forge on show: the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, and the agents at work in each with their sub-agents and status. A space's row shows it on a click; an agent's row goes to its pane. For a parent folder: the folder with its own sessions, every repository under it with its own `+`, and a git submodule under the checkout that holds it while a session is open inside it.
+- **The tree** of the forge on show: the repository, its main checkout and worktrees with their branch, work item and how far each is from its upstream, and the agents at work in each with their sub-agents and status. A space's row shows it on a click; an agent's row goes to its pane. A right click on a repository, a checkout or a worktree opens its menu, with `Open in Zed` and `Open in VS Code` when they are installed. For a parent folder: the folder with its own sessions, every repository under it with its own `+`, and a git submodule under the checkout that holds it while a session is open inside it.
 - **Pull requests:** a row for each review session parked behind its view, `#42 review · @author` with `TRIAGE` or `#40 mine · 4 threads` with `THREADS`.
 - **The forge's heat** at its foot ("2 forging · 1 waiting").
 - **`START WORK`** under the gnome, with the settings button beside it, and the forge's **mode** at the foot: see [Start work](../start-work/).
@@ -40,7 +40,7 @@ Under the panes runs the golem lanes: the golems every session of the active spa
 
 ## The session bar and the panes
 
-Over the panes runs the session bar: a tab per session of the open space, with the icon of what runs in it (a golem for an agent, a terminal for a shell, a server for anything else) in the colour of what its golem does, the `+` that opens a session, the switches of the Files panel and of the [Changes panel](../changes/), which tells how many files the forge changed, and the controls that split and zoom the focused pane.
+Over the panes runs the session bar: a tab per session of the open space, with the icon of what runs in it (a golem for an agent, a terminal for a shell, a server for anything else) in the colour of what its golem does, the `+` that opens a session, the switches of the [IDE panel](../ide/), where the herdr app's Files panel was, and of the [Changes panel](../changes/), which tells how many files the forge changed, and the controls that split and zoom the focused pane.
 
 Each pane has a header with its name, its folder and its golem's status (`RUNNING` for a program that is not a shell, such as a dev server); a ✕ closes it, and on an agent's pane a review icon opens a [review round](../reviews/#review-rounds) of what it changed. With no space left, the work area shows the sleeping gnome and a button that opens a folder as a forge.
 

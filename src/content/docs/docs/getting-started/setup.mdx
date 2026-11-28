@@ -8,6 +8,7 @@ description: What /forgerdr:setup checks, and the pieces of the app's look it of
 - the engram server;
 - the MCP servers reaching through the plugin;
 - the herdr app and its optional keys;
+- ttt and its version, which the [IDE panel](../../herdr-app/ide/) needs: when it is missing or older than 1.14.0, setup points to `install.sh`, which installs or updates it, and installs nothing itself;
 - the provider sign-ins;
 - the Claude Code settings;
 - the leftovers the plugin now replaces, the herdr TUI's forgerdr plugin among them.
@@ -16,7 +17,7 @@ description: What /forgerdr:setup checks, and the pieces of the app's look it of
 
 | Piece | Script | What it does |
 |---|---|---|
-| The layout, the theme and the mod | `bin/forge-herdr-install.sh` | copies the `forgerdr` layout, the `forge-night` theme and the `forgerdr` mod into the app's home ([scripts](../../reference/scripts/)) |
+| The layout, the theme and the mod | `bin/forge-herdr-install.sh` | copies the `forgerdr` layout, the `forge-night` theme and the `forgerdr` mod into the app's home, and the profile the IDE panel runs ttt with into `~/.config/forgerdr/ttt` ([scripts](../../reference/scripts/)) |
 | The forge's alert sounds | `bin/forge-herdr-install.sh --sounds` | the hammer on the anvil when a golem needs you, the hiss of a quench when one is done ([sounds](../../herdr-app/sounds-and-motion/)) |
 | The keys | `bin/forge-setup-keys.sh` | the fan-out keys and the layout's own keys in the app's `keys.json` ([keys](../../herdr-app/keys/)) |
 | The status line | `bin/forge-statusline.sh install` | keeps the subscription's windows for the [forge heat](../../herdr-app/heat-updates-manual/) and hands the same JSON on to the status line you had |
