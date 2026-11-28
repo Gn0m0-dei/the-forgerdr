@@ -6,6 +6,8 @@ All notable changes to this project are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.41.0] - 2026-11-28
+
 ### Added
 
 - An IDE panel in the forgerdr layout, in the place of the herdr app's Files panel: [ttt](https://github.com/eugenioenko/ttt) (MIT), a terminal IDE with go to definition (F12), references, hover and types through language servers, runs inside the app, one per checkout. A right click in it opens ttt's own menu (Shift+right click, the app's). Each stays alive when you leave it, so its tabs and its cursor are where you left them when you come back. The panel opens in the panes' place, a choice kept apart from the Changes panel's.
