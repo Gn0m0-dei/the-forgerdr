@@ -3,9 +3,10 @@
 # claude --worktree): git worktrees under the main checkout's .claude/worktrees/<name> on branch worktree-<name>, each
 # opened as a herdr app space that does not take the focus when the session runs in the app; when a session ends, the
 # ones it created with no work left go, their spaces with them.
-# Nothing here removes uncommitted work or a commit: git removes only clean worktrees, and a branch goes only while it
-# still points where it started or is merged. Inside the app, when a session starts or ends, the spaces forgerdr opened
-# for worktrees that were removed where no hook sees it are closed.
+# Nothing here removes uncommitted work, a commit or a file the IDE's ttt holds unsaved: git removes only clean
+# worktrees, a worktree's ttt (bin/forge-ide.sh) is stopped first and keeps it while it holds unsaved files, and a
+# branch goes only while it still points where it started or is merged. Inside the app, when a session starts or ends,
+# the spaces forgerdr opened for worktrees that were removed where no hook sees it are closed.
 # Usage: worktree.sh create|remove|sweep|orphans  (hook JSON on stdin)
 #        worktree.sh sweep-session <session-id> <cwd>  (what sweep runs detached)
 # shellcheck source-path=SCRIPTDIR/..
@@ -71,8 +72,9 @@ uncommitted() {
   git -C "$1" status --porcelain && forge_submodule_work "$1"
 }
 
-# Removes a clean worktree, then closes its herdr app spaces; nothing goes when git refuses (a dirty one) or a space must
-# stay (the one this session runs in, one with an agent at work).
+# Stops its IDE ttt (bin/forge-ide.sh), then removes a clean worktree and closes its herdr app spaces; nothing goes
+# when git refuses (a dirty one), a space must stay (the one this session runs in, one with an agent at work) or its ttt
+# holds unsaved files or a state that cannot be read, which forge-ide.sh names.
 drop_worktree() {
   local root="$1" path="$2" changes force=""
   ! forge_in_herdr || forge_spaces_closable "$path" || return 1
@@ -81,6 +83,7 @@ drop_worktree() {
     changes="$(uncommitted "$path")" && [ -z "$changes" ] || return 1
     force=--force
   fi
+  "$plugin_root/bin/forge-ide.sh" stop "$path" || { printf 'forgerdr: left %s in place\n' "$path" >&2; return 1; }
   git -C "$root" worktree remove ${force:+"$force"} "$path" || return 1
   ! forge_in_herdr || forge_close_spaces_of "$path" \
     || printf 'forgerdr: the space of %s stays open until the app closes it as an orphan\n' "$path" >&2

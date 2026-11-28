@@ -13,14 +13,21 @@ fakes_install() {
   mkdir -p "$FAKE_DIR/terminals"
   : > "$FAKE_CALLS"
   rm -f "$FAKE_DIR/made.jsonl"
-  # hc: run starts $FAKE_RUN_ADDRESS (t9); get, read and keys use terminals/<address>.json, .screen and
-  # .after-keys.json; kill marks a terminal finished, unless FAKE_KILL_IGNORED.
+  # hc: run starts $FAKE_RUN_ADDRESS (t9), fails with FAKE_RUN_FAILS, and with FAKE_RUN_RACED fails as another copy
+  # started that name meanwhile, a live terminal (t8) under it; get, read and keys use terminals/<address or name>.json,
+  # .screen and .after-keys.json; kill marks a terminal finished, unless FAKE_KILL_IGNORED.
   cat > "$FORGE_HC" <<'SH'
 #!/usr/bin/env bash
 jq -cn '["hc"] + $ARGS.positional' --args -- "$@" >> "$FAKE_CALLS"
 t="$FAKE_DIR/terminals/${2:-}"
 case "$1" in
-  run) [ -z "${FAKE_RUN_FAILS:-}" ] || exit 1; printf '{"address":"%s"}\n' "${FAKE_RUN_ADDRESS:-t9}" ;;
+  run)
+    [ -z "${FAKE_RUN_FAILS:-}" ] || exit 1
+    if [ -n "${FAKE_RUN_RACED:-}" ]; then
+      printf '{"address":"t8","name":"%s","state":"live"}\n' "$FAKE_RUN_RACED" > "$FAKE_DIR/terminals/$FAKE_RUN_RACED.json"
+      exit 1
+    fi
+    printf '{"address":"%s"}\n' "${FAKE_RUN_ADDRESS:-t9}" ;;
   get) if [ -f "$t.json" ]; then cat "$t.json"; else printf '{"error":{"kind":"not_found"}}\n' >&2; exit 3; fi ;;
   read) [ ! -f "$t.screen" ] || cat "$t.screen" ;;
   keys) [ ! -f "$t.after-keys.json" ] || cp "$t.after-keys.json" "$t.json" ;;

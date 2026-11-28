@@ -1,7 +1,8 @@
 // The forgerdr mod's pure logic, which imports neither herdr nor gpui-kit, under Node's own runner. Node is not herdr's
 // runtime: herdr-app check and the gallery cover that.
 // Run: node --test test/herdr-mod.test.mjs
-import { deepStrictEqual, strictEqual } from "node:assert";
+import { deepStrictEqual, ok, strictEqual } from "node:assert";
+import { execFileSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { test } from "node:test";
 import {
@@ -106,10 +107,13 @@ import {
 } from "../herdr/mods/forgerdr/modes.js";
 import {
   folderLabel,
+  PANEL_MAXIMIZED,
   paneLabel,
   programKind,
+  SIDE_PANEL,
   specialTabLook,
   tabLabel,
+  wantsMaximized,
 } from "../herdr/mods/forgerdr/sessions.js";
 import {
   belongsTo,
@@ -137,8 +141,13 @@ import {
   checkDue,
   checkFound,
   newerVersion,
+  PIECE_DETAIL,
+  PIECE_NAME,
+  PIECE_RESULT,
   parseUpdate,
   phaseOf,
+  pieceName,
+  piecesSummary,
   UPDATE_PHASE,
 } from "../herdr/mods/forgerdr/update.js";
 import {
@@ -740,6 +749,53 @@ test("a tab holding a special session's view alone looks like the view: its icon
     icon: "pull-request",
     status: "failed",
   });
+});
+
+test("a side panel takes the panes' place as the human last said for it, the IDE from the start and Changes not; no other ever", () => {
+  ok(Object.isFrozen(SIDE_PANEL));
+  ok(Object.isFrozen(PANEL_MAXIMIZED));
+  deepStrictEqual(SIDE_PANEL, { changes: "changes", ide: "files" });
+  const nothing = () => undefined;
+  strictEqual(wantsMaximized(SIDE_PANEL.ide, nothing), true);
+  strictEqual(wantsMaximized(SIDE_PANEL.changes, nothing), false);
+  /** @param {Record<string, unknown>} kept */
+  const from = (kept) => (key) => kept[key];
+  const said = from({
+    "forgerdr.changes.maximized": true,
+    "forgerdr.ide.maximized": false,
+  });
+  strictEqual(wantsMaximized(SIDE_PANEL.ide, said), false);
+  strictEqual(wantsMaximized(SIDE_PANEL.changes, said), true);
+  strictEqual(
+    wantsMaximized(
+      SIDE_PANEL.changes,
+      from({ "forgerdr.ide.maximized": true }),
+    ),
+    false,
+  );
+  strictEqual(
+    wantsMaximized(
+      SIDE_PANEL.ide,
+      from({ "forgerdr.changes.maximized": false }),
+    ),
+    true,
+  );
+  strictEqual(
+    wantsMaximized(SIDE_PANEL.ide, () => "no"),
+    true,
+  );
+  strictEqual(
+    wantsMaximized(null, () => true),
+    false,
+  );
+  strictEqual(
+    wantsMaximized("inbox", () => true),
+    false,
+  );
+  strictEqual(
+    wantsMaximized("toString", () => true),
+    false,
+  );
 });
 
 test("a special session herdr no longer lists as an agent gives its view's tab no status, cracked or not", () => {
@@ -3873,6 +3929,8 @@ const UPDATE = Object.freeze({
   error: null,
   installed: "0.35.0",
   latest: "0.36.0",
+  pieces: [],
+  step: null,
 });
 
 test("the update's state is read only in the shape forge-update.sh writes", () => {
@@ -3893,6 +3951,120 @@ test("the update's state is read only in the shape forge-update.sh writes", () =
     ),
     null,
   );
+});
+
+test("the update's state reads the piece said last and each piece said, dropping any not in shape", () => {
+  const here = { detail: "", piece: "jq", result: PIECE_RESULT.here };
+  const missing = {
+    detail: "needs your password",
+    piece: "font",
+    result: PIECE_RESULT.missing,
+  };
+  deepStrictEqual(
+    parseUpdate(
+      JSON.stringify({
+        ...UPDATE,
+        pieces: [
+          here,
+          { detail: "", piece: "x", result: "exploded" },
+          { piece: "y", result: "here" },
+          { detail: "", piece: 3, result: "here" },
+          { detail: "", piece: "", result: "here" },
+          "jq\there\t",
+          null,
+          ["jq", "here", ""],
+          missing,
+        ],
+        step: "font",
+      }),
+    ),
+    { ...UPDATE, pieces: [here, missing], step: "font" },
+  );
+  deepStrictEqual(
+    parseUpdate(JSON.stringify({ ...UPDATE, pieces: "jq", step: 5 })),
+    UPDATE,
+  );
+  deepStrictEqual(parseUpdate(JSON.stringify({ ...UPDATE, step: "" })), UPDATE);
+});
+
+test("every piece of install.sh and no other is named as install.sh names it, and one it does not know by its id", () => {
+  const named = execFileSync(
+    "bash",
+    [
+      "-c",
+      `eval "$(sed -n '/^readonly PIECES=/p; /^name() {/,/^}/p' install.sh)"
+      for piece in "\${PIECES[@]}"; do printf '%s\t%s\n' "$piece" "$(name "$piece")"; done`,
+    ],
+    { cwd: new URL("..", import.meta.url), encoding: "utf8" },
+  )
+    .trim()
+    .split("\n")
+    .map((line) => line.split("\t"));
+  deepStrictEqual({ ...PIECE_NAME }, Object.fromEntries(named));
+  for (const [piece, name] of named) strictEqual(pieceName(piece), name);
+  strictEqual(pieceName("newpiece"), "newpiece");
+  strictEqual(pieceName("constructor"), "constructor");
+});
+
+test("a piece left for the person's password says so as install.sh --update reports it", () => {
+  const install = readFileSync(
+    new URL("../install.sh", import.meta.url),
+    "utf8",
+  );
+  strictEqual(
+    install
+      .match(
+        /needs_password "\$piece"; then report "\$piece" missing "([^"]+)"/,
+      )
+      ?.at(1),
+    PIECE_DETAIL.password,
+  );
+});
+
+test("what the pieces went through, named, with why for the missing and the failed", () => {
+  /** @param {string} piece @param {string} result @param {string} [detail] */
+  const said = (piece, result, detail = "") => ({ detail, piece, result });
+  deepStrictEqual(
+    piecesSummary([
+      said("jq", PIECE_RESULT.here),
+      said("node", PIECE_RESULT.updated),
+      said("ttt", PIECE_RESULT.updated),
+      said("gh", PIECE_RESULT.installed),
+      said("az", PIECE_RESULT.missing, PIECE_DETAIL.password),
+      said("devops", PIECE_RESULT.missing, "needs Azure CLI (az)"),
+      said("glab", PIECE_RESULT.failed, "brew: no bottle for glab"),
+      said("azdo", PIECE_RESULT.removed, "removed on purpose"),
+      said("look", PIECE_RESULT.refreshed),
+      said("statusline", PIECE_RESULT.refreshed),
+    ]),
+    {
+      failed: [{ name: "GitLab CLI (glab)", why: "brew: no bottle for glab" }],
+      installed: ["GitHub CLI (gh)"],
+      missing: [
+        { name: "Azure CLI (az)", why: "needs your password" },
+        { name: "azure-devops extension", why: "needs Azure CLI (az)" },
+      ],
+      password: true,
+      refreshed: ["forgerdr look in herdr", "forgerdr status line"],
+      removed: ["azdo plugin"],
+      updated: ["Node.js + npm", "ttt (the IDE panel's editor)"],
+    },
+  );
+  strictEqual(
+    piecesSummary([
+      said("devops", PIECE_RESULT.missing, "needs Azure CLI (az)"),
+    ]).password,
+    false,
+  );
+  deepStrictEqual(piecesSummary([]), {
+    failed: [],
+    installed: [],
+    missing: [],
+    password: false,
+    refreshed: [],
+    removed: [],
+    updated: [],
+  });
 });
 
 test("an update is offered, under way, failed or applied, and an apply that never ends counts as failed", () => {

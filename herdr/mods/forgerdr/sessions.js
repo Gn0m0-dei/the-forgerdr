@@ -1,6 +1,6 @@
 // What the session bar and the pane headers tell of a terminal, as the app's own tab bar and pane header tell it: a
 // tab's and a pane's name, which kind of program runs there, how a special session's view's tab is drawn and its
-// folder. Pure: Node tests it (test/herdr-mod.test.mjs).
+// folder; and which of the bar's side panels takes the panes' place. Pure: Node tests it (test/herdr-mod.test.mjs).
 import { golemStatus } from "./lanes.js";
 import { SPECIAL_LOOK, specialTabOf } from "./specials.js";
 
@@ -137,4 +137,43 @@ export const folderLabel = (cwd, home) => {
   if (!cwd) return "";
   if (cwd === home) return "~";
   return cwd.startsWith(`${home}/`) ? `~${cwd.slice(home.length)}` : cwd;
+};
+
+// The side panels the bar switches, by their block's id in the layout: the IDE keeps the id of the app's Files panel it
+// stands in for, which the app's welcome and settings keep the panels on show by (shared "workspace.panels").
+export const SIDE_PANEL = Object.freeze({ changes: "changes", ide: "files" });
+
+/** @typedef {typeof SIDE_PANEL[keyof typeof SIDE_PANEL]} SidePanel */
+
+/**
+ * Whether a side panel takes the panes' place when it shows: the shared key that keeps what the human last said, each
+ * panel its own, and what holds until they say. ttt does not read at the panel's width, so the IDE does from the start.
+ * @typedef {object} PanelMaximized
+ * @property {string} key
+ * @property {boolean} fallback
+ */
+
+/** @type {Readonly<Record<SidePanel, Readonly<PanelMaximized>>>} */
+export const PANEL_MAXIMIZED = Object.freeze({
+  changes: Object.freeze({
+    fallback: false,
+    key: "forgerdr.changes.maximized",
+  }),
+  files: Object.freeze({ fallback: true, key: "forgerdr.ide.maximized" }),
+});
+
+/** @param {string} panel @returns {panel is SidePanel} */
+const isSidePanel = (panel) => Object.hasOwn(PANEL_MAXIMIZED, panel);
+
+/**
+ * Whether a side panel takes the panes' place: as the human last said for it, else its default; none on show, or one
+ * the bar does not switch, never does.
+ * @param {string | null} panel the one on show; null with none
+ * @param {(key: string) => unknown} stored what shared state holds
+ */
+export const wantsMaximized = (panel, stored) => {
+  if (panel === null || !isSidePanel(panel)) return false;
+  const { fallback, key } = PANEL_MAXIMIZED[panel];
+  const said = stored(key);
+  return typeof said === "boolean" ? said : fallback;
 };

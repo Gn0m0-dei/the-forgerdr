@@ -36,22 +36,26 @@ Then, on macOS or openSUSE Tumbleweed:
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 ```
 
-It checks the prerequisites, shows every piece as here or to install and asks before it starts; what is here is left as it is. The pieces:
+It checks the prerequisites, shows every piece as here, to install or to update, and asks before it starts; what is here is left as it is, unless it is older than forgerdr needs. The pieces:
 
-- the tools: jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI and the Maple Mono NF font the forgerdr layout uses, with `~/.local/bin` put on the PATH in your shell's rc when it was not there;
+- the tools: jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI, [ttt](https://github.com/eugenioenko/ttt) (the terminal IDE the IDE panel runs, 1.14.0 or later) and the Maple Mono NF font the forgerdr layout uses, with `~/.local/bin` put on the PATH in your shell's rc when it was not there;
 - the plugins `forgerdr@the-forgerdr` and `azdo@azdospec`, with their marketplaces;
-- forgerdr's look in the herdr app (the layout, the forge-night theme, the mod and the forge's alert sounds) and its status line, brought up to date on every run;
+- forgerdr's look in the herdr app (the layout, the forge-night theme, the mod, the forge's alert sounds and the profile the IDE panel runs ttt with, in `~/.config/forgerdr/ttt`, apart from your own `~/.config/ttt`) and its status line, brought up to date on every run;
 - the sign-ins it finds missing (`az login`, `gh auth login`, `glab auth login`), each asked first.
 
 A piece that fails does not stop the rest: the summary names it, with the last lines of `~/.local/state/forgerdr/install.log`. Another distro: install the pieces by hand.
 
 Then open the herdr app (`ctrl-shift-l` switches to the forgerdr layout), start Claude Code in one of its terminals and run `/forgerdr:setup`, which checks every piece and reports a table.
 
+forgerdr updates from the herdr app: the gnome's notice tells when a release is out, and its `Update now` updates the plugin, then runs the new version's `install.sh --update`, which installs or updates what that version needs without asking. What needs your password waits for its `Finish in a tab`.
+
 To take it away, ticking only the pieces you want gone (Claude Code, the herdr app, git and your data stay):
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/uninstall.sh | bash
 ```
+
+What you take away with this release's `uninstall.sh` or a later one stays away when forgerdr updates; `install.sh` run again offers it. What an older `uninstall.sh` took away comes back with the next update, like anything missing.
 
 Local checkout instead of the marketplace: `claude --plugin-dir /path/to/the-forgerdr`. Still on the herdr TUI: `/plugin marketplace add Gn0m0-dei/the-forgerdr#tui`, then `/plugin install forgerdr@the-forgerdr` (remove the other marketplace first: both are named `the-forgerdr`).
 

@@ -126,7 +126,7 @@ export const sessionTab = ({
  */
 
 /**
- * The switch of a side panel on the session bar (Files, Changes): lit while it shows.
+ * The switch of a side panel on the session bar (IDE, Changes): lit while it shows.
  * @param {string} label
  * @param {boolean} on
  * @param {PanelMark} [mark] nothing told at zero

@@ -1,28 +1,32 @@
 // The gnome's update notice (design 10b), over the window: a newer forgerdr is out, told by the gnome of the forge on
-// show, with its release notes from GitHub below. Update now applies it (bin/forge-update.sh apply): the notice follows it
-// from the state file, since the apply replaces this mod as it installs the new look, and says when it is in, or why it
-// stopped. Later, Esc or a click beside it closes it; FORGERDR x.y.z on the status bar opens it again, and so does the
+// show, with its release notes from GitHub below. Update now applies it (bin/forge-update.sh apply --detach, which goes on
+// by itself): the notice follows it from the state file, since the apply replaces this mod as it installs the new look,
+// with each piece as it is checked, and says when it is in, with what its pieces went through, or why it stopped. When a
+// piece is missing because it needs the person's password, Finish in a tab opens the plugin's install.sh, which asks for
+// it. Later, Esc or a click beside it closes it; FORGERDR x.y.z on the status bar opens it again, and so does the
 // manual's Check for updates when it finds the release.
 import { h_flex, TextView, v_flex } from "gpui-base";
 import { checking, closeOverlay, openOverlay, props, spaces } from "herdr";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
 import { readNames } from "../bridges/names.js";
-import { applyUpdate, followUpdate } from "../bridges/update.js";
+import { applyUpdate, finishInTab, followUpdate } from "../bridges/update.js";
 import { groupForges, lookKeyOf } from "../forges.js";
 import { gnomeLookOf, nameOf } from "../identity.js";
 import { KEY_BUTTON, keyButton } from "../kit/buttons.js";
 import { control } from "../kit/control.js";
 import { gnome } from "../kit/sprites.js";
 import { text, wrapped } from "../kit/text.js";
-import { BRAND, tokens } from "../kit/tokens.js";
+import { BRAND, TONE, tokens, toneColour } from "../kit/tokens.js";
 import { MOD } from "../name.js";
-import { phaseOf, UPDATE_PHASE } from "../update.js";
+import { phaseOf, pieceName, piecesSummary, UPDATE_PHASE } from "../update.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
 /** @typedef {import("gpui-kit").NativeElement} NativeElement */
 /** @typedef {import("../kit/sprites.js").Mood} Mood */
+/** @typedef {import("../kit/tokens.js").Tone} Tone */
+/** @typedef {import("../update.js").PiecesSummary} PiecesSummary */
 /** @typedef {import("../update.js").UpdatePhase} UpdatePhase */
 /** @typedef {import("../update.js").UpdateState} UpdateState */
 /** @typedef {import("./role.js").Role} Role */
@@ -55,6 +59,59 @@ const SAYS = Object.freeze({
   none: ({ installed }) => `forgerdr ${installed} is the newest there is.`,
 });
 
+// What the notice says of the pieces the apply's install.sh --update checks.
+const PIECES_SAY = Object.freeze({
+  /**
+   * @param {string} name the piece just checked
+   * @param {number} done how many are done
+   */
+  checked: (name, done) => `${name} checked · ${done} done`,
+  failed: "Failed",
+  finish: "Finish in a tab",
+  installed: "Installed",
+  missing: "Missing",
+  refreshed: "Refreshed",
+  removed: "Removed on purpose",
+  updated: "Updated",
+});
+
+/**
+ * A line of the summary, in the tone of what it tells.
+ * @typedef {object} SummaryLine
+ * @property {string} line
+ * @property {Tone} tone
+ */
+
+/**
+ * One line naming every piece of a list, none for an empty one.
+ * @param {string} label
+ * @param {string[]} names
+ * @param {Tone} tone
+ * @returns {SummaryLine[]}
+ */
+const listed = (label, names, tone) =>
+  names.length > 0 ? [{ line: `${label}: ${names.join(", ")}`, tone }] : [];
+
+/**
+ * What the apply's pieces went through: a line a list, and one for each piece left missing or failed, with why.
+ * @param {PiecesSummary} summary
+ * @returns {SummaryLine[]}
+ */
+const summaryLines = (summary) => [
+  ...listed(PIECES_SAY.updated, summary.updated, TONE.done),
+  ...listed(PIECES_SAY.installed, summary.installed, TONE.done),
+  ...listed(PIECES_SAY.refreshed, summary.refreshed, TONE.done),
+  ...summary.missing.map(({ name, why }) => ({
+    line: `${PIECES_SAY.missing}: ${name} — ${why}`,
+    tone: TONE.needs,
+  })),
+  ...summary.failed.map(({ name, why }) => ({
+    line: `${PIECES_SAY.failed}: ${name} — ${why}`,
+    tone: TONE.failed,
+  })),
+  ...listed(PIECES_SAY.removed, summary.removed, TONE.quiet),
+];
+
 const DIALOG = Object.freeze({ height: 600, kind: "dialog", width: 720 });
 
 export const openNews = () =>
@@ -83,8 +140,8 @@ export const news = (cx) => {
   /** @param {Context} cx */
   const start = (cx) => {
     starting = true;
-    // A failure the state does not tell (the script could not run, or refused) gives the buttons back. The copy that
-    // started it may be gone by then, replaced by the new mod with the state that tells it all; the process lives on.
+    // A failure the state does not tell (the script could not run, or refused) gives the buttons back. Once under way the
+    // apply goes on by itself, and the state tells the rest.
     cx.spawn(async (task) => {
       const ok = await applyUpdate().catch((error) => {
         console.error("forgerdr: forge-update.sh apply could not run", error);
@@ -109,10 +166,18 @@ export const news = (cx) => {
     };
   };
 
+  // forge: the summary stays as the apply left it after Finish in a tab, until the next release's apply: install.sh does
+  // not write the update's state; it would need to for the notice to follow it.
+  const finish = () => {
+    finishInTab();
+    close();
+  };
+
   /**
    * @param {UpdatePhase} phase
+   * @param {boolean} password whether a piece is left for the person's password
    */
-  const buttons = (phase) => {
+  const buttons = (phase, password) => {
     /**
      * @param {string} id
      * @param {NativeElement} look
@@ -121,9 +186,16 @@ export const news = (cx) => {
     const button = (id, look, action) => control(look, id, action);
     /** @type {Readonly<Record<UpdatePhase, NativeElement[]>>} */
     const each = {
-      applied: [
-        button("news-done", keyButton(KEY_BUTTON.primary, "Got it"), close),
-      ],
+      applied: password
+        ? [
+            button(
+              "news-finish",
+              keyButton(KEY_BUTTON.primary, PIECES_SAY.finish),
+              finish,
+            ),
+            button("news-done", keyButton(KEY_BUTTON.ghost, "Got it"), close),
+          ]
+        : [button("news-done", keyButton(KEY_BUTTON.primary, "Got it"), close)],
       applying: [],
       available: [
         button(
@@ -162,6 +234,12 @@ export const news = (cx) => {
       offered && state.latest !== state.installed
         ? `v${state.installed} → v${state.latest}`
         : `v${state.installed}`;
+    const summary = piecesSummary(state.pieces);
+    const lines = phase === UPDATE_PHASE.applied ? summaryLines(summary) : [];
+    const step =
+      phase === UPDATE_PHASE.applying && state.step !== null
+        ? PIECES_SAY.checked(pieceName(state.step), state.pieces.length)
+        : "";
     return v_flex()
       .size_full()
       .gap(20)
@@ -186,8 +264,27 @@ export const news = (cx) => {
               .border_color(BRAND.coin)
               .child(text(name.toUpperCase(), "display", 10, BRAND.coin))
               .child(wrapped(SAYS[phase](state), "ui", 15, k.fg))
+              .when(step !== "", (el) =>
+                el.child(wrapped(step, "ui", 13, toneColour(TONE.working))),
+              )
+              .when(lines.length > 0, (el) =>
+                el.child(
+                  v_flex()
+                    .gap(4)
+                    .children(
+                      lines.map(({ line, tone }) =>
+                        wrapped(line, "ui", 13, toneColour(tone)),
+                      ),
+                    ),
+                ),
+              )
               .child(text(`forgerdr · ${meta}`, "ui", 12, k.muted))
-              .child(buttons(phase)),
+              .child(
+                buttons(
+                  phase,
+                  phase === UPDATE_PHASE.applied && summary.password,
+                ),
+              ),
           ),
       )
       .when(offered && notes !== "", (el) =>
@@ -209,7 +306,7 @@ export const news = (cx) => {
       )
       .child(
         wrapped(
-          "Nothing updates by itself. The update changes forgerdr's plugin and the forge's look; your keys, your settings and what you changed by hand stay.",
+          "Nothing updates by itself. The update changes forgerdr's plugin and the forge's look, and installs or updates what forgerdr needs, short of what asks for your password; your keys, your settings and what you changed by hand stay.",
           "ui",
           12,
           k.muted,

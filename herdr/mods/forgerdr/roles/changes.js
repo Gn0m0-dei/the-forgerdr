@@ -35,9 +35,9 @@ import {
 } from "../bridges/changes.js";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import {
-  changesMaximized,
-  changesShowing,
-  keepChangesMaximized,
+  keepPanelMaximized,
+  panelOnShow,
+  panelWantsMaximized,
   zoomOf,
 } from "../bridges/layout.js";
 import { placeOf } from "../bridges/places.js";
@@ -84,6 +84,7 @@ import { ICON, iconButton } from "../kit/sprites.js";
 import { fill, text, wrapped } from "../kit/text.js";
 import { tokens, withAlpha } from "../kit/tokens.js";
 import { lineSpot, parseDiff, sendableTo } from "../round.js";
+import { SIDE_PANEL } from "../sessions.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
 /** @typedef {import("gpui-kit").Context} Context */
@@ -272,7 +273,7 @@ export const changes = (cx) => {
           for (const top of tops) {
             // A panel out of sight reads nothing: the copy lives on behind the one that shows.
             if (
-              !changesShowing() ||
+              panelOnShow() !== SIDE_PANEL.changes ||
               !openTops.has(top) ||
               loaded.get(top)?.at === at
             )
@@ -335,7 +336,7 @@ export const changes = (cx) => {
           nudge();
         }
         // Back on show: what changed meanwhile is read now.
-        const showing = changesShowing();
+        const showing = panelOnShow() === SIDE_PANEL.changes;
         if (showing && !shown) nudge();
         shown = showing;
         // The comments and the forge's read come from other copies: the list follows them here.
@@ -971,10 +972,16 @@ export const changes = (cx) => {
                 control(
                   iconButton(
                     ICON.zoom,
-                    changesMaximized() ? k.accent : k.muted,
+                    panelWantsMaximized(SIDE_PANEL.changes)
+                      ? k.accent
+                      : k.muted,
                   ),
                   "changes-maximize",
-                  () => keepChangesMaximized(!changesMaximized()),
+                  () =>
+                    keepPanelMaximized(
+                      SIDE_PANEL.changes,
+                      !panelWantsMaximized(SIDE_PANEL.changes),
+                    ),
                 ),
               ),
           )

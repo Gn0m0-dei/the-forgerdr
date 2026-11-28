@@ -71,6 +71,7 @@ expect "git -C before worktree remove denied inside the herdr app" deny "$(in_he
 # shellcheck disable=SC2016 # the loop must reach the hook unexpanded
 expect "worktree remove in a loop denied inside the herdr app" deny "$(in_herdr decision 'for w in .claude/worktrees/agent-*; do git worktree remove "$w"; done')"
 expect "and the reason names the script that closes its space" yes "$(in_herdr run 'git worktree remove x' | jq -r .hookSpecificOutput.permissionDecisionReason | grep -q 'bin/forge-worktree-remove.sh <path>' && echo yes)"
+expect "and that it refuses a worktree whose IDE ttt holds unsaved files" yes "$(in_herdr run 'git worktree remove x' | jq -r .hookSpecificOutput.permissionDecisionReason | grep -q 'IDE ttt holds unsaved files' && echo yes)"
 expect "git worktree remove passes outside the herdr app" "" "$(decision 'git worktree remove x')"
 expect "git worktree list passes inside the herdr app" "" "$(in_herdr decision 'git worktree list --porcelain')"
 expect "git worktree prune passes inside the herdr app" "" "$(in_herdr decision 'git worktree prune')"

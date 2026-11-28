@@ -10,6 +10,7 @@ import {
   STRIP_STATE,
   TASK_CELL,
 } from "../floor.js";
+import { IDE_LABEL } from "../ide.js";
 import {
   floorButton,
   inboxButton,
@@ -247,7 +248,7 @@ const navigation = () =>
       sessionTab({ icon: ICON.server, label: "dev server" }),
       sessionTab({ icon: ICON.terminal, label: "shell" }),
       splitControls(),
-      panelToggle("Files", true),
+      panelToggle(IDE_LABEL.panel, true),
       panelToggle("Changes", false),
     ]),
     v_flex()

@@ -221,6 +221,18 @@ export const checkoutsOf = (tree) =>
   );
 
 /**
+ * The deepest of some checkouts that holds a folder, itself included; none when none does.
+ * @param {string[]} tops the checkouts, by folder
+ * @param {string} folder
+ * @returns {string | null}
+ */
+export const deepestHolder = (tops, folder) =>
+  tops
+    .filter((top) => folder === top || folder.startsWith(`${top}/`))
+    .toSorted((a, b) => b.length - a.length)
+    .at(0) ?? null;
+
+/**
  * The checkout that shows unfolded when the panel opens: the one the shown space works in, the deepest; none outside
  * every checkout.
  * @param {TreeRepo[]} tree
@@ -228,11 +240,10 @@ export const checkoutsOf = (tree) =>
  * @returns {string | null}
  */
 export const openAtFirst = (tree, folder) =>
-  checkoutsOf(tree)
-    .map(({ top }) => top)
-    .filter((top) => folder === top || folder.startsWith(`${top}/`))
-    .toSorted((a, b) => b.length - a.length)
-    .at(0) ?? null;
+  deepestHolder(
+    checkoutsOf(tree).map(({ top }) => top),
+    folder,
+  );
 
 /**
  * What the Changes button tells without the panel: the files the forge changed, and the comments not sent yet.
@@ -294,7 +305,7 @@ const kindOf = (terminal) => {
 };
 
 /** @param {string} path the last name of a folder's path */
-const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
+export const baseName = (path) => path.slice(path.lastIndexOf("/") + 1);
 
 /**
  * The AI sessions open in a forge, in the app's order.
@@ -332,17 +343,27 @@ const folded = (text) =>
   text.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 
 /**
+ * Whether a text holds every word of a search, accents and case aside; an empty search is held by any.
+ * @param {string} text
+ * @param {string} query
+ */
+export const holdsWords = (text, query) => {
+  const told = folded(text);
+  return folded(query)
+    .split(/\s+/)
+    .filter(Boolean)
+    .every((word) => told.includes(word));
+};
+
+/**
  * The sessions a search keeps: the ones that hold every word of it, in their title, their place or their kind.
  * @param {SessionOption[]} options
  * @param {string} query
  */
-export const matchSessions = (options, query) => {
-  const words = folded(query).split(/\s+/).filter(Boolean);
-  return options.filter((option) => {
-    const told = folded(`${option.title} ${option.where} ${option.kind}`);
-    return words.every((word) => told.includes(word));
-  });
-};
+export const matchSessions = (options, query) =>
+  options.filter((option) =>
+    holdsWords(`${option.title} ${option.where} ${option.kind}`, query),
+  );
 
 /**
  * The forge the panel shows: the shown space's.

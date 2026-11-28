@@ -1,0 +1,26 @@
+{
+  "appearance": {
+    "icons": "nerd-font"
+  },
+  "editor": {
+    "menuBar": false,
+    "transparentBackground": true
+  },
+  "keyboard": {
+    "modifierKey": "control"
+  },
+  "sidebar": {
+    "panelOrder": [
+      "explorer",
+      "search",
+      "outline",
+      "apps",
+      "plugins",
+      "changes"
+    ],
+    "tabStyle": "icon",
+    "width": 28
+  },
+  "theme": "forge-night",
+  "version": 1
+}

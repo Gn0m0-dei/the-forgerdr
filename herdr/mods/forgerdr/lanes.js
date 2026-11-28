@@ -12,6 +12,7 @@ export const GOLEM_KIND = Object.freeze({ clay: "clay", stone: "stone" });
  * What the lanes read of a terminal (herdr's terminals()).
  * @typedef {object} LaneTerminal
  * @property {string} address
+ * @property {string} [name] what herdr-core calls it, when it was started with one (an IDE's ttt: forge-ide.sh name)
  * @property {string} [state] live or finished
  * @property {string | null} [parent]
  * @property {string | null} [title]

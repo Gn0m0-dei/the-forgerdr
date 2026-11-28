@@ -2,12 +2,15 @@
 // its gnome's dialog, then what the app's own space menu does on the space the tab or the row shows (rename, new, open
 // and remove worktree, close), whose items the app's menu does not let a mod add to. New and Remove worktree are
 // forgerdr's own dialogs (roles/new-worktree.js, roles/remove-worktree.js) on this machine, the app's on another, where
-// forgerdr's scripts do not run. ↑ and ↓ move, Enter runs, Esc closes.
+// forgerdr's scripts do not run; Remove worktree asks first about the files its IDE ttt holds unsaved
+// (roles/ide-leave.js). On a row of the sidebar on this machine, it opens the row's folder in each editor installed
+// (bin/forge-ide.sh editors). ↑ and ↓ move, Enter runs, Esc closes.
 import { h_flex, v_flex } from "gpui-base";
 import { div } from "gpui-kit";
 import { closeOverlay, openOverlay, props, run, spaces } from "herdr";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
+import { openInEditor, readEditors } from "../bridges/ide.js";
 import { placeOf } from "../bridges/places.js";
 import { groupForges } from "../forges.js";
 import { gnomeLookOf } from "../identity.js";
@@ -16,9 +19,9 @@ import { text } from "../kit/text.js";
 import { tokens } from "../kit/tokens.js";
 import { MOD } from "../name.js";
 import { openGnome } from "./gnome.js";
+import { removeWorktreeAsking } from "./ide-leave.js";
 import { openMode } from "./mode.js";
 import { openNewWorktree } from "./new-worktree.js";
-import { openRemoveWorktree } from "./remove-worktree.js";
 import { openStart } from "./start.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -36,6 +39,9 @@ import { openStart } from "./start.js";
  * @property {string} space the space its tab shows
  * @property {string} rename the space Rename renames: the main checkout's, which bears the forge's name, from its tab
  * and its gnome; a checkout's own from its row
+ * @property {string} [path] the folder of the sidebar's row it was opened on, on this machine, which the editors open
+ * @property {boolean} [unopened] the row is a repository with no space open: only the forge's own items and the editors,
+ * none that acts on a space
  */
 
 /** @type {() => (Partial<ForgeTarget> & { overlay?: string }) | null} */
@@ -72,22 +78,42 @@ export const newWorktreeOn = (space, forge) =>
     : appWorktree(space.id, "new");
 
 /**
- * Opens the Remove worktree dialog of the worktree a space shows.
+ * Opens the Remove worktree dialog of the worktree a space shows; on this machine, once the files its IDE ttt holds
+ * unsaved are saved or given up.
  * @param {import("herdr").SpaceInfo} space
  * @param {string} forge its forge's name
  */
 export const removeWorktreeOn = (space, forge) =>
   space.machine === null
-    ? openRemoveWorktree({ dir: placeOf(space), forge })
+    ? removeWorktreeAsking(space, forge)
     : appWorktree(space.id, "remove");
 
 /**
- * @typedef {object} MenuItem
+ * @typedef {object} MenuItemLook
  * @property {string} label
  * @property {"gnome" | IconName | null} mark
- * @property {() => void} act
  * @property {boolean} [ruled] a rule above it
  */
+
+/**
+ * An item, and what it does: once the menu has closed (act), or in the menu's own task, the menu closing once it is done
+ * (work), so a failure it reports is still said, as an editor that cannot open a path.
+ * @typedef {MenuItemLook & ({ act: () => void } | { work: () => Promise<void> })} MenuItem
+ */
+
+/**
+ * The items that open a sidebar row's folder in each editor installed; none on a forge's tab or its gnome.
+ * @param {string | undefined} path
+ * @returns {MenuItem[]}
+ */
+const editorItems = (path) =>
+  path === undefined
+    ? []
+    : readEditors().map((editor) => ({
+        label: `Open in ${editor.name}`,
+        mark: null,
+        work: () => openInEditor(editor, path),
+      }));
 
 /**
  * The menu's items for a forge, the worktree ones only in git and the removal only on a worktree.
@@ -101,7 +127,8 @@ const itemsOf = (target) => {
     const shown = spaces().find((space) => space.id === target.space);
     if (shown !== undefined) open(shown, target.forge);
   };
-  return [
+  /** @type {MenuItem[]} */
+  const forgeItems = [
     {
       act: () => {
         const all = spaces();
@@ -129,6 +156,11 @@ const itemsOf = (target) => {
       label: "Edit gnome…",
       mark: "gnome",
     },
+  ];
+  if (target.unopened === true)
+    return [...forgeItems, ...editorItems(target.path)];
+  return [
+    ...forgeItems,
     {
       act: () => run("space.rename", { id: target.rename }),
       label: "Rename",
@@ -157,6 +189,7 @@ const itemsOf = (target) => {
           },
         ]
       : []),
+    ...editorItems(target.path),
     {
       act: () => run("space.close", { id: target.space }),
       label: "Close",
@@ -196,18 +229,37 @@ export const forgeMenu = (cx) => {
     name: given.name ?? "",
     rename: given.rename ?? given.main ?? "",
     space: given.space ?? "",
+    ...(given.path === undefined ? {} : { path: given.path }),
+    ...(given.unopened === true ? { unopened: true } : {}),
   };
   const items = itemsOf(target);
   const handle = cx.focus_handle();
   handle.focus();
   let at = 0;
 
-  /** @param {number} index */
-  const choose = (index) => {
+  const close = () => closeOverlay(given.overlay ?? "");
+  // Whether an item that works in the menu's own task is at it.
+  let working = false;
+
+  /**
+   * @param {number} index
+   * @param {Context} cx
+   */
+  const choose = (index, cx) => {
     const item = items[index];
-    if (item === undefined) return;
-    closeOverlay(given.overlay ?? "");
-    item.act();
+    // While an item works, the menu waits for it: a second Enter or click does nothing.
+    if (item === undefined || working) return;
+    if ("act" in item) {
+      close();
+      item.act();
+      return;
+    }
+    working = true;
+    const work = item.work();
+    cx.spawn(async () => {
+      await work;
+      close();
+    });
   };
 
   /** @param {MenuItem["mark"]} mark */
@@ -243,8 +295,8 @@ export const forgeMenu = (cx) => {
         if (event.key === "down") at = (at + 1) % items.length;
         else if (event.key === "up")
           at = (at + items.length - 1) % items.length;
-        else if (event.key === "enter") choose(at);
-        else if (event.key === "escape") closeOverlay(given.overlay ?? "");
+        else if (event.key === "enter") choose(at, cx);
+        else if (event.key === "escape") close();
         else return;
         cx.notify();
       })
@@ -264,7 +316,7 @@ export const forgeMenu = (cx) => {
                 .cursor_pointer()
                 .when(index === at, (el) => el.bg(k.bg3))
                 .hover((style) => style.bg(k.bg2))
-                .on_click(() => choose(index))
+                .on_click((_event, cx) => choose(index, cx))
                 .child(markOf(item.mark))
                 .child(text(item.label, "ui", 13, k.fg)),
             ),

@@ -399,6 +399,50 @@ expect "the worktree is gone" no "$(exists "$path")"
 expect "its branch stays" "  feature/login" "$(git -C "$repo" branch --list feature/login)"
 expect "and its space is forgotten" "" "$(cat "$XDG_STATE_HOME/forgerdr/spaces.tsv")"
 
+# A worktree whose IDE ttt (bin/forge-ide.sh) holds unsaved files goes only once they are saved, or with --discard or
+# --force, which lose them; its ttt is stopped before git removes the folder under it, and only then.
+printf '{"spaces":[]}\n' > "$FAKE_DIR/ls.json"
+held="$sandbox/wt/ide-held"
+ide_state="$XDG_STATE_HOME/forgerdr/ide"
+mkdir -p "$ide_state"
+# A fresh worktree at $held on a branch of its own, its ttt live with this state ("" for none).
+held_by_ttt() {
+  git -C "$repo" worktree add -q "$held" -b "$1"
+  ttt="$(bash "$bin/forge-ide.sh" name "$held")"
+  fake_terminal "$ttt" live
+  rm -f "$ide_state/$ttt.json"
+  [ -z "$2" ] || printf '%s\n' "$2" > "$ide_state/$ttt.json"
+  fakes_reset
+}
+held_by_ttt ide-held-1 "{\"checkout\":\"$held\",\"active\":null,\"unsaved\":[\"$held/notes.md\"]}"
+expect "a worktree whose ttt holds unsaved files is refused" 1 "$(status_of bash "$bin/forge-worktree-remove.sh" "$held")"
+expect "naming them" yes \
+  "$( (bash "$bin/forge-worktree-remove.sh" "$held" 2>&1 || true) | grep -qF "$held/notes.md" && echo yes || echo no)"
+expect "its ttt and the worktree stay" "no yes" "$(called hc kill) $(exists "$held")"
+fakes_reset
+expect "--discard stops its ttt, losing them, and removes it" "0 yes no" \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" --discard "$held") $(called hc kill "$ttt") $(exists "$held")"
+held_by_ttt ide-held-2 "{\"checkout\":\"$held\",\"active\":null,\"unsaved\":[\"$held/notes.md\"]}"
+expect "so does --force" "0 yes no" \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" --force "$held") $(called hc kill "$ttt") $(exists "$held")"
+held_by_ttt ide-held-3 ""
+expect "one whose ttt state cannot be read is refused, nobody can tell what it holds" "1 no yes" \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" "$held") $(called hc kill) $(exists "$held")"
+printf '{"checkout":"%s","active":null,"unsaved":[]}\n' "$held" > "$ide_state/$ttt.json"
+echo change > "$held/new.txt"
+expect "uncommitted work is refused before its ttt is touched" "1 no" \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" "$held") $(called hc kill)"
+rm "$held/new.txt"
+fakes_reset
+expect "its ttt is stopped before git runs: one that will not end keeps the worktree" "1 yes yes" \
+  "$(FAKE_KILL_IGNORED=1 FORGE_READY_TRIES=2 FORGE_READY_PAUSE=0 status_of bash "$bin/forge-worktree-remove.sh" "$held") $(called hc kill "$ttt") $(exists "$held")"
+said="$(FAKE_KILL_IGNORED=1 FORGE_READY_TRIES=2 FORGE_READY_PAUSE=0 bash "$bin/forge-worktree-remove.sh" "$held" 2>&1 || true)"
+expect "and says so" "forgerdr: ttt in $held did not end|forgerdr: left $held in place" "$(paste -s -d '|' - <<<"$said")"
+fakes_reset
+expect "one whose ttt holds every file saved is removed, its ttt stopped first" "0 yes no" \
+  "$(status_of bash "$bin/forge-worktree-remove.sh" "$held") $(called hc kill "$ttt") $(exists "$held")"
+expect "and its ttt's state forgotten" no "$(exists "$ide_state/$ttt.json")"
+
 # A worktree with submodules: git refuses to remove it even when clean, so the script looks inside each submodule, where
 # the superproject's status does not reach (a commit no remote has, once the superproject records it), and forces git.
 git config --global protocol.file.allow always

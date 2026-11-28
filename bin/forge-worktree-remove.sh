@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
 # Removes a git worktree and closes the herdr app spaces open on it first, as the app's own Remove worktree does; git
 # alone would leave them open on a folder that is gone. Its branch is kept.
-# Refuses uncommitted work, the worktree this session stands in, and a space where an agent is at work; --discard throws
-# the uncommitted work away and still refuses an agent at work; --force does both, so ask the user first. The work of
-# its submodules counts as its own: their uncommitted files and the commits no remote has.
+# Refuses uncommitted work, the worktree this session stands in, a space where an agent is at work, and an IDE ttt
+# (bin/forge-ide.sh) open on it that holds unsaved files, or whose state cannot be read; --discard throws the uncommitted
+# work and the unsaved files away and still refuses an agent at work; --force does both, so ask the user first. The
+# work of its submodules counts as its own: their uncommitted files and the commits no remote has. Its ttt is stopped
+# before git removes the folder under it.
 # --plan prints, for the worktree a folder is in, what removing it would do as JSON ({path, branch, forced, changes}: its
 # top, its branch, whether it goes by force (git removes a worktree with submodules no other way, and then looks at
 # nothing itself), its uncommitted files and the submodules that hold work) and removes nothing.
@@ -11,9 +13,10 @@
 #        forge-worktree-remove.sh --plan <folder>
 set -euo pipefail
 
+here="$(cd "$(dirname "$0")" && pwd)"
 # shellcheck source-path=SCRIPTDIR
 # shellcheck source=forge-lib.sh
-. "$(cd "$(dirname "$0")" && pwd)/forge-lib.sh"
+. "$here/forge-lib.sh"
 
 force=""
 discard=""
@@ -24,7 +27,7 @@ while [ $# -gt 0 ]; do
     --force) force=1; shift ;;
     --discard) discard=1; shift ;;
     --plan) plan=1; shift ;;
-    -h|--help) sed -n '2,11p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,13p' "$0"; exit 0 ;;
     *) path="$1"; shift ;;
   esac
 done
@@ -78,6 +81,9 @@ names=("$logical")
 if forge_app_answers; then
   for name in "${names[@]}"; do forge_spaces_closable "$name" "$force" || forge_die "left $path in place"; done
 fi
+ide_discard=""
+[ -z "$force$discard" ] || ide_discard=--discard
+"$here/forge-ide.sh" stop ${ide_discard:+"$ide_discard"} "$path" || forge_die "left $path in place"
 git -C "$root" worktree remove ${git_force:+"$git_force"} "$path" || forge_die "git did not remove $path; its spaces stay open"
 if forge_app_answers; then
   for name in "${names[@]}"; do

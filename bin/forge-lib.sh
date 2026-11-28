@@ -81,6 +81,11 @@ forge_die() {
   exit 1
 }
 
+# The sha256 of what it reads, in hex: sha256sum where there is one (Linux, recent macOS), shasum on older macOS.
+forge_sha256() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum; else shasum -a 256; fi | cut -d' ' -f1
+}
+
 # The parent folder a repository works with, as indexing that folder's forge recorded it in the clone's own git config
 # (forgerdr.workspace: never committed, shared by every worktree of the clone). Told only while it still is the folder
 # right above the main checkout: a clone moved elsewhere is on its own again.
@@ -840,6 +845,26 @@ forge_free_port() {
 # The herdr app's folder: its settings, layouts and keys.
 forge_app_home() {
   printf '%s\n' "${HERDR_APP_HOME:-$HOME/.config/herdr-app}"
+}
+
+# The oldest ttt the IDE panel runs (bin/forge-ide.sh); install.sh updates one below it, its TTT_MIN the same version.
+# shellcheck disable=SC2034 # read by the scripts that source this file
+FORGE_TTT_MIN=1.14.0
+
+# The version a program prints, as install.sh reads ttt's (piece_version): the first x.y.z in what its --version prints;
+# nothing when there is none.
+forge_version_of() {
+  "$1" --version 2>/dev/null | sed -nE 's/[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' || true
+}
+
+# Whether a version is newer than another, number by number, as install.sh compares them.
+forge_version_newer() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)" = "$1" ]
+}
+
+# forgerdr's own ttt profile, the TTT_CONFIG_DIR of the IDE panel's ttt, which bin/forge-herdr-install.sh installs.
+forge_ttt_profile() {
+  printf '%s\n' "${XDG_CONFIG_HOME:-$HOME/.config}/forgerdr/ttt"
 }
 
 # Where new item worktrees go: the herdr app's worktrees.directory setting, ~/.herdr/worktrees by default, so the app's

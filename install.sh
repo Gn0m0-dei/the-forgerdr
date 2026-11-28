@@ -1,13 +1,21 @@
 #!/usr/bin/env bash
 # the forgerdr installer: everything forgerdr needs around Claude Code, the herdr app and git, which come first.
 # macOS (Homebrew) and openSUSE Tumbleweed (zypper). It shows what is here and what it will install, asks, and installs
-# what is missing, a line a piece; what is here is left as it is, so another run changes nothing. A piece that fails does
-# not stop the rest, and the summary names it. The commands' own output goes to the log, not to the terminal.
+# what is missing or older than forgerdr needs, a line a piece; what is here is left as it is, so another run changes
+# nothing. A piece that fails does not stop the rest, and the summary names it. The commands' own output goes to the
+# log, not to the terminal.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 #
 # uninstall.sh takes away the pieces you pick, through install.sh --uninstall: this file is the one place that knows
-# them. Claude Code, the herdr app, git and your data are never touched. NO_COLOR turns the colours off.
+# them. Claude Code, the herdr app, git and your data are never touched. What it removes is kept in removed.json, out of
+# --update, until this script brings it back. NO_COLOR turns the colours off.
+#
+# install.sh --update, run by forgerdr's update after the plugin, brings a machine that has forgerdr up to what this
+# version needs: no banner, no question, no sign-in. It prints a line a piece as it goes, <piece> TAB <result> TAB
+# <detail>, the result being here, refreshed, installed, updated, removed (on purpose), missing (it needs your
+# password, or a piece that is missing) or failed (the detail is the last line its commands printed). It fails when a
+# piece failed.
 set -euo pipefail
 
 readonly LOCAL_BIN="$HOME/.local/bin"
@@ -18,11 +26,15 @@ readonly STATE_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr"
 readonly LOOK_MANIFEST="$STATE_DIR/herdr-installed.json"
 readonly STATUSLINE_COPY="${XDG_DATA_HOME:-$HOME/.local/share}/forgerdr/forge-statusline.sh"
 readonly CLAUDE_SETTINGS="${CLAUDE_CONFIG_DIR:-$HOME/.claude}/settings.json"
+readonly REMOVED="$STATE_DIR/removed.json"
+# The oldest ttt the IDE panel works with.
+readonly TTT_MIN=1.14.0
+readonly TTT_FORMULA=eugenioenko/ttt/ttt
 # Where questions are answered: the terminal, which stays the keyboard when this script comes through a pipe (the
 # tests point it at a file of answers).
 readonly TTY="${FORGE_TTY:-/dev/tty}"
 # Every piece, in the order they are installed; uninstalling goes the other way, so a piece goes before what it needs.
-readonly PIECES=(path jq node pnpm az devops gh glab engram openspec codebase-memory font forgerdr azdo look statusline)
+readonly PIECES=(path jq node pnpm az devops gh glab engram openspec codebase-memory ttt font forgerdr azdo look statusline)
 
 mode=install
 os=""
@@ -36,10 +48,10 @@ main() {
   case "${1:-}" in
     "") ;;
     --uninstall) mode=uninstall ;;
-    *) printf 'usage: install.sh [--uninstall]\n' >&2; exit 2 ;;
+    --update) mode=update ;;
+    *) printf 'usage: install.sh [--uninstall | --update]\n' >&2; exit 2 ;;
   esac
-  paint
-  banner
+  if [ "$mode" != update ]; then paint; banner; fi
   case "$(uname -s)" in
     Darwin) os=mac ;;
     Linux)
@@ -48,23 +60,31 @@ main() {
     *) die "$(uname -s) is not supported: macOS and openSUSE Tumbleweed are" ;;
   esac
   case ":$PATH:" in *":$LOCAL_BIN:"*) ;; *) export PATH="$LOCAL_BIN:$PATH"; local_bin_missing=1 ;; esac
-  if { exec 3< "$TTY"; } 2>/dev/null; then has_tty=1; fi
+  if [ "$mode" != update ] && { exec 3< "$TTY"; } 2>/dev/null; then has_tty=1; fi
   mkdir -p "$STATE_DIR"
   log="$STATE_DIR/$mode.log"
   : > "$log"
-  if [ "$mode" = install ]; then run_install; else run_uninstall; fi
+  case "$mode" in
+    install) run_install ;;
+    uninstall) run_uninstall ;;
+    update) run_update ;;
+  esac
 }
 
 # --- install ---------------------------------------------------------------------------------------------------------
 
 run_install() {
-  local piece pending=() installed=0 here=0 failed=() blocker
+  local piece pending=() installed=0 here=0 failed=() blocker done_detail
   check_prerequisites
   mkdir -p "$LOCAL_BIN"
 
   step "THE PLAN"
   for piece in "${PIECES[@]}"; do
-    if present "$piece"; then ok "$(name "$piece")" "here"; else todo "$(name "$piece")" "to install"; pending+=("$piece"); fi
+    if present "$piece"; then ok "$(name "$piece")" "here"; continue; fi
+    if unreadable "$piece"; then bad "$(name "$piece")" "$(unreadable_detail "$piece")"
+    elif outdated "$piece"; then todo "$(name "$piece")" "to update from $(piece_version "$piece")"
+    else todo "$(name "$piece")" "to install"; fi
+    pending+=("$piece")
   done
   [ "${#pending[@]}" -gt 0 ] || note "Everything is here: forgerdr's look and status line are brought up to date."
   confirm "Go ahead? [Y/n]" yes || { note "Nothing changed."; exit 0; }
@@ -73,6 +93,7 @@ run_install() {
   step "INSTALLING"
   for piece in "${PIECES[@]}"; do
     if present "$piece"; then
+      forget_removed "$piece"
       case "$piece" in
         look|statusline)
           if quietly "updating $(name "$piece")" refresh_piece "$piece"; then ok "$(name "$piece")" "up to date"
@@ -82,12 +103,19 @@ run_install() {
       here=$((here + 1))
       continue
     fi
+    if unreadable "$piece"; then
+      bad "$(name "$piece")" "$(unreadable_detail "$piece")"
+      failed+=("$(name "$piece")")
+      continue
+    fi
     blocker="$(needs "$piece")"
+    if outdated "$piece"; then done_detail=updated; else done_detail="$(installed_detail "$piece")"; fi
     if [ -n "$blocker" ] && ! present "$blocker"; then
       bad "$(name "$piece")" "skipped: needs $(name "$blocker")"
       failed+=("$(name "$piece")")
     elif quietly "installing $(name "$piece")" install_piece "$piece" && present "$piece"; then
-      ok "$(name "$piece")" "$(installed_detail "$piece")"
+      ok "$(name "$piece")" "$done_detail"
+      forget_removed "$piece"
       installed=$((installed + 1))
     else
       bad "$(name "$piece")" "$(failed_detail "$piece")"
@@ -144,19 +172,27 @@ install_piece() {
     engram) if [ "$os" = mac ]; then brew_engram; else github_binary Gentleman-Programming/engram engram; fi ;;
     openspec) npm_global install @fission-ai/openspec ;;
     codebase-memory) fetch https://raw.githubusercontent.com/DeusData/codebase-memory-mcp/main/install.sh | bash -s -- --skip-config ;;
+    ttt) if [ "$os" = mac ]; then brew_ttt; else release_binary eugenioenko/ttt ttt; fi && ttt_first ;;
     font) if [ "$os" = mac ]; then brew install --cask font-maple-mono-nf; else linux_font; fi ;;
     forgerdr) plugin_add the-forgerdr Gn0m0-dei/the-forgerdr forgerdr@the-forgerdr ;;
     azdo) plugin_add azdospec Gn0m0-dei/azdospec azdo@azdospec ;;
     # The first time, it also shows the layout if the app is open.
-    look) "$(plugin_root)/bin/forge-herdr-install.sh" --sounds --switch ;;
+    look) look_with --sounds --switch ;;
     statusline) "$(plugin_root)/bin/forge-statusline.sh" install ;;
   esac
+}
+
+# Installs or refreshes forgerdr's look with these options, none under --update: it writes no alert sounds the person
+# may have declined or taken away, and switches no layout under them.
+look_with() {
+  [ "$mode" != update ] || set --
+  "$(plugin_root)/bin/forge-herdr-install.sh" "$@"
 }
 
 # forgerdr's look and status line update themselves from the plugin: what you changed by hand stays.
 refresh_piece() {
   case "$1" in
-    look) "$(plugin_root)/bin/forge-herdr-install.sh" --sounds ;;
+    look) look_with --sounds ;;
     statusline) "$(plugin_root)/bin/forge-statusline.sh" install ;;
   esac
 }
@@ -216,6 +252,89 @@ login() {
 provider() { case "$1" in az) printf 'Azure DevOps' ;; gh) printf GitHub ;; glab) printf GitLab ;; esac; }
 login_command() { case "$1" in az) printf 'az login' ;; *) printf '%s auth login' "$1" ;; esac; }
 
+# --- update ----------------------------------------------------------------------------------------------------------
+
+run_update() {
+  local piece status=0
+  mkdir -p "$LOCAL_BIN"
+  for piece in "${PIECES[@]}"; do
+    update_piece "$piece" || status=1
+  done
+  exit "$status"
+}
+
+# What --update does to a piece, said in its line; fails when the piece failed.
+update_piece() {
+  local piece="$1" blocker result
+  if present "$piece"; then
+    forget_removed "$piece"
+    case "$piece" in
+      look|statusline) attempt "$piece" refreshed updating refresh_piece ;;
+      *) report "$piece" here ;;
+    esac
+    return
+  fi
+  if removed_on_purpose "$piece"; then report "$piece" removed "removed on purpose: install.sh brings it back"; return; fi
+  if unreadable "$piece"; then report "$piece" failed "$(unreadable_detail "$piece")"; return 1; fi
+  blocker="$(needs "$piece")"
+  if [ -n "$blocker" ] && ! present "$blocker"; then report "$piece" missing "needs $(name "$blocker")"; return; fi
+  if needs_password "$piece"; then report "$piece" missing "needs your password"; return; fi
+  if outdated "$piece"; then result=updated; else result=installed; fi
+  attempt "$piece" "$result" installing install_piece
+}
+
+# Whether a piece needs sudo, which --update never asks for: zypper's packages and the font on openSUSE, and a global
+# npm package wherever npm's prefix is not yours.
+needs_password() {
+  case "$1" in
+    openspec) ! npm_prefix_writable ;;
+    pnpm) [ "$os" = suse ] && ! npm_prefix_writable ;;
+    *) [ "$os" = suse ] && any_uses_sudo "$1" ;;
+  esac
+}
+
+# attempt <piece> <result> <verb> <function>: runs the function on the piece, its output into the log and nothing on
+# its input, and says the result when the piece is there after it, else failed with why.
+attempt() {
+  if quietly "$3 $(name "$1")" "$4" "$1" < /dev/null && present "$1"; then report "$1" "$2"; return; fi
+  report "$1" failed "$(failure_detail "$1")"
+  return 1
+}
+
+# A piece's line for whatever runs --update, as it goes, and in the log.
+report() {
+  local detail="${3:-}"
+  printf '%s\t%s\t%s\n' "$1" "$2" "${detail//$'\t'/ }"
+  printf '=> %s %s: %s\n' "$1" "$2" "$detail" >> "$log"
+}
+
+# Why a piece failed: the last line its commands left in the log, else what the screen says of it.
+failure_detail() {
+  local detail
+  detail="$(failure_lines 1)"
+  printf '%s' "${detail:-$(failed_detail "$1")}"
+}
+
+# --- removed on purpose ------------------------------------------------------------------------------------------------
+
+# The pieces uninstalled on purpose, a line each, from removed.json ({"pieces": [...]}). Plain shell, as the writing:
+# jq may be one of them.
+removed_pieces() { [ ! -f "$REMOVED" ] || grep -o '"[^"]*"' "$REMOVED" | tr -d '"' | sed '/^pieces$/d'; }
+
+removed_on_purpose() { case " $(removed_pieces | tr '\n' ' ') " in *" $1 "*) return 0 ;; *) return 1 ;; esac; }
+
+# The pieces given, a line each, as removed.json: sorted, once each.
+save_removed() {
+  local piece list=""
+  while IFS= read -r piece; do
+    [ -z "$piece" ] || list="${list:+$list, }\"$piece\""
+  done <<< "$(printf '%s\n' "$1" | sort -u)"
+  printf '{"pieces": [%s]}\n' "$list" > "$REMOVED"
+}
+
+remember_removed() { save_removed "$(removed_pieces; printf '%s\n' "$1")"; }
+forget_removed() { [ ! -f "$REMOVED" ] || save_removed "$(removed_pieces | grep -vxF "$1")"; }
+
 # --- uninstall -------------------------------------------------------------------------------------------------------
 
 run_uninstall() {
@@ -272,6 +391,7 @@ run_uninstall() {
       still+=("$(name "$piece")")
     else
       ok "$(name "$piece")" "removed"
+      remember_removed "$piece"
       removed=$((removed + 1))
     fi
   done
@@ -320,6 +440,7 @@ remove_piece() {
     engram) if [ "$os" = mac ]; then brew uninstall gentleman-programming/tap/engram; else rm -f "$LOCAL_BIN/engram"; fi ;;
     openspec) npm_global uninstall @fission-ai/openspec ;;
     codebase-memory) "$LOCAL_BIN/codebase-memory-mcp" uninstall -y ;;
+    ttt) if [ "$os" = mac ]; then brew uninstall "$TTT_FORMULA"; else rm -f "$LOCAL_BIN/ttt"; fi ;;
     font) if [ "$os" = mac ]; then brew uninstall --cask font-maple-mono-nf; else rm -rf "$LINUX_FONT_DIR" && fc-cache -f; fi ;;
     forgerdr) plugin_remove the-forgerdr forgerdr@the-forgerdr ;;
     azdo) plugin_remove azdospec azdo@azdospec ;;
@@ -350,6 +471,7 @@ name() {
     glab) printf 'GitLab CLI (glab)' ;;
     openspec) printf 'OpenSpec CLI' ;;
     codebase-memory) printf 'codebase-memory-mcp' ;;
+    ttt) printf "ttt (the IDE panel's editor)" ;;
     font) printf 'Maple Mono NF font' ;;
     forgerdr) printf 'forgerdr plugin' ;;
     azdo) printf 'azdo plugin' ;;
@@ -367,9 +489,10 @@ about() {
     devops) printf 'of az' ;;
     engram) printf 'your memories in ~/.engram stay' ;;
     codebase-memory) printf 'and its code indexes' ;;
+    ttt) printf 'the IDE panel offers to install it again' ;;
     forgerdr) printf 'and its marketplace, the-forgerdr' ;;
     azdo) printf 'and its marketplace, azdospec' ;;
-    look) printf 'its layout, mod and alert sounds' ;;
+    look) printf 'its layout, mod, ttt profile and alert sounds' ;;
     statusline) printf 'the one you had before comes back' ;;
   esac
 }
@@ -378,10 +501,12 @@ about() {
 present() {
   hash -r
   case "$1" in
-    path) grep -qsxF "$PATH_LINE" "$(shell_rc)" || { [ "$mode" = install ] && [ -z "$local_bin_missing" ]; } ;;
+    path) grep -qsxF "$PATH_LINE" "$(shell_rc)" || { [ "$mode" != uninstall ] && [ -z "$local_bin_missing" ]; } ;;
     node) have node && npm --version >/dev/null 2>&1 ;;
     devops) have az && az extension show --name azure-devops >/dev/null 2>&1 ;;
     codebase-memory) [ -x "$LOCAL_BIN/codebase-memory-mcp" ] ;;
+    # One older than forgerdr needs, or of a version it cannot read, is still there to uninstall.
+    ttt) have ttt && { [ "$mode" = uninstall ] || [ "$(version_state ttt)" = fine ]; } ;;
     font) if [ "$os" = mac ]; then brew list --cask font-maple-mono-nf >/dev/null 2>&1; else fc-list 2>/dev/null | grep "Maple Mono NF" >/dev/null; fi ;;
     forgerdr) plugin_installed forgerdr@the-forgerdr ;;
     azdo) plugin_installed azdo@azdospec ;;
@@ -389,6 +514,27 @@ present() {
     statusline) grep -qs forge-statusline "$CLAUDE_SETTINGS" ;;
     *) have "$1" ;;
   esac
+}
+
+# Where an installed piece that declares a minimum version stands: fine (new enough), old, or unreadable (no version
+# in what it prints); nothing for the rest. Only ttt declares one.
+version_state() {
+  local version
+  case "$1" in ttt) have ttt || return 0 ;; *) return 0 ;; esac
+  version="$(piece_version "$1")"
+  if [ -z "$version" ]; then printf unreadable; elif newer "$TTT_MIN" "$version"; then printf old; else printf fine; fi
+}
+
+outdated() { [ "$(version_state "$1")" = old ]; }
+unreadable() { [ "$(version_state "$1")" = unreadable ]; }
+unreadable_detail() { printf "cannot read %s's version" "$1"; }
+
+# ttt --version prints "ttt v1.5.0".
+piece_version() { case "$1" in ttt) ttt --version 2>/dev/null | sed -nE 's/[^0-9]*([0-9]+\.[0-9]+\.[0-9]+).*/\1/p' ;; esac; }
+
+# Whether a version is newer than another, number by number.
+newer() {
+  [ "$1" != "$2" ] && [ "$(printf '%s\n%s\n' "$1" "$2" | sort -t. -k1,1n -k2,2n -k3,3n | tail -n 1)" = "$1" ]
 }
 
 any_uses_sudo() {
@@ -414,6 +560,17 @@ package_remove() {
   if [ "$os" = mac ]; then brew uninstall "$@"; else sudo zypper remove --clean-deps "$@" <&3; fi
 }
 
+# Upgraded when Homebrew has it, else installed: the formula brings its own tap.
+brew_ttt() {
+  if brew list "$TTT_FORMULA" >/dev/null 2>&1; then brew upgrade "$TTT_FORMULA"; else brew install "$TTT_FORMULA"; fi
+}
+
+# The ttt just installed is the one PATH finds, not an older one before it.
+ttt_first() {
+  hash -r
+  ! outdated ttt || { printf 'an older ttt at %s comes first in PATH\n' "$(command -v ttt)"; return 1; }
+}
+
 brew_engram() {
   brew tap gentleman-programming/tap
   brew trust gentleman-programming/tap >/dev/null 2>&1 || true
@@ -422,8 +579,10 @@ brew_engram() {
 
 # Through sudo when npm's prefix is the system's (/usr on openSUSE), as zypper's packages are.
 npm_global() {
-  if [ -w "$(npm config get prefix)" ]; then npm "$1" -g "$2"; else sudo npm "$1" -g "$2"; fi
+  if npm_prefix_writable; then npm "$1" -g "$2"; else sudo npm "$1" -g "$2"; fi
 }
+
+npm_prefix_writable() { [ -w "$(npm config get prefix 2>/dev/null)" ]; }
 
 # sudo asked once, before the spinners, and kept fresh until the end.
 keep_sudo() {
@@ -489,17 +648,52 @@ linux_font() {
   return "$status"
 }
 
+# This machine's architecture, as release builds name it.
+release_arch() {
+  case "$(uname -m)" in
+    x86_64|amd64) printf amd64 ;;
+    aarch64|arm64) printf arm64 ;;
+    *) printf 'no build for %s\n' "$(uname -m)" >&2; return 1 ;;
+  esac
+}
+
+latest_tag() { fetch "https://api.github.com/repos/$1/releases/latest" | jq -r '.tag_name'; }
+
 # Latest GitHub release tarball of a Go binary for this os/arch, into ~/.local/bin.
 github_binary() {
   local repo="$1" name="$2" arch tag url tmp status
-  case "$(uname -m)" in x86_64|amd64) arch=amd64 ;; aarch64|arm64) arch=arm64 ;; *) printf 'no build for %s\n' "$(uname -m)"; return 1 ;; esac
-  tag="$(fetch "https://api.github.com/repos/$repo/releases/latest" | jq -r '.tag_name')"
+  arch="$(release_arch)" || return
+  tag="$(latest_tag "$repo")"
   url="https://github.com/$repo/releases/download/$tag/${name}_${tag#v}_linux_${arch}.tar.gz"
   tmp="$(mktemp -d)"
   fetch "$url" | tar -xz -C "$tmp" && install -m 755 "$(find "$tmp" -type f -name "$name" | head -n 1)" "$LOCAL_BIN/$name"
   status=$?
   rm -rf "$tmp"
   return "$status"
+}
+
+# Latest GitHub release's plain binary for this arch (<name>-linux-<arch>, no tarball), into ~/.local/bin once its
+# sha256 is the one the release's checksums.txt lists.
+release_binary() {
+  local repo="$1" name="$2" arch base asset tmp status
+  arch="$(release_arch)" || return
+  base="https://github.com/$repo/releases/download/$(latest_tag "$repo")"
+  asset="$name-linux-$arch"
+  tmp="$(mktemp -d)"
+  fetch "$base/$asset" -o "$tmp/$asset" && fetch "$base/checksums.txt" -o "$tmp/checksums.txt" \
+    && checksum_listed "$tmp/$asset" "$tmp/checksums.txt" && install -m 755 "$tmp/$asset" "$LOCAL_BIN/$name"
+  status=$?
+  rm -rf "$tmp"
+  return "$status"
+}
+
+# Whether a file's sha256 is on its line of a release's checksums.txt ("<sha256>  <file>").
+checksum_listed() {
+  local sum
+  sum="$(sha256sum "$1")"
+  grep -qxF "${sum%% *}  $(basename "$1")" "$2" && return 0
+  printf '%s does not match its sha256 in checksums.txt\n' "$(basename "$1")"
+  return 1
 }
 
 # --- the screen ----------------------------------------------------------------------------------------------------------
@@ -578,12 +772,13 @@ quietly() {
   wait "$pid"
 }
 
-# The last lines the failed piece's own commands left in the log, after its ### header.
-show_failure() {
+# The last lines (as many as asked) the failed piece's own commands left in the log, after its ### header.
+failure_lines() {
   # shellcheck disable=SC2016 # a sed script: $ is its last line
-  sed -n '/^### /{h;d;};H;${x;p;}' "$log" | grep -v -e '^### ' -e '^=> ' -e '^ *$' | tail -n 3 \
-    | while IFS= read -r line; do printf '       %s%s%s\n' "$dim" "$line" "$reset"; done
+  sed -n '/^### /{h;d;};H;${x;p;}' "$log" | { grep -v -e '^### ' -e '^=> ' -e '^ *$' || true; } | tail -n "$1"
 }
+
+show_failure() { failure_lines 3 | while IFS= read -r line; do printf '       %s%s%s\n' "$dim" "$line" "$reset"; done; }
 
 tty_ok() { [ -n "$has_tty" ]; }
 

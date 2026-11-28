@@ -51,3 +51,6 @@ HERDR APP KEYS                                after bin/forge-setup-keys.sh (Ctr
   the cog beside START WORK: the forge's settings (its gnome)
   + beside the repository, or a forge's menu: new worktree (forgerdr.worktree-new)
   a forge's menu on a worktree: remove it (forgerdr.worktree-remove), its branch kept
+  a forge's menu on a repository, checkout or worktree: open it in Zed or VS Code, those installed
+  IDE on the session bar: ttt, one per checkout; F12 goes to a definition
+  ctrl-tab, ctrl-shift-tab and ctrl-1..9 stay the app's, also inside the IDE

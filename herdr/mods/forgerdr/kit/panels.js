@@ -3,7 +3,7 @@ import { div } from "gpui-kit";
 import { agentChip, tag } from "./chips.js";
 import { SIGN, sign } from "./motion.js";
 import { gnome, ICON, icon, MOOD } from "./sprites.js";
-import { fill, text } from "./text.js";
+import { fill, text, wrapped } from "./text.js";
 import { BRAND, motionOn, TONE, tokens, toneColour } from "./tokens.js";
 
 /** @typedef {import("./sprites.js").GnomeLook} GnomeLook */
@@ -194,8 +194,9 @@ export const gnomeHeader = ({
 /**
  * @typedef {object} EmptyStateProps
  * @property {string} caption
- * @property {string} title
- * @property {string} sub what will wake the gnome
+ * @property {string} title what the gnome sleeps on, wrapped when it does not fit a line
+ * @property {string | NativeElement} sub what will wake the gnome: a line, or words of their own (wrapped) for a
+ *   sentence that may not fit one
  * @property {GnomeLook} [look]
  * @property {NativeElement} [action] the button that wakes it, under its words
  */
@@ -223,8 +224,8 @@ export const emptyState = ({ caption, title, sub, look = {}, action }) => {
             .child(gnome({ ...look, mood: MOOD.asleep, scale: 5 }))
             .child(sign(SIGN.zz, 2)),
         )
-        .child(text(title, "ui", 16, k.fg))
-        .child(text(sub, "ui", 12, k.muted))
+        .child(wrapped(title, "ui", 16, k.fg).text_center())
+        .child(typeof sub === "string" ? text(sub, "ui", 12, k.muted) : sub)
         .when(action !== undefined, (el) => el.child(action)),
     );
 };

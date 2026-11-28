@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Installs forgerdr's look into the herdr app: the forgerdr layout, the forge-night theme and the forgerdr mod with its
-# fonts, from this plugin's herdr/ folder into the app's home (HERDR_APP_HOME, ~/.config/herdr-app by default). A file
-# it installed and nobody changed since is updated; one changed by hand, or there before with other content, is left
-# as it is and named, unless --force, which keeps a copy beside it first. A file a newer version no longer ships is
-# removed when unchanged. The app's own layouts, mods and keys.json are never touched.
+# fonts, from this plugin's herdr/ folder into the app's home (HERDR_APP_HOME, ~/.config/herdr-app by default), and the
+# ttt profile the IDE panel runs ttt with (herdr/ttt) into a folder of forgerdr's own, its TTT_CONFIG_DIR
+# (${XDG_CONFIG_HOME:-~/.config}/forgerdr/ttt); the person's own ~/.config/ttt is never touched. A file it installed
+# and nobody changed since is updated; one changed by hand, or there before with other content, is left as it is and
+# named, unless --force, which keeps a copy beside it first. The IDE panel writing the layout again (in its own
+# formatting, with the terminal its ide-term block shows) is no change by hand. A file a newer version no longer ships
+# is removed when unchanged. The app's own layouts, mods and keys.json are never touched.
 # --dev installs this checkout beside it as forgerdr-dev: a copy of the mod under that name and a layout whose forgerdr
 # blocks use it. --watch keeps that copy in step with the checkout until Ctrl-C, so the app reloads the mod as it is
 # edited (the app does not see edits through a link). ctrl-shift-l switches layouts; ctrl-alt-shift-escape always goes
@@ -12,7 +15,8 @@
 # the quench. A sound of the person's own is kept and named, unless --force. Ask the person first: settings.json is
 # theirs. The mod plays its third sound itself, when a golem cracks.
 # --remove takes away what it installed (with --dev, the forgerdr-dev pieces only), the forge's sounds among them,
-# except the theme, which any layout may use. --switch shows the layout after.
+# except the theme, which any layout may use; the profile's folder goes only when nothing else is left in it (ttt keeps
+# its own state.json there). --switch shows the layout after.
 # Usage: forge-herdr-install.sh [--dev [--watch]] [--sounds] [--remove] [--force] [--switch]
 set -euo pipefail
 
@@ -22,6 +26,10 @@ set -euo pipefail
 
 readonly MOD=forgerdr
 readonly DEV_MOD=forgerdr-dev
+# The layout block whose content (the terminal it shows) the IDE panel rewrites at run time.
+readonly IDE_BLOCK=ide-term
+# The stack ide-term sits in, first.
+readonly IDE_VIEW=ide-view
 dev=0
 watch=0
 remove=0
@@ -36,7 +44,7 @@ while [ $# -gt 0 ]; do
     --force) force=1; shift ;;
     --switch) switch=1; shift ;;
     --sounds) sounds=1; shift ;;
-    -h|--help) sed -n '2,16p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,20p' "$0"; exit 0 ;;
     *) forge_die "unknown option $1" ;;
   esac
 done
@@ -47,7 +55,10 @@ src="${FORGE_HERDR_SRC:-$(cd "$(dirname "$0")/../herdr" && pwd -P)}"
 root="$(cd "$src/.." && pwd -P)"
 [ -d "$src/mods/$MOD" ] || forge_die "no herdr/mods/$MOD in $src"
 home="$(forge_app_home)"
-# What the stable install put in the app's home, "relative path -> sha256", to tell its files from changed ones.
+# The folder ttt runs from in the IDE panel (its TTT_CONFIG_DIR).
+profile="$(forge_ttt_profile)"
+# What the stable install put in place, "key -> digest", to tell its files from changed ones: a path relative to the
+# app's home, or ttt/<path relative to the profile>.
 manifest="${XDG_STATE_HOME:-$HOME/.local/state}/forgerdr/herdr-installed.json"
 # Seconds between two looks at the checkout under --watch.
 watch_pause="${FORGE_WATCH_PAUSE:-1}"
@@ -55,7 +66,45 @@ kept=()
 changed=0
 
 sha() {
-  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+  if [ "$1" = - ]; then forge_sha256; else forge_sha256 < "$1"; fi
+}
+
+# Where the file a manifest key names goes: the profile's into the profile, the rest into the app's home.
+target() {
+  case "$1" in
+    ttt/*) printf '%s/%s\n' "$profile" "${1#ttt/}" ;;
+    *) printf '%s/%s\n' "$home" "$1" ;;
+  esac
+}
+
+# What the manifest records of a file: its sha256; for a layout, that of its canonical JSON without the content of the
+# IDE block, so the IDE panel writing it again (its formatting and key order, the terminal the block shows) is no change,
+# nor the app deleting the block once the terminal it shows ends, until the panel writes it back: a block of that id,
+# with no content, stands first in its stack then. Any other field of the block counts. A layout that is no longer JSON
+# gets its plain sha256, so it counts as changed.
+# forge: the block put back is the shipped one, id and type alone; were a release to give ide-term other fields, a layout
+# caught in the moment the app has taken it away would read as changed by hand. Record a second digest, without the
+# block, if that ever ships.
+digest() {
+  local canonical
+  case "$1" in
+    layouts/*.json)
+      # shellcheck disable=SC2016 # a jq filter
+      canonical="$(jq -cS --arg block "$IDE_BLOCK" --arg view "$IDE_VIEW" '
+        walk(if type == "object" and .id? == $block then del(.content)
+          elif type == "object" and .id? == $view and (any(.children[]?; .id? == $block) | not)
+          then .children = [{id: $block, type: "block"}] + (.children // [])
+          else . end)' "$2" 2>/dev/null)" &&
+        { printf '%s\n' "$canonical" | sha -; return 0; } ;;
+  esac
+  sha "$2"
+}
+
+# Whether a file is the one it installed, by what the manifest recorded: its digest, or its plain sha256, as versions
+# before the layout's digest recorded every file.
+untouched() {
+  local rel="$1" to="$2" was="$3"
+  [ -n "$was" ] && { [ "$(digest "$rel" "$to")" = "$was" ] || [ "$(sha "$to")" = "$was" ]; }
 }
 
 recorded() {
@@ -75,18 +124,17 @@ forget() {
   forge_json_update "$manifest" --arg rel "$1" 'del(.files[$rel])'
 }
 
-# Puts one file at a path of the app's home, as the rules above say.
+# Puts one file where its manifest key says, as the rules above say.
 place() {
-  local from="$1" rel="$2" to="$home/$2" new current was
-  new="$(sha "$from")"
+  local from="$1" rel="$2" to new
+  to="$(target "$rel")"
+  new="$(digest "$rel" "$from")"
   if [ -e "$to" ]; then
-    current="$(sha "$to")"
-    was="$(recorded "$rel")"
-    if [ "$current" = "$new" ]; then
+    if [ "$(digest "$rel" "$to")" = "$new" ]; then
       record "$rel" "$new"
       return 0
     fi
-    if [ -z "$was" ] || [ "$current" != "$was" ]; then
+    if ! untouched "$rel" "$to" "$(recorded "$rel")"; then
       if [ "$force" = 0 ]; then
         kept+=("$rel")
         return 0
@@ -103,10 +151,10 @@ place() {
 
 # Removes a file it installed, unless it changed since; says so when it leaves one.
 unplace() {
-  local rel="$1" to="$home/$1" was
-  was="$(recorded "$rel")"
+  local rel="$1" to
+  to="$(target "$rel")"
   if [ -e "$to" ]; then
-    if [ -n "$was" ] && [ "$(sha "$to")" = "$was" ]; then
+    if untouched "$rel" "$to" "$(recorded "$rel")"; then
       rm -f "$to"
       changed=$((changed + 1))
     else
@@ -121,9 +169,15 @@ mod_files() {
   (cd "$src/mods/$MOD" && find . -type f ! -name name.js ! -name '*.d.ts' ! -name '.*' | sed 's|^\./||' | LC_ALL=C sort)
 }
 
-# The files the stable install ships: the layout, the theme and the mod.
+# The files of the ttt profile in the checkout, as the manifest names them.
+profile_files() {
+  (cd "$src" && find ttt -type f ! -name '.*' | LC_ALL=C sort)
+}
+
+# The files the stable install ships: the layout, the theme, the ttt profile and the mod.
 shipped() {
   (cd "$src" && find layouts themes -type f ! -name '.*' | LC_ALL=C sort)
+  profile_files
   mod_files | sed "s|^|mods/$MOD/|"
 }
 
@@ -191,7 +245,7 @@ drop_sounds() {
 
 report() {
   local rel
-  printf 'forgerdr: %s, %d file(s) changed in %s\n' "$1" "$changed" "$home"
+  printf 'forgerdr: %s, %d file(s) changed in %s and %s\n' "$1" "$changed" "$home" "$profile"
   for rel in ${kept[@]+"${kept[@]}"}; do
     printf '  kept as it is (changed by hand, or not installed by forgerdr): %s\n' "$rel"
   done
@@ -254,15 +308,19 @@ if [ "$remove" = 1 ]; then
     rm -f "$manifest"
   fi
   clear_mod_folder "$home/mods/$MOD"
+  [ ! -d "$profile" ] || find "$profile" -depth -type d -empty -delete
   drop_sounds "$MOD"
-  report "removed the $MOD layout and mod (the forge-night theme stays: any layout may use it)"
+  report "removed the $MOD layout, mod and ttt profile (the forge-night theme stays: any layout may use it)"
   exit 0
 fi
 
 if [ "$dev" = 1 ]; then
-  # The theme and the layout's picture come from the stable install, shared by both layouts.
+  # The theme, the layout's picture and the ttt profile come from the stable install, shared by both layouts.
   place "$src/themes/forge-night.json" themes/forge-night.json
   place "$src/layouts/$MOD.svg" "layouts/$MOD.svg"
+  while IFS= read -r rel; do
+    place "$src/$rel" "$rel"
+  done < <(profile_files)
   if [ -L "$home/mods/$DEV_MOD" ]; then
     rm -f "$home/mods/$DEV_MOD"
   elif [ -e "$home/mods/$DEV_MOD" ] && ! grep -qs "\"$DEV_MOD\"" "$home/mods/$DEV_MOD/name.js"; then
@@ -306,4 +364,4 @@ fi
 check_mod "$MOD"
 [ "$sounds" = 0 ] || use_sounds "$MOD"
 [ "$switch" = 0 ] || forge_do layout.switch --name "$MOD" >/dev/null 2>&1 || true
-report "installed the $MOD layout, theme and mod"
+report "installed the $MOD layout, theme, mod and ttt profile"

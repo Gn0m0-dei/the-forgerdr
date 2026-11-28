@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Smallest check that fails if installing forgerdr's look into the herdr app breaks (bin/forge-herdr-install.sh): what
-# the stable install copies and records, what it updates, keeps and removes, and the forgerdr-dev copy --dev makes and
-# --watch keeps in step, in a sandboxed app home against a copy of herdr/ and a fake herdr-app (test/fakes.sh). The real
-# app is checked by hand.
+# the stable install copies and records, what it updates, keeps and removes (the layout as the IDE panel rewrites it is
+# not changed by hand), the ttt profile it puts in a folder of forgerdr's own, and the forgerdr-dev copy --dev makes and
+# --watch keeps in step, in a sandboxed home and app home against a copy of herdr/ and a fake herdr-app (test/fakes.sh).
+# The real app is checked by hand.
 # Run: bash test/herdr-install.test.sh
 set -euo pipefail
 root="$(cd "$(dirname "$0")/.." && pwd)"
@@ -13,12 +14,15 @@ trap '[ -z "$watcher" ] || kill "$watcher" 2>/dev/null; rm -rf "$sandbox"' EXIT
 . "$root/test/fakes.sh"
 fakes_install "$sandbox/fakes"
 export HOME="$sandbox/home" XDG_STATE_HOME="$sandbox/state" HERDR_APP_HOME="$sandbox/app" FORGE_HERDR_SRC="$sandbox/src"
+unset XDG_CONFIG_HOME
 mkdir -p "$HOME"
 cp -R "$root/herdr" "$sandbox/src"
 rm -f "$sandbox/src/mods/forgerdr/name.js" "$sandbox/src"/mods/forgerdr/*.d.ts
 install="$root/bin/forge-herdr-install.sh"
 app="$sandbox/app"
 manifest="$sandbox/state/forgerdr/herdr-installed.json"
+profile="$HOME/.config/forgerdr/ttt"
+layout="$app/layouts/forgerdr.json"
 
 failures=0
 expect() {
@@ -27,6 +31,11 @@ expect() {
 exists() { [ -e "$1" ] && echo yes || echo no; }
 status_of() { "$@" >/dev/null 2>&1 && echo 0 || echo $?; }
 contains() { [[ "$1" == *"$2"* ]] && echo yes || echo no; }
+sha_of() {
+  if command -v sha256sum >/dev/null 2>&1; then sha256sum "$1" | cut -d' ' -f1; else shasum -a 256 "$1" | cut -d' ' -f1; fi
+}
+# Rewrites a JSON file of the sandbox through a jq filter, with jq's options before it.
+rewrite() { local file="${*: -1}"; jq "${@:1:$#-1}" "$file" > "$sandbox/rewrite.json" && mv "$sandbox/rewrite.json" "$file"; }
 kept_line="kept as it is (changed by hand, or not installed by forgerdr)"
 
 out="$(bash "$install")"
@@ -35,7 +44,13 @@ expect "the layout, its picture and the theme are installed" "yes yes yes" \
 expect "the mod with its fonts and their licences" "yes yes yes" \
   "$(exists "$app/mods/forgerdr/main.js") $(exists "$app/mods/forgerdr/fonts/PixelifySans-Regular.ttf") $(exists "$app/mods/forgerdr/fonts/LICENSES/silkscreen.txt")"
 expect "the mod knows the folder it runs from" 'export const MOD = "forgerdr";' "$(tail -n 1 "$app/mods/forgerdr/name.js")"
-expect "every file is recorded" "$(cd "$app" && find layouts themes mods -type f | wc -l | tr -d ' ')" "$(jq '.files | length' "$manifest")"
+expect "the ttt profile goes to a folder of forgerdr's own" "yes yes" \
+  "$(exists "$profile/settings.json") $(exists "$profile/themes/forge-night.json")"
+expect "as shipped" yes "$(cmp -s "$sandbox/src/ttt/settings.json" "$profile/settings.json" && echo yes || echo no)"
+expect "recorded under ttt/" true "$(jq '.files | has("ttt/settings.json") and has("ttt/themes/forge-night.json")' "$manifest")"
+expect "the person's own ttt settings are not touched" no "$(exists "$HOME/.config/ttt")"
+expect "every file is recorded" "$(( $(cd "$app" && find layouts themes mods -type f | wc -l) + $(find "$profile" -type f | wc -l) ))" \
+  "$(jq '.files | length' "$manifest")"
 expect "it says what it did" yes "$(contains "$out" "installed the forgerdr layout")"
 expect "the mod is checked by the app" yes "$(called herdr-app check "$app/mods/forgerdr")"
 expect "the app's own layouts are left alone" no "$(exists "$app/layouts/main.json")"
@@ -48,8 +63,10 @@ printf '{"background":"#000000","foreground":"#ffffff","selection":"#222222","an
 jq '.gap = 9' "$sandbox/src/layouts/forgerdr.json" > "$sandbox/l.json" && mv "$sandbox/l.json" "$sandbox/src/layouts/forgerdr.json"
 jq '.colors = {"accent": "#ffffff"}' "$sandbox/src/themes/forge-night.json" > "$sandbox/t.json" && mv "$sandbox/t.json" "$sandbox/src/themes/forge-night.json"
 rm "$sandbox/src/mods/forgerdr/fonts/Silkscreen-Bold.ttf"
+rewrite '.sidebar.width = 40' "$sandbox/src/ttt/settings.json"
 out="$(bash "$install")"
 expect "an untouched file is updated" 9 "$(jq .gap "$app/layouts/forgerdr.json")"
+expect "the profile's untouched settings too" 40 "$(jq .sidebar.width "$profile/settings.json")"
 expect "a file the user changed is kept" "#000000" "$(jq -r .background "$app/themes/forge-night.json")"
 expect "and named" yes "$(contains "$out" "$kept_line: themes/forge-night.json")"
 expect "a file no longer shipped is removed" no "$(exists "$app/mods/forgerdr/fonts/Silkscreen-Bold.ttf")"
@@ -58,8 +75,63 @@ bash "$install" --force >/dev/null
 expect "--force replaces it" "#ffffff" "$(jq -r .colors.accent "$app/themes/forge-night.json")"
 expect "keeping a copy beside it" 1 "$(find "$app/themes" -name 'forge-night.json.forgerdr-*' | wc -l | tr -d ' ')"
 
+# The profile's settings changed by hand are the person's.
+rewrite '.theme = "monokai"' "$profile/settings.json"
+rewrite '.sidebar.width = 41' "$sandbox/src/ttt/settings.json"
+out="$(bash "$install")"
+expect "the profile's settings changed by hand are kept" monokai "$(jq -r .theme "$profile/settings.json")"
+expect "and named" yes "$(contains "$out" "$kept_line: ttt/settings.json")"
+
+# The IDE panel rewrites the layout when it shows another terminal in its ide-term block: in another formatting and
+# key order, with only that block's content changed. That is no change by hand.
+rewrite --indent 4 '((.. | objects | select(.id? == "ide-term")) |= (.content = {"terminal": "ide-x"} | to_entries | reverse | from_entries))
+  | to_entries | reverse | from_entries' "$layout"
+out="$(bash "$install")"
+expect "a run with no new version leaves the IDE panel's rewrite as it is" ide-x \
+  "$(jq -r '.. | objects | select(.id? == "ide-term") | .content.terminal' "$layout")"
+expect "without naming the layout" no "$(contains "$out" "$kept_line: layouts/forgerdr.json")"
+rewrite '.gap = 10' "$sandbox/src/layouts/forgerdr.json"
+out="$(bash "$install")"
+expect "a new version replaces the layout as the IDE panel rewrote it" 10 "$(jq .gap "$layout")"
+expect "with the shipped file itself" yes "$(cmp -s "$sandbox/src/layouts/forgerdr.json" "$layout" && echo yes || echo no)"
+# The app deletes ide-term from the layout once the terminal it shows ends, until the IDE panel writes it back: no change
+# by hand either.
+rewrite 'walk(if type == "object" and (.children? | type) == "array" then .children |= map(select(.id? != "ide-term")) else . end)' "$layout"
+out="$(bash "$install")"
+expect "a run with no new version leaves the layout the app took ide-term from as it is" no \
+  "$(jq -e '.. | objects | select(.id? == "ide-term")' "$layout" >/dev/null && echo yes || echo no)"
+expect "without naming it" no "$(contains "$out" "$kept_line: layouts/forgerdr.json")"
+rewrite '.gap = 12' "$sandbox/src/layouts/forgerdr.json"
+out="$(bash "$install")"
+expect "a new version replaces it, ide-term back" "yes yes" \
+  "$(cmp -s "$sandbox/src/layouts/forgerdr.json" "$layout" && echo yes || echo no) $(jq -e '.. | objects | select(.id? == "ide-term")' "$layout" >/dev/null && echo yes || echo no)"
+# Only ide-term's content is the IDE panel's: a new version that changes its other fields is a change.
+rewrite '(.. | objects | select(.id? == "ide-term")) |= (.min = 40)' "$sandbox/src/layouts/forgerdr.json"
+out="$(bash "$install")"
+expect "a new version that changes only ide-term's other fields is installed" 40 \
+  "$(jq '.. | objects | select(.id? == "ide-term") | .min' "$layout")"
+rewrite '.gap = 99' "$layout"
+rewrite '.gap = 11' "$sandbox/src/layouts/forgerdr.json"
+out="$(bash "$install")"
+expect "a layout changed by hand anywhere else is kept" 99 "$(jq .gap "$layout")"
+expect "and named" yes "$(contains "$out" "$kept_line: layouts/forgerdr.json")"
+printf 'not json\n' > "$layout"
+out="$(bash "$install")"
+expect "so is one that is no longer JSON" "not json" "$(cat "$layout")"
+expect "named too" yes "$(contains "$out" "$kept_line: layouts/forgerdr.json")"
+
+# A manifest written by an earlier version recorded the layout's plain sha256.
+rm -rf "$app" "$manifest" "$profile"
+bash "$install" >/dev/null
+# shellcheck disable=SC2016 # a jq filter
+rewrite --arg sha "$(sha_of "$layout")" '.files["layouts/forgerdr.json"] = $sha' "$manifest"
+rewrite '.gap = 12' "$sandbox/src/layouts/forgerdr.json"
+out="$(bash "$install")"
+expect "it still counts the untouched layout as unchanged" 12 "$(jq .gap "$layout")"
+expect "without naming it" no "$(contains "$out" "$kept_line: layouts/forgerdr.json")"
+
 # A file that was there before with other content is not the install's to replace.
-rm -rf "$app" "$manifest"
+rm -rf "$app" "$manifest" "$profile"
 mkdir -p "$app/themes"
 printf '{"background":"#123456"}\n' > "$app/themes/forge-night.json"
 bash "$install" >/dev/null
@@ -71,6 +143,7 @@ expect "one with the same content is taken over" yes "$([ -n "$(jq -r '.files["t
 # --remove takes away what it installed, and leaves the theme and what was changed.
 printf 'changed\n' >> "$app/mods/forgerdr/main.js"
 printf '// types\n' > "$app/mods/forgerdr/gpui-kit.d.ts"
+printf '{}\n' > "$profile/state.json"
 fakes_reset
 printf '{"layout":"forgerdr"}\n' > "$FAKE_DIR/status.json"
 out="$(bash "$install" --remove)"
@@ -81,7 +154,9 @@ expect "and a file the user changed" yes "$(exists "$app/mods/forgerdr/main.js")
 expect "saying so" yes "$(contains "$out" "$kept_line: mods/forgerdr/main.js")"
 expect "the type files the app wrote go with the mod" no "$(exists "$app/mods/forgerdr/gpui-kit.d.ts")"
 expect "with its record gone" no "$(exists "$manifest")"
-rm -rf "$app"
+expect "removing takes the ttt profile's files" "no no" "$(exists "$profile/settings.json") $(exists "$profile/themes")"
+expect "and leaves the state ttt keeps beside them" yes "$(exists "$profile/state.json")"
+rm -rf "$app" "$profile"
 
 # --dev: a copy of this checkout's mod beside it, as forgerdr-dev.
 jq '.toast = "forgerdr"' "$sandbox/src/layouts/forgerdr.json" > "$sandbox/l.json" &&
@@ -98,6 +173,7 @@ expect "the dev layout's blocks and toasts use it" "forgerdr-dev forgerdr-dev fo
 expect "the app's own mods keep their names" "workspace-chrome" \
   "$(jq -r '.. | objects | select(.id? == "sidebar-footer") | .content.mod' "$app/layouts/forgerdr-dev.json")"
 expect "with the shared theme and picture" "yes yes" "$(exists "$app/themes/forge-night.json") $(exists "$app/layouts/forgerdr.svg")"
+expect "and the shared ttt profile" "yes yes" "$(exists "$profile/settings.json") $(exists "$profile/themes/forge-night.json")"
 expect "and the dev layout shown with --switch" yes "$(called herdr-app "do" layout.switch --name forgerdr-dev)"
 expect "the stable mod is not installed by --dev" no "$(exists "$app/mods/forgerdr")"
 
@@ -155,6 +231,7 @@ jq '.sounds.done = "sounds/my-chime.mp3"' "$settings" > "$sandbox/s" && mv "$san
 bash "$install" --remove >/dev/null
 expect "--remove takes the forge's sounds away, and keeps the person's own" '{"enabled":true,"done":"sounds/my-chime.mp3"}' \
   "$(jq -c '.sounds' "$settings")"
+expect "and the ttt profile with its folder, left empty" no "$(exists "$profile")"
 bash "$install" --dev --sounds >/dev/null
 expect "--dev points them at the dev copy" "mods/forgerdr-dev/sounds/blocked.mp3" "$(jq -r '.sounds.blocked' "$settings")"
 bash "$install" --dev --remove >/dev/null
@@ -162,6 +239,15 @@ expect "and --dev --remove takes those" null "$(jq -c '.sounds.blocked' "$settin
 printf '{ "zoom": 1, // a comment\n}\n' > "$settings"
 expect "settings that are not plain JSON are refused" 1 "$(status_of bash "$install" --sounds)"
 expect "and left as they were" yes "$(contains "$(cat "$settings")" "// a comment")"
+
+# XDG_CONFIG_HOME, when set, holds the profile.
+export XDG_CONFIG_HOME="$sandbox/config home"
+bash "$install" >/dev/null
+expect "with XDG_CONFIG_HOME set, the profile goes under it" "yes yes" \
+  "$(exists "$XDG_CONFIG_HOME/forgerdr/ttt/settings.json") $(exists "$XDG_CONFIG_HOME/forgerdr/ttt/themes/forge-night.json")"
+bash "$install" --remove >/dev/null
+expect "and --remove takes it from there" no "$(exists "$XDG_CONFIG_HOME/forgerdr/ttt")"
+unset XDG_CONFIG_HOME
 
 [ "$failures" -eq 0 ] || { printf '%s failure(s)\n' "$failures"; exit 1; }
 printf 'all good\n'

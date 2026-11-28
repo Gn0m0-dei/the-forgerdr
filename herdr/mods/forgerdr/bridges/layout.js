@@ -2,10 +2,12 @@
 // sidebar's width, not a flag, so dragging its edge narrows it too, and folding keeps the width it had in the same shared
 // keys the app's mods read.
 import { layout, run, setShared, settings, shared } from "herdr";
+import { PANEL_MAXIMIZED, wantsMaximized } from "../sessions.js";
 
 /**
- * @typedef {{ id?: string, active?: string, hidden?: boolean, size?: { px?: number }, children?: LayoutNode[] }} LayoutNode
+ * @typedef {{ id?: string, type?: string, active?: string, hidden?: boolean, size?: { px?: number }, content?: unknown, children?: LayoutNode[] }} LayoutNode
  */
+/** @typedef {import("../sessions.js").SidePanel} SidePanel */
 
 const SIDEBAR = Object.freeze({ id: "sidebar", rail: 44, width: 268 });
 
@@ -13,25 +15,29 @@ const SIDEBAR = Object.freeze({ id: "sidebar", rail: 44, width: 268 });
 export const RAIL = 160;
 
 /**
+ * A node of a layout's tree, by id.
  * @param {LayoutNode | undefined} node
  * @param {string} id
  * @returns {LayoutNode | undefined}
  */
-const find = (node, id) =>
+export const nodeIn = (node, id) =>
   node?.id === id
     ? node
     : (node?.children ?? []).reduce(
-        (found, child) => found ?? find(child, id),
+        (found, child) => found ?? nodeIn(child, id),
         undefined,
       );
+
+/** The shown layout, with its clicks: read it once for several of its nodes. */
+export const shownLayout = () =>
+  // The app documents layout() as unknown; it is the shown layout's JSON, a tree of nodes with ids.
+  /** @type {LayoutNode} */ (layout());
 
 /**
  * A node of the shown layout, by id: its size, whether it is hidden, the child a stack shows.
  * @param {string} id
  */
-export const layoutNode = (id) =>
-  // The app documents layout() as unknown; it is the shown layout's JSON, a tree of nodes with ids.
-  find(/** @type {LayoutNode} */ (layout()), id);
+export const layoutNode = (id) => nodeIn(shownLayout(), id);
 
 /** The side panels the human keeps on the session bar (the app's welcome and settings set them). */
 export const enabledPanels = () =>
@@ -51,32 +57,55 @@ export const zoomOf = () => {
   return typeof zoom === "number" ? zoom : 1;
 };
 
-// The side panel (Files, Changes) and the panes beside it; the width the panel had before it took the panes' place.
+// The side panel (the IDE, Changes) and the panes beside it; the width the panel had before it took the panes' place.
 const PANEL = Object.freeze({
   body: "panel-body",
-  changes: "changes",
   id: "panel",
   key: "forgerdr.panel.width",
-  maximized: "forgerdr.changes.maximized",
   panes: "work-view",
   width: 368,
 });
 
-/** Whether the Changes panel is the side panel on show. */
-export const changesShowing = () =>
-  layoutNode(PANEL.id)?.hidden !== true &&
-  layoutNode(PANEL.body)?.active === PANEL.changes;
+/**
+ * The side panel on show, by its block's id; null with none, or in a layout without one.
+ * @param {LayoutNode} [tree] the shown layout, when it was read already
+ * @returns {string | null}
+ */
+export const panelOnShow = (tree = shownLayout()) => {
+  const panel = nodeIn(tree, PANEL.id);
+  return panel === undefined || panel.hidden
+    ? null
+    : (nodeIn(tree, PANEL.body)?.active ?? null);
+};
 
 /**
- * Whether the human wants the Changes panel in the panes' place whenever it shows: kept through the panel shutting and
- * the app restarting, until they say otherwise.
+ * Whether the human wants a side panel in the panes' place whenever it shows, each panel as they last said for it (the
+ * IDE until they say, Changes not): kept through the panel shutting and the app restarting.
+ * @param {string | null} panel
  */
-export const changesMaximized = () => shared(PANEL.maximized) === true;
+export const panelWantsMaximized = (panel) => wantsMaximized(panel, shared);
 
-/** Keeps how the human wants the Changes panel, and shows it so. @param {boolean} on */
-export const keepChangesMaximized = (on) => {
-  setShared(PANEL.maximized, on);
+/**
+ * Keeps how the human wants a side panel, and shows it so.
+ * @param {SidePanel} panel
+ * @param {boolean} on
+ */
+export const keepPanelMaximized = (panel, on) => {
+  setShared(PANEL_MAXIMIZED[panel].key, on);
   maximizePanel(on);
+};
+
+/** Shuts the side panel; its switch on the session bar shows it again. */
+export const hidePanel = () => run("layout.hide", { id: PANEL.id });
+
+/** @param {string | null} id the side panel to show, by its block's id; null to shut it */
+export const showPanel = (id) => {
+  if (id === null) {
+    hidePanel();
+    return;
+  }
+  run("layout.select", { child: id, stack: PANEL.body });
+  run("layout.show", { id: PANEL.id });
 };
 
 /** Whether the side panel takes the panes' place too. */
