@@ -1,6 +1,6 @@
 // The shown forge's session bar (design 04): a tab per session of the open space, with the icon of what runs in it (a
 // golem for an agent, a terminal for a shell, a server for anything else, the view's own for a special session's view)
-// in the colour of what its golem does; then the tab that opens a session, the switches of the side panels (Files,
+// in the colour of what its golem does; then the tab that opens a session, the switches of the side panels (IDE,
 // Changes) and the controls that split and zoom the focused pane. A tab does what the app's own tab bar does: a click
 // shows it, a double click renames it, a right click opens the app's tab menu, its ✕ closes it and dragging it onto
 // another reorders the tabs. When the tabs do not fit, the strip scrolls under the trackpad and arrows on its sides bring
@@ -21,19 +21,23 @@ import {
 import {
   followChanges,
   readChanges,
+  readChangesAsk,
   readComments,
 } from "../bridges/changes.js";
 import { readFolders, readSpacesGit } from "../bridges/git.js";
 import { lanesOpen } from "../bridges/lanes.js";
 import {
-  changesMaximized,
   enabledPanels,
   layoutNode,
   maximizePanel,
+  panelOnShow,
+  panelWantsMaximized,
+  showPanel,
 } from "../bridges/layout.js";
 import { readAgents, readTerminals } from "../bridges/terminals.js";
 import { commentsIn, shownForge, summaryOf } from "../changes.js";
 import { lanesSpacesOf } from "../forges.js";
+import { IDE_LABEL } from "../ide.js";
 import { control } from "../kit/control.js";
 import { ICON, icon, iconButton } from "../kit/sprites.js";
 import {
@@ -46,7 +50,12 @@ import {
 } from "../kit/tabs.js";
 import { tokens, toneOf } from "../kit/tokens.js";
 import { forgeLanes, lanesHeight } from "../lanes.js";
-import { programKind, specialTabLook, tabLabel } from "../sessions.js";
+import {
+  programKind,
+  SIDE_PANEL,
+  specialTabLook,
+  tabLabel,
+} from "../sessions.js";
 import { arrowsOf, scrollTarget, stripState, wheeled } from "../strip.js";
 
 /** @typedef {import("herdr").SpaceInfo} SpaceInfo */
@@ -66,8 +75,8 @@ const PROGRAM_ICON = {
 };
 
 const PANELS = Object.freeze([
-  { id: "files", label: "Files" },
-  { id: "changes", label: "Changes" },
+  { id: SIDE_PANEL.ide, label: IDE_LABEL.panel },
+  { id: SIDE_PANEL.changes, label: "Changes" },
 ]);
 
 // The layout's nodes this bar works: the side panel and its stack, the stack that shows the panes or the empty state,
@@ -91,9 +100,6 @@ const NEW_MENU = Object.freeze({
 });
 
 const PANELS_KEY = "panels";
-
-// The side panel that can take the panes' place (its own switch: roles/changes.js).
-const MAXIMIZED = "changes";
 
 const ADD_TAB = "session-add";
 
@@ -121,16 +127,6 @@ const savePanels = (panels) => {
   } catch {
     // Storage is away: the bar remembers for this run only.
   }
-};
-
-/** @param {string | null} id the side panel to show, null to hide it */
-const showPanel = (id) => {
-  if (id === null) {
-    run("layout.hide", { id: NODE.panel });
-    return;
-  }
-  run("layout.select", { child: id, stack: NODE.panelBody });
-  run("layout.show", { id: NODE.panel });
 };
 
 /**
@@ -165,9 +161,10 @@ export const sessions = (cx) => {
     const now = panel.hidden
       ? null
       : (layoutNode(NODE.panelBody)?.active ?? null);
-    // Only the Changes panel takes the panes' place, when the human keeps it so: once it is shut or another shows, the
-    // panes come back, and it takes their place again the next time it shows.
-    maximizePanel(now === MAXIMIZED && changesMaximized());
+    // A side panel takes the panes' place as the human keeps it, each its own way (its switch: roles/changes.js,
+    // roles/ide.js): once it is shut, or one kept beside them shows, the panes come back, and it takes their place again
+    // the next time it shows.
+    maximizePanel(panelWantsMaximized(now));
     if (space.id !== syncedSpace) {
       const first = syncedSpace === undefined;
       syncedSpace = space.id;
@@ -226,12 +223,16 @@ export const sessions = (cx) => {
   const forgeNow = () => shownForge(spaces(), readSpacesGit(), readFolders());
   const following = checking() ? null : followChanges(cx, forgeNow);
   let followed = "";
-  // Another forge shown, or its repositories known at last: read now, not at the next poll.
+  let asked = readChangesAsk();
+  // Another forge shown, its repositories known at last, or another read asked for (the IDE panel's Try again): read
+  // now, not at the next poll.
   const syncChanges = () => {
     const forge = forgeNow();
     const now = forge === null ? "" : `${forge.key}\n${forge.repos.join("\n")}`;
-    if (now === followed) return;
+    const ask = readChangesAsk();
+    if (now === followed && ask === asked) return;
     followed = now;
+    asked = ask;
     following?.wake();
   };
 
@@ -389,11 +390,7 @@ export const sessions = (cx) => {
     const terminals = readTerminals();
     const everyAgent = readAgents();
     const pane = focused()?.pane ?? null;
-    const panel = layoutNode(NODE.panel);
-    const showing =
-      panel === undefined || panel.hidden
-        ? null
-        : (layoutNode(NODE.panelBody)?.active ?? null);
+    const showing = panelOnShow();
     const kept = enabledPanels();
     const read = readChanges();
     const forge = forgeNow();

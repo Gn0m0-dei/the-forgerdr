@@ -130,11 +130,51 @@
                       "active": "files",
                       "children": [
                         {
-                          "content": {
-                            "mod": "files"
-                          },
+                          "children": [
+                            {
+                              "content": {
+                                "mod": "forgerdr",
+                                "props": {
+                                  "role": "ide"
+                                }
+                              },
+                              "id": "ide-head",
+                              "size": {
+                                "px": 60
+                              },
+                              "type": "block"
+                            },
+                            {
+                              "active": "ide-term",
+                              "children": [
+                                {
+                                  "content": {
+                                    "mod": "forgerdr",
+                                    "props": {
+                                      "role": "ide-empty"
+                                    }
+                                  },
+                                  "id": "ide-term",
+                                  "type": "block"
+                                },
+                                {
+                                  "content": {
+                                    "mod": "forgerdr",
+                                    "props": {
+                                      "role": "ide-markdown"
+                                    }
+                                  },
+                                  "id": "ide-markdown",
+                                  "type": "block"
+                                }
+                              ],
+                              "id": "ide-view",
+                              "type": "stack"
+                            }
+                          ],
                           "id": "files",
-                          "type": "block"
+                          "resizable": false,
+                          "type": "column"
                         },
                         {
                           "content": {

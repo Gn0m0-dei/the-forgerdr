@@ -10,6 +10,10 @@ import { forgeMenu } from "./roles/forge-menu.js";
 import { gallery } from "./roles/gallery.js";
 import { gnomeDialog } from "./roles/gnome.js";
 import { heat } from "./roles/heat.js";
+import { ide } from "./roles/ide.js";
+import { ideEmpty } from "./roles/ide-empty.js";
+import { ideLeave } from "./roles/ide-leave.js";
+import { ideMarkdown } from "./roles/ide-markdown.js";
 import { inbox } from "./roles/inbox.js";
 import { lanes } from "./roles/lanes.js";
 import { manual } from "./roles/manual.js";
@@ -45,6 +49,10 @@ const ROLES = {
   gallery,
   gnome: gnomeDialog,
   heat,
+  ide,
+  "ide-empty": ideEmpty,
+  "ide-leave": ideLeave,
+  "ide-markdown": ideMarkdown,
   inbox,
   lanes,
   manual,

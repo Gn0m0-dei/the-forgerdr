@@ -30,6 +30,7 @@ import {
   readSpacesGit,
 } from "../bridges/git.js";
 import { readGnomes } from "../bridges/gnomes.js";
+import { publishEditors } from "../bridges/ide.js";
 import { foldSidebar, RAIL } from "../bridges/layout.js";
 import { readNames } from "../bridges/names.js";
 import { placeOf } from "../bridges/places.js";
@@ -152,21 +153,21 @@ const clickable = (element, id, action) =>
  * worktree dialogs).
  * @param {NativeElement} element
  * @param {string} id
- * @param {string} spaceId
- * @param {(spaceId: string) => void} menu
+ * @param {SpaceInfo} space
+ * @param {(space: SpaceInfo) => void} menu
  */
-const spaceRow = (element, id, spaceId, menu) =>
+const spaceRow = (element, id, space, menu) =>
   element
     .id(id)
     .cursor_pointer()
     .on_mouse_down("right", (_event, cx) => {
       cx.stop_propagation();
-      menu(spaceId);
+      menu(space);
     })
     .on_click((event) =>
       event.click_count === 2
-        ? run("space.rename", { id: spaceId })
-        : run("space.select", { id: spaceId }),
+        ? run("space.rename", { id: space.id })
+        : run("space.select", { id: space.id }),
     );
 
 /**
@@ -431,6 +432,8 @@ export const sidebar = (cx) => {
     }
   };
 
+  // The editors a row's menu opens its folder in, told once (bridges/ide.js).
+  if (!checking()) cx.spawn(() => publishEditors());
   const task = checking()
     ? null
     : cx.spawn(async (cx) => {
@@ -615,17 +618,27 @@ export const sidebar = (cx) => {
 
     const shown = forge.spaces.find((space) => space.active) ?? forge.main;
     /**
-     * The forge's menu on one of its spaces; its Rename renames that space, as the app's space menu does on a row.
-     * @param {string} spaceId
+     * The forge's menu on the row of one of its spaces; its Rename renames that space, as the app's space menu does on a
+     * row, and on this machine it opens the row's folder in the editors installed: a checkout's or a submodule's top, a
+     * repository's folder, else where the space is.
+     * @param {SpaceInfo} space
+     * @param {string} [path] the row's folder, when it is not the space's own
+     * @param {boolean} [unopened] the row is a repository with no space open, the space the forge's shown one
      */
-    const menuOn = (spaceId) =>
+    const menuOn = (
+      space,
+      path = git[space.id]?.top ?? placeOf(space),
+      unopened = false,
+    ) =>
       openForgeMenu({
         forge: forge.main.name,
         key,
         main: forge.main.id,
         name,
-        rename: spaceId,
-        space: spaceId,
+        ...(space.machine === null ? { path } : {}),
+        rename: space.id,
+        space: space.id,
+        ...(unopened ? { unopened } : {}),
       });
     const startWork = () => openStart(forge, shown);
     // The forge's indexing, under its gnome's name: none on another machine or before it is read; a click on "not
@@ -732,7 +745,7 @@ export const sidebar = (cx) => {
             sync: placeGitOf ? syncOf(placeGitOf) : undefined,
           }),
           `space-${space.id}`,
-          space.id,
+          space,
           menuOn,
         ),
         ...golemsIn(space),
@@ -746,7 +759,7 @@ export const sidebar = (cx) => {
           spaceRow(
             submoduleRow(name, space.active),
             `space-${space.id}`,
-            space.id,
+            space,
             menuOn,
           ),
         )
@@ -778,12 +791,7 @@ export const sidebar = (cx) => {
       // Each space outside git has its row (a folder open twice has two); one git has not answered for yet keeps its
       // branch's row, as the app tells it.
       const head = tree.roots.flatMap((space) => [
-        spaceRow(
-          repoRow(space.name),
-          `forge-root-${space.id}`,
-          space.id,
-          menuOn,
-        ),
+        spaceRow(repoRow(space.name), `forge-root-${space.id}`, space, menuOn),
         ...(git[space.id] === undefined &&
         space.branch !== null &&
         space.branch !== undefined
@@ -803,8 +811,8 @@ export const sidebar = (cx) => {
               ),
             ),
             "forge-repo",
-            forge.main.id,
-            menuOn,
+            forge.main,
+            (main) => menuOn(main, repo.path),
           ),
           ...repoRows(repo),
         ]);
@@ -830,7 +838,8 @@ export const sidebar = (cx) => {
                 .cursor_pointer()
                 .on_mouse_down("right", (_event, cx) => {
                   cx.stop_propagation();
-                  if (first !== undefined) menuOn(first.space.id);
+                  if (first === undefined) menuOn(shown, repo.path, true);
+                  else menuOn(first.space, repo.path);
                 })
                 .on_click(show),
             )

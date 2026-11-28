@@ -48,4 +48,4 @@ Spec mode `openspec`: an agent on a work item URL creates its change, `<id>-<slu
 
 ## 5. Report
 
-One line per worktree: item, repository, branch, path, space id, port. Then what was left for the user (services on the main clone, repositories without a dev command, copied changes). `mem_save` the mapping item → branch → worktree path with the memory project key. A worktree goes, when the user asks, with `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`. It refuses uncommitted work, a submodule's too, and a submodule's commits no remote has.
+One line per worktree: item, repository, branch, path, space id, port. Then what was left for the user (services on the main clone, repositories without a dev command, copied changes). `mem_save` the mapping item → branch → worktree path with the memory project key. A worktree goes, when the user asks, with `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`. It refuses uncommitted work, a submodule's too, a submodule's commits no remote has, and unsaved files in the IDE's ttt open on it.

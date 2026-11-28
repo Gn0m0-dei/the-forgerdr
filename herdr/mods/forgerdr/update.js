@@ -1,6 +1,6 @@
 // What bin/forge-update.sh says of forgerdr's next release, as the status bar's chip and the gnome's notice (design 10b)
-// read it: whether one is offered, under way, failed or just applied, and when to look again. Pure: Node tests it
-// (test/herdr-mod.test.mjs).
+// read it: whether one is offered, under way, failed or just applied, when to look again, and what the apply's
+// install.sh --update said of each piece. Pure: Node tests it (test/herdr-mod.test.mjs).
 
 export const UPDATE_PHASE = Object.freeze({
   applied: "applied",
@@ -12,6 +12,28 @@ export const UPDATE_PHASE = Object.freeze({
 
 /** @typedef {typeof UPDATE_PHASE[keyof typeof UPDATE_PHASE]} UpdatePhase */
 
+// What install.sh --update says of a piece: left as it was, its look refreshed, installed, updated to what forgerdr
+// needs, removed on purpose (uninstall.sh), missing (it needs the person's password or another piece) or failed.
+export const PIECE_RESULT = Object.freeze({
+  failed: "failed",
+  here: "here",
+  installed: "installed",
+  missing: "missing",
+  refreshed: "refreshed",
+  removed: "removed",
+  updated: "updated",
+});
+
+/** @typedef {typeof PIECE_RESULT[keyof typeof PIECE_RESULT]} PieceResult */
+
+/**
+ * A line install.sh --update printed, as forge-update.sh keeps it.
+ * @typedef {object} PieceSaid
+ * @property {string} piece install.sh's id of the piece
+ * @property {PieceResult} result
+ * @property {string} detail why, for missing, failed and removed; empty otherwise
+ */
+
 /**
  * The state forge-update.sh keeps (state.json).
  * @typedef {object} UpdateState
@@ -21,7 +43,35 @@ export const UPDATE_PHASE = Object.freeze({
  * @property {number | null} applying when the apply under way started, in ms
  * @property {string | null} applied the version the last apply installed
  * @property {string | null} error why the last apply failed
+ * @property {string | null} step the piece install.sh --update said last while the apply runs: the one just checked
+ * @property {PieceSaid[]} pieces what it said of each piece in the last apply, in its order
  */
+
+// Each piece's name, as install.sh's name() prints it, for every piece of its PIECES (a test holds them together).
+/** @type {Readonly<Record<string, string>>} */
+export const PIECE_NAME = Object.freeze({
+  az: "Azure CLI (az)",
+  azdo: "azdo plugin",
+  "codebase-memory": "codebase-memory-mcp",
+  devops: "azure-devops extension",
+  engram: "engram",
+  font: "Maple Mono NF font",
+  forgerdr: "forgerdr plugin",
+  gh: "GitHub CLI (gh)",
+  glab: "GitLab CLI (glab)",
+  jq: "jq",
+  look: "forgerdr look in herdr",
+  node: "Node.js + npm",
+  openspec: "OpenSpec CLI",
+  path: "~/.local/bin on PATH",
+  pnpm: "pnpm",
+  statusline: "forgerdr status line",
+  ttt: "ttt (the IDE panel's editor)",
+});
+
+// The details install.sh --update gives that mean something here: a piece left missing because installing it asks for
+// the person's password (a test holds it to install.sh's).
+export const PIECE_DETAIL = Object.freeze({ password: "needs your password" });
 
 const MINUTE = 60_000;
 
@@ -54,6 +104,47 @@ const versionOrNull = (value) =>
   typeof value === "string" && VERSION.test(value) ? value : null;
 
 /**
+ * A piece's name; one install.sh names after this mod was made, by its id, as install.sh does.
+ * @param {string} piece
+ */
+export const pieceName = (piece) =>
+  Object.hasOwn(PIECE_NAME, piece) ? PIECE_NAME[piece] : piece;
+
+/** @type {ReadonlySet<string>} */
+const RESULTS = new Set(Object.values(PIECE_RESULT));
+
+/**
+ * @param {unknown} value
+ * @returns {value is PieceSaid}
+ */
+const isPieceSaid = (value) => {
+  if (value === null || typeof value !== "object" || Array.isArray(value))
+    return false;
+  /** @type {Record<string, unknown>} */
+  const fields = Object.fromEntries(Object.entries(value));
+  const { piece, result, detail } = fields;
+  return (
+    typeof piece === "string" &&
+    piece !== "" &&
+    typeof result === "string" &&
+    RESULTS.has(result) &&
+    typeof detail === "string"
+  );
+};
+
+/**
+ * The pieces in their shape, each copied with only its own fields; the rest dropped.
+ * @param {unknown} value
+ * @returns {PieceSaid[]}
+ */
+const piecesOf = (value) =>
+  Array.isArray(value)
+    ? value
+        .filter(isPieceSaid)
+        .map(({ detail, piece, result }) => ({ detail, piece, result }))
+    : [];
+
+/**
  * The state as forge-update.sh wrote it; null when it is not in its shape.
  * @param {string} text state.json
  * @returns {UpdateState | null}
@@ -70,7 +161,8 @@ export const parseUpdate = (text) => {
     return null;
   /** @type {Record<string, unknown>} */
   const fields = Object.fromEntries(Object.entries(read));
-  const { installed, latest, checked, applying, applied, error } = fields;
+  const { installed, latest, checked, applying, applied, error, step, pieces } =
+    fields;
   const known =
     versionOrNull(installed) !== null &&
     versionOrNull(latest) !== null &&
@@ -86,8 +178,57 @@ export const parseUpdate = (text) => {
         error: typeof error === "string" ? error : null,
         installed: String(installed),
         latest: String(latest),
+        pieces: piecesOf(pieces),
+        step: typeof step === "string" && step !== "" ? step : null,
       }
     : null;
+};
+
+/**
+ * A piece named with why it went as it did.
+ * @typedef {object} PieceWhy
+ * @property {string} name
+ * @property {string} why
+ */
+
+/**
+ * What the pieces of an apply went through, each list in install.sh's order; the pieces left as they were are not in it.
+ * @typedef {object} PiecesSummary
+ * @property {string[]} updated
+ * @property {string[]} installed
+ * @property {string[]} refreshed
+ * @property {PieceWhy[]} missing
+ * @property {PieceWhy[]} failed
+ * @property {string[]} removed
+ * @property {boolean} password whether a piece is missing only because installing it asks for the person's password
+ */
+
+/**
+ * @param {PieceSaid[]} pieces
+ * @returns {PiecesSummary}
+ */
+export const piecesSummary = (pieces) => {
+  const by = Object.groupBy(pieces, ({ result }) => result);
+  /** @param {PieceResult} result */
+  const names = (result) =>
+    (by[result] ?? []).map(({ piece }) => pieceName(piece));
+  /** @param {PieceResult} result */
+  const reasons = (result) =>
+    (by[result] ?? []).map(({ detail, piece }) => ({
+      name: pieceName(piece),
+      why: detail,
+    }));
+  return {
+    failed: reasons(PIECE_RESULT.failed),
+    installed: names(PIECE_RESULT.installed),
+    missing: reasons(PIECE_RESULT.missing),
+    password: (by[PIECE_RESULT.missing] ?? []).some(
+      ({ detail }) => detail === PIECE_DETAIL.password,
+    ),
+    refreshed: names(PIECE_RESULT.refreshed),
+    removed: names(PIECE_RESULT.removed),
+    updated: names(PIECE_RESULT.updated),
+  };
 };
 
 /**

@@ -142,6 +142,41 @@ expect "SessionEnd sweep runs detached and removes a clean worktree" no "$(exist
 
 expect "outside the herdr app nothing is asked of it" no "$(called herdr-app)"
 
+# A worktree whose IDE ttt (bin/forge-ide.sh) holds unsaved files, or whose ttt's state cannot be read, stays, and the
+# hook says why; its ttt is stopped before git removes the folder under it, and only then.
+ide_state="$XDG_STATE_HOME/forgerdr/ide"
+mkdir -p "$ide_state"
+# A worktree's ttt live with this state ("" for none).
+held_by_ttt() {
+  ttt="$(bash "$root/bin/forge-ide.sh" name "$1")"
+  fake_terminal "$ttt" live
+  rm -f "$ide_state/$ttt.json"
+  [ -z "$2" ] || printf '%s\n' "$2" > "$ide_state/$ttt.json"
+  fakes_reset
+}
+held="$(create held "$repo")"
+held_by_ttt "$held" "{\"checkout\":\"$held\",\"active\":null,\"unsaved\":[\"$held/notes.md\"]}"
+expect "remove keeps a worktree whose ttt holds unsaved files" 1 "$(remove "$held" >/dev/null 2>"$sandbox/held.err"; echo $?)"
+expect "naming them, and saying it stays" "yes yes" \
+  "$(grep -qF "$held/notes.md" "$sandbox/held.err" && echo yes || echo no) $(grep -qF "left $held in place" "$sandbox/held.err" && echo yes || echo no)"
+expect "its ttt, the worktree and its branch stay" "no yes + worktree-held" \
+  "$(called hc kill) $(exists "$held") $(git -C "$repo" branch --list worktree-held)"
+held_by_ttt "$held" ""
+expect "so does one whose ttt state cannot be read: nobody can tell what it holds" "1 no yes" \
+  "$(remove "$held" >/dev/null 2>&1; echo $?) $(called hc kill) $(exists "$held")"
+printf '{"checkout":"%s","active":null,"unsaved":[]}\n' "$held" > "$ide_state/$ttt.json"
+expect "its ttt is stopped before git runs: one that will not end keeps the worktree" "1 yes yes" \
+  "$(FAKE_KILL_IGNORED=1 FORGE_READY_TRIES=2 remove "$held" >/dev/null 2>&1; echo $?) $(called hc kill "$ttt") $(exists "$held")"
+fakes_reset
+expect "one whose ttt holds every file saved is removed, its ttt stopped first" "0 yes no" \
+  "$(remove "$held" >/dev/null 2>&1; echo $?) $(called hc kill "$ttt") $(exists "$held")"
+expect "and its ttt's state forgotten" no "$(exists "$ide_state/$ttt.json")"
+swept="$(create swept "$repo" s6)"
+held_by_ttt "$swept" "{\"checkout\":\"$swept\",\"active\":null,\"unsaved\":[\"$swept/notes.md\"]}"
+bash "$hook" sweep-session s6 "$repo" 2>"$sandbox/swept.err"
+expect "sweep keeps a worktree whose ttt holds unsaved files, and says why" "yes no yes" \
+  "$(exists "$swept") $(called hc kill) $(grep -qF "$swept/notes.md" "$sandbox/swept.err" && echo yes || echo no)"
+
 # Inside the herdr app: each worktree opens as a space that does not take the focus, and the space goes with it.
 spaces="$XDG_STATE_HOME/forgerdr/spaces.tsv"
 in_herdr() { HC_TERMINAL_ID=t5 "$@"; }

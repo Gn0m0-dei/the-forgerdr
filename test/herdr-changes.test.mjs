@@ -7,6 +7,7 @@ import {
   changesPrompt,
   checkoutsOf,
   commentsIn,
+  holdsWords,
   layoutRows,
   matchSessions,
   openAtFirst,
@@ -364,6 +365,17 @@ test("the search finds a session by any of its words, whatever their case or acc
   deepStrictEqual(found("feature refunds"), ["t2"]);
   deepStrictEqual(found("develop api"), ["t1"]);
   deepStrictEqual(found("nothing"), []);
+});
+
+test("a text holds a search when it holds every word of it, without accents or case", () => {
+  strictEqual(
+    holdsWords("api · feature/devolución", "  DEVOLUCION api "),
+    true,
+  );
+  strictEqual(holdsWords("api · develop", "api web"), false);
+  strictEqual(holdsWords("anything", ""), true);
+  strictEqual(holdsWords("anything", "   "), true);
+  strictEqual(holdsWords("", "api"), false);
 });
 
 /** @param {string} id @param {object} [more] */

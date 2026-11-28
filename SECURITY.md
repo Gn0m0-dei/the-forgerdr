@@ -13,13 +13,13 @@ session and tool call, bash scripts that drive the herdr app, an installer that 
 binaries on your PATH, and MCP server declarations. The risks live there:
 
 - **Hooks and scripts that do more than they say.** A guard that blocks or allows the wrong command, a script that touches a repository it was not pointed at, a hook that leaks data out of the machine: in scope, treated as a vulnerability.
-- **The installer.** `install.sh` downloads and runs third-party installers (the herdr app with herdr-core, Claude Code, codebase-memory-mcp) and release binaries (engram on Linux). Anything that makes it fetch from an unexpected origin or skip HTTPS is in scope.
+- **The installer.** `install.sh` downloads and runs a third-party installer (codebase-memory-mcp's), installs from Homebrew taps on macOS (engram's, ttt's) and, on Linux, puts release binaries on your PATH (engram, and ttt once its sha256 matches its release's checksums) and the Maple Mono NF font from its release. `Update now` in the herdr app runs the new version's `install.sh --update`, which asks nothing, and the IDE panel's `Install` buttons run a language server's install command in a tab. Anything that makes it fetch from an unexpected origin or skip HTTPS is in scope.
 - **Agents started without you.** `forge-worktree.sh`, `forge-review.sh`, `forge-security.sh`, `forge-session.sh` and the agent dispatch hook start Claude Code in new herdr app tabs, spaces and terminals and accept its folder-trust prompt for the clones and worktrees of repositories you already have. Anything that widens what those agents can reach, or starts them somewhere you did not ask, is in scope.
 - **Env files.** `forge-worktree.sh` copies your ignored `.env*` files into worktrees of the same repository, on the same machine. Anything that copies them anywhere else, or commits them, is in scope.
 - **Security findings.** `forge-security.sh` keeps each security triage, the audit's findings with the path to each effect, in `~/.local/state/forgerdr/security/` (the folder `700`, the files `600`) for the herdr app's security view. Nothing of the triage reaches the provider but a note on the work item, drafted from a needs-validation finding without an exploit's detail and posted only after its `Gate comment`, and the fixes themselves: their commits and regression tests, which describe what they fix, are pushed with the branch at its push gate. Anything else that sends the findings off the machine, or lets another user read them, is in scope.
 - **Instructions that cause unintended writes.** The skills publish review comments, work item comments, pull requests and state changes only after an explicit yes. A flaw that makes an agent publish, commit, push or change state without that yes is in scope.
 
-Out of scope: vulnerabilities in herdr, Claude Code, engram, codebase-memory-mcp, the provider CLIs or the agents themselves; report those to their maintainers.
+Out of scope: vulnerabilities in herdr, Claude Code, engram, codebase-memory-mcp, ttt, the language servers, the provider CLIs or the agents themselves; report those to their maintainers.
 
 ## Running it safely
 

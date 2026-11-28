@@ -49,4 +49,4 @@ Spec mode `azure` with azdospec installed: the pull request is azdospec's (`/azd
 
 ## 8. Worktree
 
-A worktree stays, with its herdr space, until the pull request merges unless the user asks: then `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`, which closes its space and keeps the branch, and refuses while a submodule holds uncommitted files or commits no remote has. `mem_save` the pull request, the branch and what is pending.
+A worktree stays, with its herdr space, until the pull request merges unless the user asks: then `"${CLAUDE_PLUGIN_ROOT}/bin/forge-worktree-remove.sh" <path>`, which closes its space and keeps the branch, and refuses while a submodule holds uncommitted files or commits no remote has, or while the IDE's ttt open on it holds unsaved files. `mem_save` the pull request, the branch and what is pending.

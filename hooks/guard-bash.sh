@@ -45,7 +45,7 @@ git_option='([[:space:]]+(-[A-Za-z]|--[a-z-]+)(=|[[:space:]]+)?([^[:space:]"'"'"
 # Inside the herdr app a worktree's space closes before the worktree goes; git alone leaves the space open on a folder
 # that is gone.
 if [ -n "${HC_TERMINAL_ID:-}" ] && printf '%s' "$command_text" | grep -Eq '(^|[[:space:];&|(`/])git'"$git_option"'[[:space:]]+worktree[[:space:]]+remove([[:space:]]|$)'; then
-  deny "Inside the herdr app, remove a worktree with ${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/bin/forge-worktree-remove.sh <path>: it closes the worktree's herdr space first, which git alone leaves open, and keeps the branch. It refuses uncommitted work; --force throws it away, so ask the user first."
+  deny "Inside the herdr app, remove a worktree with ${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}/bin/forge-worktree-remove.sh <path>: it closes the worktree's herdr space first, which git alone leaves open, and keeps the branch. It refuses uncommitted work and a worktree whose IDE ttt holds unsaved files; --discard or --force throw them away, so ask the user first."
 fi
 
 trigger='(^|[[:space:];&|(`/])(git'"$git_option"'[[:space:]]+commit|gh[[:space:]]+pr[[:space:]]+(create|edit)|az[[:space:]]+repos[[:space:]]+pr[[:space:]]+(create|update)|glab[[:space:]]+mr[[:space:]]+(create|update))([[:space:]]|$)'

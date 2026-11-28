@@ -2,7 +2,8 @@
 // bin/forge-changes.sh (its format is tested from bash, test/changes.test.sh); the human's comments, in a file only this
 // module writes, so they outlive the panel, the space shown and the app until they are sent; and both published to
 // every copy through shared state. The session bar's copy follows the forge (it always shows), so the Changes button
-// tells of changes with the panel shut; the panel's copy reads what it publishes.
+// tells of changes with the panel shut; the panel's copy reads what it publishes, the IDE panel the checkouts too, why
+// the last read failed, and asks for another read.
 import {
   exec,
   home,
@@ -26,7 +27,9 @@ const SCRIPT = `${ROOT}/bin/forge-changes.sh`;
 const TIMEOUT = Object.freeze({ diff: 30_000, tree: 60_000 });
 
 const KEY = Object.freeze({
+  ask: "forgerdr.changes.ask",
   comments: "forgerdr.changes.comments",
+  failure: "forgerdr.changes.failure",
   tree: "forgerdr.changes",
 });
 
@@ -72,6 +75,31 @@ const publishChanges = (value) => setShared(KEY.tree, value);
 /** @param {TreeRepo[]} tree whether it is what the forge last published */
 const sameTree = (tree) =>
   JSON.stringify(tree) === JSON.stringify(readChanges()?.tree ?? null);
+
+/**
+ * Why the session bar's copy could not read a forge the last time it tried; it reads it again on its own clock.
+ * @typedef {{ forge: string, why: string }} ForgeFailure
+ */
+
+/** @returns {ForgeFailure | null} null while the last read went well */
+export const readChangesFailure = () =>
+  // Only publishFailure writes the key, always as a ForgeFailure or null.
+  /** @type {ForgeFailure | null} */ (shared(KEY.failure)) ?? null;
+
+/** @param {ForgeFailure | null} failure */
+const publishFailure = (failure) => {
+  if (JSON.stringify(failure) !== JSON.stringify(readChangesFailure()))
+    setShared(KEY.failure, failure);
+};
+
+/** Asks the session bar's copy to read the shown forge again now, not on its clock. */
+export const askChanges = () => setShared(KEY.ask, Date.now());
+
+/** @returns {number} when a read was last asked for; 0 before any */
+export const readChangesAsk = () => {
+  const at = shared(KEY.ask);
+  return typeof at === "number" ? at : 0;
+};
 
 /** @returns {ChangeComment[]} */
 export const readComments = () =>
@@ -189,9 +217,12 @@ export const followChanges = (cx, forgeNow) => {
             !sameTree(tree)
           )
             publishChanges({ at: Date.now(), forge: forge.key, tree });
+          publishFailure(null);
         }
       } catch (error) {
         console.error("forgerdr: the forge's changes could not be read", error);
+        if (forge !== null)
+          publishFailure({ forge: forge.key, why: String(error) });
       }
       const took = Date.now() - started;
       const watches = checkoutsOf(tree)

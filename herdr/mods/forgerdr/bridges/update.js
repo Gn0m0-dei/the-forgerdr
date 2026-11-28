@@ -1,9 +1,10 @@
 // What bin/forge-update.sh keeps in ~/.local/state/forgerdr/update (state.json and the release notes, notes.md), read
-// again on every change in the folder, and the script run to look for a release or to apply it. The format is tested
-// from bash (test/update.test.sh) and its reading from Node (test/herdr-mod.test.mjs).
-import { exec, home, readTextFile } from "herdr";
+// again on every change in the folder, the script run to look for a release or to apply it, and the plugin's installer
+// opened in a tab to finish what an apply left needing the person's password. The format is tested from bash
+// (test/update.test.sh) and its reading from Node (test/herdr-mod.test.mjs).
+import { exec, home, readTextFile, run } from "herdr";
 import { ROOT } from "../name.js";
-import { parseUpdate, UPDATE_TIMING } from "../update.js";
+import { parseUpdate } from "../update.js";
 import { followFolder } from "./follow.js";
 
 /** @typedef {import("gpui-kit").AsyncContext} AsyncContext */
@@ -19,11 +20,21 @@ import { followFolder } from "./follow.js";
 
 const SCRIPT = `${ROOT}/bin/forge-update.sh`;
 
-// How long each command may take: a look is two small requests; an apply, as long as it may run before it counts as
-// dead.
-const TIMEOUT = Object.freeze({ apply: UPDATE_TIMING.stuck, check: 60_000 });
+// The plugin's install.sh in a tab of its own, where it asks for the password that the apply's install.sh --update never
+// asks for.
+const FINISH = Object.freeze({
+  argv: ["bash", `${ROOT}/install.sh`],
+  name: "forgerdr install",
+});
 
-/** @typedef {keyof typeof TIMEOUT} UpdateCommand */
+// What the script is told for each command, and how long it may take: a look is two small requests; an apply returns
+// once it is under way and goes on detached, past herdr's longest exec.
+const COMMAND = Object.freeze({
+  apply: Object.freeze({ args: ["apply", "--detach"], timeout: 30_000 }),
+  check: Object.freeze({ args: ["check"], timeout: 60_000 }),
+});
+
+/** @typedef {keyof typeof COMMAND} UpdateCommand */
 
 // forge: the default folder only; a mod cannot read XDG_STATE_HOME or FORGE_UPDATE_DIR, which the script honours.
 const folder = () => `${home()}/.local/state/forgerdr/update`;
@@ -77,14 +88,13 @@ export const followUpdate = (cx, take) =>
 
 /**
  * Runs the script, resolving whether it succeeded; what it finds lands in the folder, so a failure is only logged here.
- * The process outlives the copy that started it (an apply replaces this mod mid-run), so nothing else waits on it.
+ * An apply goes on by itself once under way, outliving the copy that started it (it replaces this mod mid-run).
  * @param {UpdateCommand} command
  * @returns {Promise<boolean>}
  */
-const run = async (command) => {
-  const result = await exec("bash", [SCRIPT, command], {
-    timeout: TIMEOUT[command],
-  });
+const runScript = async (command) => {
+  const { args, timeout } = COMMAND[command];
+  const result = await exec("bash", [SCRIPT, ...args], { timeout });
   if (result.code !== 0)
     console.error(
       `forgerdr: forge-update.sh ${command}: ${result.stderr.trim() || `exit ${result.code}`}`,
@@ -92,5 +102,6 @@ const run = async (command) => {
   return result.code === 0;
 };
 
-export const checkUpdate = () => run("check");
-export const applyUpdate = () => run("apply");
+export const checkUpdate = () => runScript("check");
+export const applyUpdate = () => runScript("apply");
+export const finishInTab = () => run("tab.new", FINISH);
