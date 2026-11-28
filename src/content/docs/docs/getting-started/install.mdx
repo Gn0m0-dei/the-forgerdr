@@ -32,18 +32,22 @@ On macOS or openSUSE Tumbleweed:
 curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/install.sh | bash
 ```
 
-The installer checks the prerequisites, shows every piece as *here* or *to install*, and asks before it starts. Then it installs what is missing, a line per piece with a spinner meanwhile, and ends with a summary. What is already there is left as it is, so running it again changes nothing.
+The installer checks the prerequisites, shows every piece as *here*, *to install* or *to update*, and asks before it starts. Then it installs what is missing and updates what is older than forgerdr needs, a line per piece with a spinner meanwhile, and ends with a summary. What is already there is left as it is, so running it again changes nothing.
 
 The pieces it brings:
 
-- **The tools:** jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI and the Maple Mono NF font the forgerdr layout uses. `~/.local/bin` is put on the PATH in your shell's rc when it was not there.
+- **The tools:** jq, node, pnpm, `az` with the azure-devops extension, `gh`, `glab`, the [engram](https://github.com/Gentleman-Programming/engram) binary, the [codebase-memory-mcp](https://github.com/DeusData/codebase-memory-mcp) binary, the [OpenSpec](https://github.com/Fission-AI/OpenSpec) CLI, [ttt](https://github.com/eugenioenko/ttt), the terminal IDE the [IDE panel](../../herdr-app/ide/) runs (1.14.0 or later: from its Homebrew tap on macOS, its release binary on openSUSE once its sha256 matches the release's), and the Maple Mono NF font the forgerdr layout uses. `~/.local/bin` is put on the PATH in your shell's rc when it was not there.
 - **The plugins:** `forgerdr@the-forgerdr` and `azdo@azdospec`, with their marketplaces.
-- **The look in the herdr app:** the layout, the forge-night theme, the mod and the forge's alert sounds, and its status line, brought up to date on every run.
+- **The look in the herdr app:** the layout, the forge-night theme, the mod, the forge's alert sounds and the profile the IDE panel runs ttt with, in `~/.config/forgerdr/ttt` (your own `~/.config/ttt` is never touched), and its status line, brought up to date on every run.
 - **The sign-ins it finds missing:** `az login`, `gh auth login`, `glab auth login`, each asked first.
 
 A piece that fails does not stop the rest: the summary names it, with the last lines it left in the log (`~/.local/state/forgerdr/install.log`, where the commands' own output goes). On openSUSE, sudo is asked once at the start, when zypper needs it. `NO_COLOR` turns the colours off. On another distribution, install the pieces by hand.
 
 Then open the herdr app (`ctrl-shift-l` switches to the forgerdr layout) and start Claude Code in one of its terminals. [`/forgerdr:setup`](../setup/) checks every piece whenever you want.
+
+## Updates
+
+forgerdr updates from the herdr app. The gnome's notice tells when a release is out, and its `Update now` updates the plugin, then runs the new version's `install.sh --update`: no banner and no question, it installs what that version needs and is missing, updates what is older than it needs, and refreshes the look and the status line. What needs your password waits for its `Finish in a tab`, which opens `install.sh` in a tab where you type it. See [updates](../../herdr-app/heat-updates-manual/#updates).
 
 ## Uninstall
 
@@ -52,6 +56,8 @@ curl -fsSL https://raw.githubusercontent.com/Gn0m0-dei/the-forgerdr/main/uninsta
 ```
 
 It lists the pieces on the machine now, a tool you had before among them, and removes only the ones you tick; then it names whatever could not be removed. Claude Code, the herdr app, git and your data stay: `~/.claude`, engram's memories in `~/.engram`, the forgerdr's settings, the app's settings and the sign-ins. `uninstall.sh` runs `install.sh --uninstall`, the one place that knows the pieces.
+
+What you remove stays away when forgerdr updates: it is kept in `~/.local/state/forgerdr/removed.json`, whose pieces `Update now` skips, and `install.sh` run by hand offers it again. A piece removed by forgerdr 0.40.0 or earlier, which kept no such list, comes back like anything missing the first time `Update now` runs `install.sh --update`, or when you run `install.sh`.
 
 ## Other ways in
 

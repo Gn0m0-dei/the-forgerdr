@@ -1,0 +1,66 @@
+---
+title: The IDE panel
+description: A terminal IDE in the app, one per checkout, with go to definition, references and types, and the language servers it needs offered when they are missing.
+---
+
+import { withBase } from "#helpers/url.ts";
+
+`IDE` on the [session bar](../layout/#the-session-bar-and-the-panes) opens the IDE panel, in the place of the herdr app's Files panel. It runs [ttt](https://github.com/eugenioenko/ttt) (MIT), a terminal IDE, inside the app: **go to definition** (F12), **references**, **hover and types** through language servers, its file tree, search and tabs. Where you read the code the agents work on, and change it by hand when that is quicker.
+
+<img src={withBase("screens/19-ide-panel.png")} width="1440" height="900" alt="The IDE panel in the panes' place: the checkout it shows, picked at its top, and ttt open on the function a session just wrote in that worktree." />
+
+## One ttt per checkout
+
+Each checkout gets **a ttt of its own**, started the first time the IDE shows it. It stays alive when you leave it, so its tabs and its cursor are where you left them when you come back. A right click in it opens ttt's own menu (Go to Definition, Find All References…); `Shift` + right click opens the app's.
+
+The panel opens **in the panes' place**, between the sidebar and the inbox, since an IDE needs the room. The button at the right of its head puts it back beside the panes; the choice is kept, apart from the [Changes panel](../changes/)'s, so each opens the way you left it.
+
+## Which checkout it shows
+
+The list at the top of the panel names **every checkout and worktree of the forge**, each with its repository and branch, in the sidebar's order, those of every repository of a [parent folder](../../way-of-working/parent-folders/) among them; type to search it. A git submodule is edited from the checkout that holds it.
+
+The IDE **follows the space on show**: open another worktree and it shows that one's ttt. Once you pick a checkout from the list by hand, it stays on it for that space.
+
+`Rendered`, at the top of the panel while the file open in ttt is markdown, shows that file with the app's own markdown view, and follows it as you save.
+
+## Unsaved files are never lost behind your back
+
+- **Changing the checkout asks nothing.** From the sidebar, the forge tabs, the app's keys or the IDE's list, the ttt you leave stays alive with its unsaved files.
+- **Before a worktree is removed**, a ttt that holds unsaved files lists them in a dialog ahead of [Remove worktree](../start-work/#make-and-remove-a-worktree-by-hand)'s: `Save` saves them all, `Discard` closes that ttt and they are lost, `Cancel` leaves everything as it was. A file ttt asks about as it saves is answered in the IDE, and nothing else happens. A ttt whose state cannot be read asks too, with `Discard` and `Cancel` only.
+- The scripts and hooks that remove worktrees for a session refuse while its ttt holds unsaved files, naming them ([scripts](../../reference/scripts/#worktrees)).
+
+## Language servers
+
+Go to definition and types come from a language server for each language. The IDE looks at the files at the root of the checkout and, when the machine lacks a server they need, says so in a notice under the checkout's name:
+
+| Language | When the checkout has | Server | Its install |
+|---|---|---|---|
+| TypeScript and JavaScript | `package.json` or `tsconfig.json` | `typescript-language-server` | `npm install -g typescript-language-server typescript@6` |
+| Python | `pyproject.toml`, `requirements.txt` or `setup.py` | `pyright` | `npm install -g pyright` |
+| Go | `go.mod` | `gopls` | `go install golang.org/x/tools/gopls@latest`, into `~/.local/bin` |
+| Rust | `Cargo.toml` | `rust-analyzer` | `rustup component add rust-analyzer` |
+| Dockerfile | `Dockerfile` | `docker-langserver` | `npm install -g dockerfile-language-server-nodejs` |
+| Bash | a `.sh` file at the root or in `bin/` | `bash-language-server` | `npm install -g bash-language-server` |
+
+- **Nothing is installed without a click.** Each server has an `INSTALL` button that runs its command in a new tab, in your home folder, where the IDE looks for the servers. When the program that command needs (npm, go, rustup) is missing too, the notice names it instead.
+- `Check again` looks once the install is done, as showing the panel again does.
+- Its ✕ hides what it lists for that checkout; a server it did not list shows again.
+- TypeScript 6 on purpose: TypeScript 7 dropped the tsserver the language server runs. TypeScript's, Rust's and Bash's servers must also answer `--version`, so rustup's `rust-analyzer` without its component counts as missing.
+
+## When ttt is missing
+
+ttt is a piece of the [installer](../../getting-started/install/), and the IDE needs 1.14.0 or later. Without it, the panel says `ttt is not installed`, or that the one there is older than forgerdr needs, with `Install ttt` or `Update ttt`, which runs `install.sh` in a tab, and `Try again` once it is done. When forgerdr's ttt profile is missing (the look was taken away), it offers `Install the profile`; when ttt's version cannot be read, `Open the installer`. A ttt you quit shows `ttt has ended`, with `Open again`.
+
+## Its own profile
+
+ttt runs with a profile of forgerdr's own, in `~/.config/forgerdr/ttt`: the forge-night theme, no menu bar, icons, and its Changes tab last. **Your `~/.config/ttt` is never touched.** The profile is part of forgerdr's look: [`bin/forge-herdr-install.sh`](../../reference/scripts/#the-apps-look) installs and updates it with the rest, and `--remove` takes it away.
+
+## Open in Zed or VS Code
+
+For a longer session in a full editor, the sidebar's right-click menu has `Open in Zed` and `Open in VS Code`, on a repository, a checkout or a worktree. Only the editors installed show.
+
+## Known limits
+
+- An untitled ttt tab is not tracked as unsaved: what is typed in one is lost when its ttt stops.
+- `ctrl-tab`, `ctrl-shift-tab` and `ctrl-1` to `ctrl-9` belong to the app, not to ttt.
+- Ctrl+click on a symbol does not go to its definition: F12 and the right click do.

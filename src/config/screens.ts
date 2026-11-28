@@ -18,6 +18,11 @@ export const SCREENS: Readonly<Record<ScreenId, Screen>> = Object.freeze({
     file: "13-forge-floor.png",
     size: APP,
   },
+  [ScreenId.Ide]: {
+    alt: "The IDE panel in the panes' place: the checkout it shows, picked at its top, and ttt open on the function a session just wrote in that worktree.",
+    file: "19-ide-panel.png",
+    size: APP,
+  },
   [ScreenId.InboxDesign]: {
     alt: "The inbox open on a session's design question, waiting for its approval.",
     file: "05c-inbox-design.png",

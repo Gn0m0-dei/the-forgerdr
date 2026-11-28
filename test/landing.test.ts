@@ -40,10 +40,10 @@ describe("the landing page", () => {
     assert.match(html(), /<button[^>]*data-video-toggle[^>]*>/);
   });
 
-  test("walks the nine steps, each with what you decide", () => {
+  test("walks the ten steps, each with what you decide", () => {
     assert.match(html(), /<section[^>]*id="how-it-works"/);
-    assert.equal(count(html(), /data-step="\d+"/g), 9);
-    assert.equal(count(html(), />You decide</g), 9);
+    assert.equal(count(html(), /data-step="\d+"/g), 10);
+    assert.equal(count(html(), />You decide</g), 10);
   });
 
   test("labels the forge at a glance with six numbered pins", () => {

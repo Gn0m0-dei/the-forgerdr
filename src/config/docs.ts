@@ -27,6 +27,7 @@ export const SIDEBAR: StarlightUserConfig["sidebar"] = [
       "docs/herdr-app/start-work",
       "docs/herdr-app/inbox",
       "docs/herdr-app/floor",
+      "docs/herdr-app/ide",
       "docs/herdr-app/changes",
       "docs/herdr-app/reviews",
       "docs/herdr-app/security-view",

@@ -17,8 +17,10 @@ bin/forge-session.sh   [--cwd PATH] [--no-agent] --group NAME --title TITLE <pro
 bin/forge-worktree-remove.sh [--discard | --force] <path>
 bin/forge-worktree-remove.sh --plan <folder>
 bin/forge-changes.sh    tree <repo>... | diff <folder> | own <folder>
+bin/forge-ide.sh        ensure|name|servers <checkout> | stop [--discard] <checkout> | order <checkout> save | dir
+bin/forge-ide.sh        editors | open zed|code <path>
 bin/forge-setup-keys.sh [--review KEY] [--worktree KEY] [--remove]
-bin/forge-update.sh     check|apply
+bin/forge-update.sh     check | apply [--detach]
 bin/forge-herdr-install.sh [--dev [--watch]] [--remove] [--force] [--switch]
 ```
 
@@ -29,6 +31,7 @@ They print one JSON line per worktree, tab or pull request.
 `forge-worktree.sh` makes each worktree where the app keeps its own (`worktrees.directory` in the app's `settings.json`, `~/.herdr/worktrees` by default), so the app's Open and Remove worktree see them. `forge-worktree-remove.sh` removes one the way the app does: its spaces closed first, its branch kept.
 
 - It refuses uncommitted work and a space where an agent is at work. `--discard` throws the uncommitted work away and still refuses an agent at work; `--force` does both.
+- It refuses too while the worktree's ttt in the [IDE panel](../../herdr-app/ide/) holds unsaved files, naming them, or while that ttt's state cannot be read; `--discard` and `--force` let it go, and the ttt is stopped before git removes the folder.
 - A new worktree gets its git submodules filled, each cloned anew for it; `--no-submodules` skips it. git refuses to remove a worktree with submodules, so the script looks inside each one (its uncommitted files, and its commits no remote has, on a branch, under a tag or in a stash) and forces git only when there is none; `--plan` answers `forced` and names the submodules that hold work.
 - An id alone is completed with the forge's backlog before the item is told external.
 - The ignored env files are copied into a new worktree only where no symlink its branch carries stands in their way, so a branch cannot send them outside the worktree.
@@ -52,9 +55,25 @@ They print one JSON line per worktree, tab or pull request.
 - A file git cannot read (no permission, a pipe, a folder with a repository of its own or one that cannot be entered) is left out with a line `\ forgerdr: not shown: <path>`, and hides no other.
 - `own <folder>` makes the folder the panel keeps its comments in yours alone.
 
+## What the IDE panel runs
+
+`forge-ide.sh` is what the [IDE panel](../../herdr-app/ide/) runs: one ttt per checkout, run by herdr-core as a terminal of its own named after the checkout's path, which lives on until it is stopped. `ensure`, `servers` and `editors` answer in JSON; `name`, `order` and `dir` print one line. Every path must be absolute.
+
+- `name <checkout>` prints the name of the checkout's ttt terminal: `ide-` and a hash of its path.
+- `ensure <checkout>` starts the checkout's ttt, or says it runs already. When it cannot, it says why: ttt missing, its version unreadable, older than the 1.14.0 forgerdr needs, or forgerdr's ttt profile not installed.
+- `stop [--discard] <checkout>` ends it. It refuses while the ttt holds unsaved files, naming them, or while its state cannot be read, unless `--discard`, which loses them.
+- `order <checkout> save` has the ttt save the files it holds unsaved, and prints the order's id, which the ttt's state carries once it has answered.
+- `dir` tells the folder the states are kept in, `~/.local/state/forgerdr/ide`, yours alone, and makes it.
+- `servers <checkout>` lists the language servers the checkout needs and the machine lacks, with the command that installs each, or the program that command needs when it is missing too.
+- `editors` lists the editors installed (Zed, then VS Code), and `open zed|code <path>` opens a folder in one.
+
 ## The app's look
 
-`forge-herdr-install.sh` copies the layout, the theme and the mod into the app's home. Run again, it updates what it installed and leaves what you changed, naming it (`--force` replaces it, keeping a copy beside it); `--remove` takes it away, except the theme, which any layout may use. `--dev` installs the checkout beside it as `forgerdr-dev`, and `--watch` keeps that copy in step with the checkout until Ctrl-C.
+`forge-herdr-install.sh` copies the layout, the theme and the mod into the app's home, and the profile the IDE panel runs ttt with into `~/.config/forgerdr/ttt`, apart from your own `~/.config/ttt`. Run again, it updates what it installed and leaves what you changed, naming it (`--force` replaces it, keeping a copy beside it); `--remove` takes it away, the ttt profile with it, except the theme, which any layout may use. `--dev` installs the checkout beside it as `forgerdr-dev`, and `--watch` keeps that copy in step with the checkout until Ctrl-C.
+
+## Updating forgerdr
+
+`forge-update.sh` is what the gnome's [update notice](../../herdr-app/heat-updates-manual/#updates) runs. `check` compares the installed version with the newest release tag of the repository and keeps the release notes in between. `apply` updates the marketplace and the plugin, then runs the new version's `install.sh --update`, which installs or updates what that version needs without asking, and keeps what it says of each piece for the notice. `--detach`, which the app uses, returns once the apply is under way and leaves it running on its own, so closing the notice does not stop it; while one is under way, another is refused.
 
 ## Trying a change before installing it
 
